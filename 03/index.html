@@ -1,984 +1,948 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>두근두근 야릇한 사다리 타기 💋</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=Pretendard:wght@300;400;600;800&display=swap');
-        
-        * {
-            font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, Roboto, sans-serif;
-            user-select: none;
-            -webkit-user-select: none;
-        }
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>도망쳐, 피그! (Pig Escape: Dark Alley Thriller)</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Creepster&family=Noto+Sans+KR:wght@400;700;900&display=swap');
+    
+    body {
+      font-family: 'Noto Sans KR', sans-serif;
+      background-color: #08070b;
+      color: #e2e8f0;
+      touch-action: manipulation;
+      overflow: hidden;
+    }
 
-        /* Glassmorphism & Custom Glow Utilities */
-        .glass-panel {
-            background: rgba(23, 15, 38, 0.65);
-            backdrop-filter: blur(16px);
-            -webkit-backdrop-filter: blur(16px);
-            border: 1px solid rgba(255, 105, 180, 0.18);
-            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
-        }
+    .font-thriller {
+      font-family: 'Creepster', cursive, 'Noto Sans KR', sans-serif;
+    }
 
-        .glass-card {
-            background: rgba(255, 255, 255, 0.05);
-            backdrop-filter: blur(8px);
-            border: 1px solid rgba(255, 182, 193, 0.15);
-        }
+    canvas {
+      box-shadow: 0 0 30px rgba(220, 38, 38, 0.2);
+    }
 
-        .neon-text-pink {
-            text-shadow: 0 0 8px rgba(255, 20, 147, 0.8), 0 0 20px rgba(255, 105, 180, 0.5);
-        }
+    /* Scanline Effect for Thriller Vibe */
+    .scanline {
+      background: linear-gradient(
+        to bottom,
+        rgba(255,255,255,0),
+        rgba(255,255,255,0) 50%,
+        rgba(0, 0, 0, 0.3) 50%,
+        rgba(0, 0, 0, 0.3)
+      );
+      background-size: 100% 4px;
+    }
 
-        .neon-text-purple {
-            text-shadow: 0 0 8px rgba(186, 85, 211, 0.8), 0 0 20px rgba(147, 112, 219, 0.5);
-        }
+    .vignette {
+      background: radial-gradient(circle, transparent 50%, rgba(0,0,0,0.8) 100%);
+    }
 
-        .neon-border-pink {
-            box-shadow: 0 0 15px rgba(255, 20, 147, 0.4), inset 0 0 10px rgba(255, 20, 147, 0.2);
-        }
+    @keyframes pulse-red {
+      0%, 100% { opacity: 0.1; }
+      50% { opacity: 0.4; }
+    }
 
-        .btn-neon {
-            background: linear-gradient(135deg, #e91e63, #8e24aa);
-            box-shadow: 0 0 15px rgba(233, 30, 99, 0.4);
-            transition: all 0.3s ease;
-        }
-
-        .btn-neon:hover {
-            box-shadow: 0 0 25px rgba(233, 30, 99, 0.7);
-            transform: translateY(-2px);
-        }
-
-        /* Custom Scrollbar */
-        ::-webkit-scrollbar {
-            width: 6px;
-            height: 6px;
-        }
-        ::-webkit-scrollbar-track {
-            background: rgba(15, 10, 25, 0.6);
-        }
-        ::-webkit-scrollbar-thumb {
-            background: rgba(233, 30, 99, 0.4);
-            border-radius: 3px;
-        }
-        ::-webkit-scrollbar-thumb:hover {
-            background: rgba(233, 30, 99, 0.8);
-        }
-
-        /* Heart animation background */
-        @keyframes pulseGlow {
-            0%, 100% { opacity: 0.3; transform: scale(1); }
-            50% { opacity: 0.6; transform: scale(1.05); }
-        }
-        .glow-bg {
-            animation: pulseGlow 6s infinite ease-in-out;
-        }
-    </style>
+    .danger-border {
+      animation: pulse-red 1.5s infinite;
+    }
+  </style>
 </head>
-<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col justify-between overflow-x-hidden relative">
+<body class="flex flex-col items-center justify-center min-h-screen p-2 md:p-4 select-none">
 
-    <!-- Background Dynamic Ambient Glows & Particle Canvas -->
-    <div class="fixed inset-0 pointer-events-none z-0 overflow-hidden">
-        <canvas id="particle-canvas" class="absolute inset-0 w-full h-full opacity-60"></canvas>
-        <div class="glow-bg absolute -top-40 -left-40 w-96 h-96 bg-pink-600/30 rounded-full blur-[120px]"></div>
-        <div class="glow-bg absolute top-1/2 -right-40 w-96 h-96 bg-purple-700/30 rounded-full blur-[140px]" style="animation-delay: -3s;"></div>
-        <div class="glow-bg absolute -bottom-20 left-1/3 w-80 h-80 bg-rose-600/20 rounded-full blur-[100px]" style="animation-delay: -1.5s;"></div>
-    </div>
-
-    <!-- Main Container -->
-    <div class="relative z-10 container mx-auto px-4 py-6 max-w-5xl flex-grow flex flex-col">
-        
-        <!-- Header -->
-        <header class="text-center mb-6 relative">
-            <!-- Mute Toggle Button -->
-            <button id="btn-toggle-mute" class="absolute top-0 right-0 glass-card px-3 py-1.5 rounded-full text-xs font-semibold text-pink-300 hover:text-white hover:border-pink-500/50 transition flex items-center gap-1.5 shadow-md">
-                <i id="mute-icon" class="fa-solid fa-volume-high text-pink-400"></i>
-                <span id="mute-text">소리 켬</span>
-            </button>
-
-            <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full glass-card text-xs text-pink-300 mb-2 border border-pink-500/30">
-                <i class="fa-solid fa-heart-pulse text-pink-500 animate-pulse"></i>
-                <span>달콤야릇 시크릿 파티 게임</span>
-            </div>
-            <h1 class="text-3xl md:text-5xl font-extrabold tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-pink-400 via-rose-300 to-purple-400 neon-text-pink">
-                두근두근 사다리 타기 💋
-            </h1>
-            <p class="text-slate-400 text-xs md:text-sm mt-1">서로의 거리를 한 걸음 더 가깝게 만드는 은밀한 미션</p>
-        </header>
-
-        <!-- Dynamic Content Section -->
-        <main class="flex-grow flex flex-col items-center justify-center">
-
-            <!-- STEP 1: Settings Panel -->
-            <section id="setup-panel" class="w-full glass-panel rounded-2xl p-5 md:p-8 mb-6 transition-all duration-300">
-                
-                <!-- Player Count Controller -->
-                <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-6 border-b border-pink-500/20">
-                    <div>
-                        <h2 class="text-lg font-bold text-pink-200 flex items-center gap-2">
-                            <i class="fa-solid fa-users text-pink-400"></i> 참가 인원 선택
-                        </h2>
-                        <p class="text-xs text-slate-400">2명부터 최대 8명까지 함께할 수 있어요.</p>
-                    </div>
-                    
-                    <div class="flex items-center gap-3 bg-slate-900/60 p-1.5 rounded-xl border border-pink-500/20 self-start md:self-auto">
-                        <button id="btn-decrease" class="w-9 h-9 rounded-lg bg-pink-950/60 hover:bg-pink-800/50 text-pink-300 flex items-center justify-center transition active:scale-95 border border-pink-500/30">
-                            <i class="fa-solid fa-minus"></i>
-                        </button>
-                        <span id="player-count-display" class="w-8 text-center text-xl font-bold text-pink-300">4</span>
-                        <button id="btn-increase" class="w-9 h-9 rounded-lg bg-pink-950/60 hover:bg-pink-800/50 text-pink-300 flex items-center justify-center transition active:scale-95 border border-pink-500/30">
-                            <i class="fa-solid fa-plus"></i>
-                        </button>
-                    </div>
-                </div>
-
-                <!-- Presets Quick Select -->
-                <div class="py-5 border-b border-pink-500/20">
-                    <label class="block text-xs font-semibold text-pink-300 mb-2 uppercase tracking-wider">
-                        <i class="fa-solid fa-wand-magic-sparkles mr-1"></i> 추천 야릇 테마 프리셋
-                    </label>
-                    <div class="grid grid-cols-2 md:grid-cols-4 gap-2">
-                        <button onclick="applyPreset('couple')" class="preset-btn px-3 py-2 rounded-xl glass-card text-xs font-medium text-slate-300 hover:text-pink-200 hover:border-pink-500/50 flex items-center justify-center gap-2 transition active:scale-95">
-                            <span>👩‍❤️‍👨 커플 두근 미션</span>
-                        </button>
-                        <button onclick="applyPreset('truthOrDare')" class="preset-btn px-3 py-2 rounded-xl glass-card text-xs font-medium text-slate-300 hover:text-pink-200 hover:border-pink-500/50 flex items-center justify-center gap-2 transition active:scale-95">
-                            <span>🔥 진실 혹은 도전</span>
-                        </button>
-                        <button onclick="applyPreset('sensualPenalty')" class="preset-btn px-3 py-2 rounded-xl glass-card text-xs font-medium text-slate-300 hover:text-pink-200 hover:border-pink-500/50 flex items-center justify-center gap-2 transition active:scale-95">
-                            <span>👄 야릇 벌칙 스페셜</span>
-                        </button>
-                        <button onclick="applyPreset('partyLover')" class="preset-btn px-3 py-2 rounded-xl glass-card text-xs font-medium text-slate-300 hover:text-pink-200 hover:border-pink-500/50 flex items-center justify-center gap-2 transition active:scale-95">
-                            <span>🍸 술자리 로맨스</span>
-                        </button>
-                    </div>
-                </div>
-
-                <!-- Inputs Grid -->
-                <div class="pt-5">
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-                        <!-- Left: Player Names -->
-                        <div>
-                            <h3 class="text-sm font-semibold text-pink-300 mb-3 flex items-center gap-2">
-                                <i class="fa-solid fa-user-heart text-pink-400"></i> 참가자 이름
-                            </h3>
-                            <div id="player-inputs-container" class="space-y-2.5">
-                                <!-- Dynamic Player Inputs -->
-                            </div>
-                        </div>
-
-                        <!-- Right: Missions / Rewards -->
-                        <div>
-                            <h3 class="text-sm font-semibold text-purple-300 mb-3 flex items-center gap-2">
-                                <i class="fa-solid fa-gift text-purple-400"></i> 결과 / 미션 내용
-                            </h3>
-                            <div id="prize-inputs-container" class="space-y-2.5">
-                                <!-- Dynamic Prize Inputs -->
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Action Button -->
-                    <div class="text-center pt-2">
-                        <button id="btn-start-game" class="btn-neon w-full md:w-2/3 py-4 rounded-xl text-white font-bold text-lg tracking-wide flex items-center justify-center gap-2 mx-auto shadow-lg">
-                            <i class="fa-solid fa-play"></i> 사다리 생성하기
-                        </button>
-                    </div>
-                </div>
-            </section>
-
-            <!-- STEP 2: Ladder Game Board (Hidden by default) -->
-            <section id="game-panel" class="w-full glass-panel rounded-2xl p-4 md:p-6 mb-6 hidden flex-col items-center relative">
-                
-                <!-- Controls Bar -->
-                <div class="w-full flex flex-wrap items-center justify-between gap-3 mb-4 pb-3 border-b border-pink-500/20">
-                    <button id="btn-reset" class="px-3 py-1.5 rounded-lg glass-card text-xs font-semibold text-slate-300 hover:text-white hover:border-pink-500/40 transition flex items-center gap-1.5">
-                        <i class="fa-solid fa-rotate-left"></i> 다시 설정
-                    </button>
-                    <div class="flex items-center gap-2">
-                        <span class="text-xs text-pink-300/80 hidden sm:inline">이름을 클릭하면 개별 사다리를 탑니다!</span>
-                        <button id="btn-reveal-all" class="px-4 py-1.5 rounded-lg btn-neon text-xs font-bold text-white flex items-center gap-1.5">
-                            <i class="fa-solid fa-eye"></i> 전체 결과 보기
-                        </button>
-                    </div>
-                </div>
-
-                <!-- Ladder Canvas Container -->
-                <div class="w-full overflow-x-auto pb-2 flex justify-center">
-                    <div id="canvas-wrapper" class="relative min-w-[320px] max-w-full">
-                        <!-- Player Top Buttons -->
-                        <div id="ladder-top-labels" class="flex justify-between w-full mb-2"></div>
-                        
-                        <!-- Main Canvas -->
-                        <canvas id="ladder-canvas" class="bg-slate-950/80 rounded-xl border border-pink-500/20 shadow-inner"></canvas>
-                        
-                        <!-- Prize Bottom Labels -->
-                        <div id="ladder-bottom-labels" class="flex justify-between w-full mt-2"></div>
-                    </div>
-                </div>
-            </section>
-
-        </main>
-
-        <!-- Footer -->
-        <footer class="text-center text-xs text-slate-500 py-4">
-            <p>© 2026 Sensual Ladder Game. 사랑스럽고 매혹적인 밤을 위하여 ✨</p>
-        </footer>
-    </div>
-
-    <!-- Result Modal -->
-    <div id="result-modal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-md opacity-0 pointer-events-none transition-opacity duration-300">
-        <div class="glass-panel w-full max-w-md rounded-2xl p-6 text-center transform scale-90 transition-transform duration-300 border-2 border-pink-500/40 relative">
-            
-            <button id="btn-close-modal" class="absolute top-4 right-4 text-slate-400 hover:text-white text-lg w-8 h-8 rounded-full flex items-center justify-center glass-card">
-                <i class="fa-solid fa-xmark"></i>
-            </button>
-
-            <div class="w-16 h-16 rounded-full bg-pink-500/20 border border-pink-500/50 flex items-center justify-center mx-auto mb-4 text-pink-400 text-2xl animate-bounce">
-                <i class="fa-solid fa-heart"></i>
-            </div>
-
-            <h3 class="text-xs uppercase tracking-widest text-pink-400 font-semibold mb-1">매혹적인 운명의 결과</h3>
-            <div id="modal-player-name" class="text-2xl font-extrabold text-white mb-3"></div>
-
-            <div class="glass-card p-4 rounded-xl border border-pink-500/30 mb-6 bg-gradient-to-b from-pink-950/30 to-purple-950/30">
-                <div id="modal-result-text" class="text-xl font-bold text-pink-200 neon-text-pink leading-relaxed"></div>
-            </div>
-
-            <p id="modal-comment" class="text-xs text-slate-300 italic mb-6">"망설이지 말고 마음을 표현해 보세요... 💋"</p>
-
-            <button id="btn-modal-confirm" class="btn-neon w-full py-3 rounded-xl font-bold text-white shadow-lg">
-                확인했습니다
-            </button>
+  <!-- UI Overlay Container -->
+  <div class="relative w-full max-w-4xl flex flex-col items-center">
+    
+    <!-- Title Bar -->
+    <div class="w-full flex justify-between items-center mb-2 px-2">
+      <h1 class="text-2xl md:text-3xl font-bold tracking-wider text-red-600 font-thriller flex items-center gap-2 drop-shadow-[0_2px_4px_rgba(255,0,0,0.8)]">
+        <i class="fa-solid font-bold fa-skull text-red-700"></i> RUN PIG RUN
+      </h1>
+      <div class="flex items-center gap-4">
+        <div class="text-sm md:text-base font-bold bg-zinc-900 border border-zinc-800 px-3 py-1 rounded-lg text-zinc-300">
+          거리: <span id="distanceText" class="text-yellow-500 font-mono text-lg">0</span>m
         </div>
+        <div class="text-sm md:text-base font-bold bg-zinc-900 border border-zinc-800 px-3 py-1 rounded-lg text-zinc-300">
+          최고: <span id="highScoreText" class="text-red-500 font-mono text-lg">0</span>m
+        </div>
+      </div>
     </div>
 
-    <!-- Audio Synth Manager (Web Audio API) -->
-    <script>
-        class SoundFX {
-            constructor() {
-                this.ctx = null;
-                this.isMuted = false;
-            }
+    <!-- Main Canvas Wrapper -->
+    <div class="relative w-full aspect-[16/9] max-h-[70vh] bg-black rounded-xl overflow-hidden border-2 border-zinc-800">
+      
+      <canvas id="gameCanvas" class="w-full h-full block"></canvas>
+      
+      <!-- Overlay Effects -->
+      <div class="absolute inset-0 pointer-events-none scanline opacity-40"></div>
+      <div class="absolute inset-0 pointer-events-none vignette"></div>
+      <div id="dangerOverlay" class="absolute inset-0 pointer-events-none border-8 border-red-600 danger-border opacity-0 transition-opacity duration-300"></div>
 
-            init() {
-                if (!this.ctx) {
-                    this.ctx = new (window.AudioContext || window.webkitAudioContext)();
-                }
-                if (this.ctx.state === 'suspended') {
-                    this.ctx.resume();
-                }
-            }
-
-            toggleMute() {
-                this.isMuted = !this.isMuted;
-                return this.isMuted;
-            }
-
-            // Soft neon click sound
-            playClick() {
-                if (this.isMuted) return;
-                try {
-                    this.init();
-                    const osc = this.ctx.createOscillator();
-                    const gain = this.ctx.createGain();
-                    
-                    osc.type = 'sine';
-                    osc.frequency.setValueAtTime(800, this.ctx.currentTime);
-                    osc.frequency.exponentialRampToValueAtTime(300, this.ctx.currentTime + 0.05);
-
-                    gain.gain.setValueAtTime(0.12, this.ctx.currentTime);
-                    gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.05);
-
-                    osc.connect(gain);
-                    gain.connect(this.ctx.destination);
-
-                    osc.start();
-                    osc.stop(this.ctx.currentTime + 0.05);
-                } catch(e) {}
-            }
-
-            // Ladder traversal step sound (sweet bell)
-            playStep() {
-                if (this.isMuted) return;
-                try {
-                    this.init();
-                    const osc = this.ctx.createOscillator();
-                    const gain = this.ctx.createGain();
-                    
-                    osc.type = 'sine';
-                    const freqs = [523.25, 659.25, 783.99, 1046.50, 1318.51]; // C E G C E
-                    const freq = freqs[Math.floor(Math.random() * freqs.length)];
-                    
-                    osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
-                    gain.gain.setValueAtTime(0.08, this.ctx.currentTime);
-                    gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.12);
-
-                    osc.connect(gain);
-                    gain.connect(this.ctx.destination);
-
-                    osc.start();
-                    osc.stop(this.ctx.currentTime + 0.12);
-                } catch(e) {}
-            }
-
-            // Heartbeat / turn pop sound for direction change
-            playTurnPop() {
-                if (this.isMuted) return;
-                try {
-                    this.init();
-                    const now = this.ctx.currentTime;
-                    
-                    // Low heartbeat thump
-                    const osc = this.ctx.createOscillator();
-                    const gain = this.ctx.createGain();
-                    osc.type = 'triangle';
-                    osc.frequency.setValueAtTime(140, now);
-                    osc.frequency.exponentialRampToValueAtTime(40, now + 0.15);
-
-                    gain.gain.setValueAtTime(0.25, now);
-                    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
-
-                    osc.connect(gain);
-                    gain.connect(this.ctx.destination);
-
-                    osc.start(now);
-                    osc.stop(now + 0.15);
-                } catch(e) {}
-            }
-
-            // Romantic Fanfare Jingle for result reveal
-            playWin() {
-                if (this.isMuted) return;
-                try {
-                    this.init();
-                    const now = this.ctx.currentTime;
-                    // Charming arpeggio ladder finish
-                    const notes = [523.25, 659.25, 783.99, 987.77, 1046.50, 1318.51];
-                    
-                    notes.forEach((f, i) => {
-                        const osc = this.ctx.createOscillator();
-                        const gain = this.ctx.createGain();
-                        
-                        osc.type = i === notes.length - 1 ? 'sine' : 'triangle';
-                        osc.frequency.setValueAtTime(f, now + i * 0.08);
-                        
-                        const vol = i === notes.length - 1 ? 0.2 : 0.1;
-                        gain.gain.setValueAtTime(vol, now + i * 0.08);
-                        gain.gain.exponentialRampToValueAtTime(0.001, now + i * 0.08 + (i === notes.length - 1 ? 0.8 : 0.25));
-
-                        osc.connect(gain);
-                        gain.connect(this.ctx.destination);
-
-                        osc.start(now + i * 0.08);
-                        osc.stop(now + i * 0.08 + (i === notes.length - 1 ? 0.8 : 0.25));
-                    });
-                } catch(e) {}
-            }
-        }
-
-        const sfx = new SoundFX();
-    </script>
-
-    <!-- Particles Background & Enhanced Game Logic -->
-    <script>
-        // Background Heart Particles
-        function initParticles() {
-            const pCanvas = document.getElementById('particle-canvas');
-            const pCtx = pCanvas.getContext('2d');
-            let particles = [];
-
-            function resize() {
-                pCanvas.width = window.innerWidth;
-                pCanvas.height = window.innerHeight;
-            }
-            window.addEventListener('resize', resize);
-            resize();
-
-            class HeartParticle {
-                constructor() {
-                    this.reset();
-                }
-
-                reset() {
-                    this.x = Math.random() * pCanvas.width;
-                    this.y = pCanvas.height + Math.random() * 20;
-                    this.size = Math.random() * 12 + 6;
-                    this.speedY = Math.random() * 0.8 + 0.3;
-                    this.speedX = (Math.random() - 0.5) * 0.5;
-                    this.opacity = Math.random() * 0.5 + 0.2;
-                    this.color = Math.random() > 0.4 ? '#ff69b4' : '#ba55d3';
-                }
-
-                update() {
-                    this.y -= this.speedY;
-                    this.x += this.speedX;
-                    if (this.y < -20) this.reset();
-                }
-
-                draw() {
-                    pCtx.save();
-                    pCtx.translate(this.x, this.y);
-                    pCtx.globalAlpha = this.opacity;
-                    pCtx.fillStyle = this.color;
-                    
-                    // Simple heart shape
-                    pCtx.beginPath();
-                    const topCurveHeight = this.size * 0.3;
-                    pCtx.moveTo(0, topCurveHeight);
-                    pCtx.bezierCurveTo(0, 0, -this.size / 2, 0, -this.size / 2, topCurveHeight);
-                    pCtx.bezierCurveTo(-this.size / 2, (this.size + topCurveHeight) / 2, 0, this.size, 0, this.size);
-                    pCtx.bezierCurveTo(0, this.size, this.size / 2, (this.size + topCurveHeight) / 2, this.size / 2, topCurveHeight);
-                    pCtx.bezierCurveTo(this.size / 2, 0, 0, 0, 0, topCurveHeight);
-                    pCtx.closePath();
-                    pCtx.fill();
-                    pCtx.restore();
-                }
-            }
-
-            for (let i = 0; i < 25; i++) {
-                const p = new HeartParticle();
-                p.y = Math.random() * pCanvas.height;
-                particles.push(p);
-            }
-
-            function animateParticles() {
-                pCtx.clearRect(0, 0, pCanvas.width, pCanvas.height);
-                particles.forEach(p => {
-                    p.update();
-                    p.draw();
-                });
-                requestAnimationFrame(animateParticles);
-            }
-            animateParticles();
-        }
-
-        // Preset Data
-        const PRESETS = {
-            couple: {
-                players: ['달콤이', '사르르', '두근이', '설렘이'],
-                prizes: ['손잡고 30초 눈맞춤 👁️', '귓속말로 간지러운 고백 🤫', '볼 키스 5초 💋', '상대방이 원하는 음료 사주기 🍹']
-            },
-            truthOrDare: {
-                players: ['플레이어1', '플레이어2', '플레이어3', '플레이어4'],
-                prizes: ['첫인상 솔직하게 말하기 💬', '3초간 깊은 포옹하기 🫂', '최근 가장 야릇했던 순간 솔직고백 🙈', '상대방 손 등에 키스하기 💋']
-            },
-            sensualPenalty: {
-                players: ['A양', 'B군', 'C양', 'D군'],
-                prizes: ['목덜미에 숨결 3초 불기 🌬️', '손가락으로 턱 살짝 들어주기 💖', '야릇한 애칭 정해주기 💕', '10초 동안 손깍지 끼고 있기 🤝']
-            },
-            partyLover: {
-                players: ['지은', '민우', '서연', '현우'],
-                prizes: ['흑기사/흑장미 써주기 🍷', '러브샷 1회 🥂', '매력 발산 댄스 5초 💃', '옆 사람 어깨 주물러주기 💆‍♂️']
-            }
-        };
-
-        const COMMENTS = [
-            "두 사람 사이에 오가는 은밀한 스파크를 느껴보세요... 💋",
-            "망설이지 말고 솔직해지는 시간입니다! 🔥",
-            "약간의 수줍음이 분위기를 더욱 달콤하게 만들어줄 거예요. 💕",
-            "운명이 정해준 미션! 지금 바로 실행해 볼까요? ✨",
-            "서로의 눈빛이 더욱 깊어지는 순간입니다. 👁️💖"
-        ];
-
-        // App State
-        let playerCount = 4;
-        let ladderData = [];
-        let animatedPaths = [];
-        let isAnimating = false;
-        let playerResults = {};
-
-        // DOM Elements
-        const setupPanel = document.getElementById('setup-panel');
-        const gamePanel = document.getElementById('game-panel');
-        const playerCountDisplay = document.getElementById('player-count-display');
-        const playerInputsContainer = document.getElementById('player-inputs-container');
-        const prizeInputsContainer = document.getElementById('prize-inputs-container');
+      <!-- Start / Game Over Screen Overlay -->
+      <div id="uiOverlay" class="absolute inset-0 bg-black/85 backdrop-blur-sm flex flex-col items-center justify-center p-6 text-center z-10">
         
-        const canvas = document.getElementById('ladder-canvas');
-        const ctx = canvas.getContext('2d');
-        const canvasWrapper = document.getElementById('canvas-wrapper');
-        const topLabelsContainer = document.getElementById('ladder-top-labels');
-        const bottomLabelsContainer = document.getElementById('ladder-bottom-labels');
+        <!-- Start Screen -->
+        <div id="startMenu" class="flex flex-col items-center max-w-md">
+          <div class="w-20 h-20 mb-4 bg-red-950/60 rounded-full border-2 border-red-600 flex items-center justify-center text-red-500 text-4xl shadow-[0_0_20px_rgba(220,38,38,0.5)]">
+            <i class="fa-solid fa-piggy-bank"></i>
+          </div>
+          <h2 class="text-3xl md:text-4xl font-extrabold text-red-600 mb-2 font-thriller">잔혹한 도살장 탈출</h2>
+          <p class="text-zinc-400 text-sm md:text-base mb-6 leading-relaxed">
+            비 내리는 어두운 으스스한 밤... 도살자와 칼날, 장애물을 피해 끝까지 도망치세요!<br>
+            추격자와의 거리가 좁혀지면 위험해집니다.
+          </p>
+          <div class="grid grid-cols-2 gap-3 w-full mb-6 text-xs text-zinc-400">
+            <div class="bg-zinc-900/80 p-3 rounded-lg border border-zinc-800 flex items-center gap-2">
+              <span class="bg-zinc-800 px-2 py-1 rounded text-white font-mono">Space / Click</span>
+              <span>점프 (2단 점프)</span>
+            </div>
+            <div class="bg-zinc-900/80 p-3 rounded-lg border border-zinc-800 flex items-center gap-2">
+              <span class="bg-zinc-800 px-2 py-1 rounded text-white font-mono">↓ Key / Swipe</span>
+              <span>슬라이딩</span>
+            </div>
+          </div>
+          <button id="startBtn" class="w-full py-4 bg-red-700 hover:bg-red-600 text-white font-bold rounded-xl shadow-lg shadow-red-900/40 transform active:scale-95 transition-all text-lg tracking-wider border border-red-500">
+            <i class="fa-solid fa-play mr-2"></i> 탈출 시작하기
+          </button>
+        </div>
 
-        // Modal Elements
-        const modal = document.getElementById('result-modal');
-        const modalPlayerName = document.getElementById('modal-player-name');
-        const modalResultText = document.getElementById('modal-result-text');
-        const modalComment = document.getElementById('modal-comment');
+        <!-- Game Over Screen -->
+        <div id="gameOverMenu" class="hidden flex flex-col items-center max-w-md">
+          <div class="text-red-600 text-5xl mb-2 font-thriller">CAPTURED!</div>
+          <p id="deathReason" class="text-zinc-400 text-sm mb-4">도살자에게 잡혔습니다...</p>
+          
+          <div class="bg-zinc-900 border border-zinc-800 rounded-xl p-4 w-full mb-6 text-center">
+            <div class="text-zinc-400 text-sm mb-1">도망친 거리</div>
+            <div id="finalDistance" class="text-4xl font-extrabold text-yellow-500 font-mono mb-2">0m</div>
+            <div class="text-xs text-zinc-500">최고 기록: <span id="finalHighScore" class="text-zinc-300">0m</span></div>
+          </div>
 
-        // Initial setup
-        window.addEventListener('DOMContentLoaded', () => {
-            initParticles();
-            renderInputs();
-            setupEventListeners();
+          <button id="restartBtn" class="w-full py-4 bg-red-700 hover:bg-red-600 text-white font-bold rounded-xl shadow-lg shadow-red-900/40 transform active:scale-95 transition-all text-lg tracking-wider border border-red-500">
+            <i class="fa-solid fa-rotate-right mr-2"></i> 다시 도망치기
+          </button>
+        </div>
+
+      </div>
+
+    </div>
+
+    <!-- On-screen Controls for Mobile -->
+    <div class="w-full grid grid-cols-2 gap-3 mt-3 md:hidden">
+      <button id="mobileJumpBtn" class="py-4 bg-zinc-900 border border-zinc-800 active:bg-zinc-800 text-zinc-200 rounded-xl font-bold flex items-center justify-center gap-2 text-lg">
+        <i class="fa-solid fa-arrow-up"></i> 점프
+      </button>
+      <button id="mobileSlideBtn" class="py-4 bg-zinc-900 border border-zinc-800 active:bg-zinc-800 text-zinc-200 rounded-xl font-bold flex items-center justify-center gap-2 text-lg">
+        <i class="fa-solid fa-arrow-down"></i> 슬라이딩
+      </button>
+    </div>
+
+    <!-- Audio Settings / Instructions Footer -->
+    <div class="w-full flex justify-between items-center mt-3 text-xs text-zinc-500 px-2">
+      <div>스릴러 사운드 효과 지원 (Web Audio API)</div>
+      <button id="soundToggle" class="flex items-center gap-1 hover:text-zinc-300">
+        <i class="fa-solid fa-volume-high" id="soundIcon"></i> <span id="soundText">사운드 ON</span>
+      </button>
+    </div>
+
+  </div>
+
+  <script>
+    // --- Audio System (Synthesized Web Audio API & Speech) ---
+    class SoundController {
+      constructor() {
+        this.ctx = null;
+        this.muted = false;
+        // Speech Synthesis setup
+        this.synth = window.speechSynthesis;
+      }
+
+      init() {
+        if (!this.ctx) {
+          this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+        }
+        // Warm up speech synthesis on user interaction
+        if (this.synth && this.synth.speaking) {
+          this.synth.cancel();
+        }
+      }
+
+      speak(text, pitch = 1.3, rate = 1.4) {
+        if (this.muted || !this.synth) return;
+        
+        // Cancel previous speech to play sound immediately on jump
+        this.synth.cancel();
+
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.lang = 'ko-KR';
+        utterance.pitch = pitch; // High pitched panicked voice
+        utterance.rate = rate;   // Fast frantic speech
+        utterance.volume = 1.0;
+
+        // Try to find a Korean voice if available
+        const voices = this.synth.getVoices();
+        const koVoice = voices.find(v => v.lang.includes('ko'));
+        if (koVoice) {
+          utterance.voice = koVoice;
+        }
+
+        this.synth.speak(utterance);
+      }
+
+      playJump(isDoubleJump = false) {
+        if (this.muted) return;
+
+        // Sound effect (boing sound)
+        if (this.ctx) {
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(isDoubleJump ? 250 : 150, this.ctx.currentTime);
+          osc.frequency.exponentialRampToValueAtTime(isDoubleJump ? 600 : 400, this.ctx.currentTime + 0.15);
+          gain.gain.setValueAtTime(0.2, this.ctx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.15);
+          osc.connect(gain);
+          gain.connect(this.ctx.destination);
+          osc.start();
+          osc.stop(this.ctx.currentTime + 0.15);
+        }
+
+        // Voice lines requested by user
+        if (!isDoubleJump) {
+          // 1st Jump: "이게 뭐야!"
+          this.speak("이게 뭐야!", 1.4, 1.5);
+        } else {
+          // 2nd Jump: "치킨 좋아!"
+          this.speak("치킨 좋아!", 1.6, 1.6);
+        }
+      }
+
+      playSqueal() {
+        if (this.muted || !this.ctx) return;
+        // Pig squeal sound simulation
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(600, this.ctx.currentTime);
+        osc.frequency.linearRampToValueAtTime(900, this.ctx.currentTime + 0.1);
+        osc.frequency.linearRampToValueAtTime(400, this.ctx.currentTime + 0.3);
+        
+        gain.gain.setValueAtTime(0.3, this.ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.3);
+
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start();
+        osc.stop(this.ctx.currentTime + 0.3);
+      }
+
+      playHit() {
+        if (this.muted || !this.ctx) return;
+        // Low impact sound
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'square';
+        osc.frequency.setValueAtTime(100, this.ctx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(30, this.ctx.currentTime + 0.2);
+        gain.gain.setValueAtTime(0.4, this.ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.2);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start();
+        osc.stop(this.ctx.currentTime + 0.2);
+      }
+
+      playChainsaw() {
+        if (this.muted || !this.ctx) return;
+        // Buzzing threat sound
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(80, this.ctx.currentTime);
+        osc.frequency.setValueAtTime(120, this.ctx.currentTime + 0.05);
+        osc.frequency.setValueAtTime(90, this.ctx.currentTime + 0.1);
+        gain.gain.setValueAtTime(0.1, this.ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.2);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start();
+        osc.stop(this.ctx.currentTime + 0.2);
+
+        // Pursuer shouting line
+        this.speak("강지원 바보!", 0.8, 1.2);
+      }
+    }
+
+    const soundCtrl = new SoundController();
+
+    // --- Game Logic ---
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+
+    // UI Elements
+    const uiOverlay = document.getElementById('uiOverlay');
+    const startMenu = document.getElementById('startMenu');
+    const gameOverMenu = document.getElementById('gameOverMenu');
+    const startBtn = document.getElementById('startBtn');
+    const restartBtn = document.getElementById('restartBtn');
+    const distanceText = document.getElementById('distanceText');
+    const highScoreText = document.getElementById('highScoreText');
+    const finalDistance = document.getElementById('finalDistance');
+    const finalHighScore = document.getElementById('finalHighScore');
+    const deathReason = document.getElementById('deathReason');
+    const dangerOverlay = document.getElementById('dangerOverlay');
+
+    // Sound toggle
+    const soundToggle = document.getElementById('soundToggle');
+    const soundIcon = document.getElementById('soundIcon');
+    const soundText = document.getElementById('soundText');
+
+    soundToggle.addEventListener('click', () => {
+      soundCtrl.muted = !soundCtrl.muted;
+      if (soundCtrl.muted) {
+        soundIcon.className = 'fa-solid fa-volume-xmark';
+        soundText.textContent = '사운드 OFF';
+      } else {
+        soundIcon.className = 'fa-solid fa-volume-high';
+        soundText.textContent = '사운드 ON';
+      }
+    });
+
+    // Game Variables
+    let gameRunning = false;
+    let distance = 0;
+    let highScore = localStorage.getItem('pig_escape_highscore') || 0;
+    highScoreText.textContent = Math.floor(highScore);
+
+    let speed = 6;
+    const baseSpeed = 6;
+    let gameTime = 0;
+
+    // Viewport Resizing
+    function resizeCanvas() {
+      const rect = canvas.getBoundingClientRect();
+      canvas.width = rect.width;
+      canvas.height = rect.height;
+    }
+    window.addEventListener('resize', resizeCanvas);
+    resizeCanvas();
+
+    // Ground definition
+    const groundY = () => canvas.height * 0.8;
+
+    // --- Entities ---
+
+    // Pig Player
+    const pig = {
+      x: 120,
+      y: 0,
+      width: 50,
+      height: 38,
+      normalHeight: 38,
+      slideHeight: 22,
+      vy: 0,
+      gravity: 0.65,
+      jumpStrength: -12.5,
+      isGrounded: false,
+      jumpCount: 0,
+      maxJumps: 2,
+      isSliding: false,
+      slideTimer: 0,
+      eyeRedness: 0,
+      mudSplatterTimer: 0,
+
+      reset() {
+        this.x = canvas.width * 0.25;
+        this.y = groundY() - this.height;
+        this.vy = 0;
+        this.isGrounded = true;
+        this.jumpCount = 0;
+        this.isSliding = false;
+        this.height = this.normalHeight;
+      },
+
+      jump() {
+        if (this.jumpCount < this.maxJumps) {
+          this.vy = this.jumpStrength;
+          this.isGrounded = false;
+          this.jumpCount++;
+          this.isSliding = false;
+          this.height = this.normalHeight;
+          
+          // Pass double jump state to play customized voice lines
+          soundCtrl.playJump(this.jumpCount === 2);
+        }
+      },
+
+      slide() {
+        if (!this.isSliding && this.isGrounded) {
+          this.isSliding = true;
+          this.height = this.slideHeight;
+          this.y = groundY() - this.height;
+          this.slideTimer = 35; // Frames to slide
+        }
+      },
+
+      update() {
+        // Apply Gravity
+        this.vy += this.gravity;
+        this.y += this.vy;
+
+        // Ground Collision
+        const currentGround = groundY() - this.height;
+        if (this.y >= currentGround) {
+          this.y = currentGround;
+          this.vy = 0;
+          this.isGrounded = true;
+          this.jumpCount = 0;
+        }
+
+        // Slide Timer
+        if (this.isSliding) {
+          this.slideTimer--;
+          if (this.slideTimer <= 0) {
+            this.isSliding = false;
+            this.height = this.normalHeight;
+            this.y = groundY() - this.height;
+          }
+        }
+      },
+
+      draw() {
+        ctx.save();
+        ctx.translate(this.x, this.y);
+
+        // Dirty/Muddy Pig Body (Darker pink/brownish for thriller)
+        const pigColor = '#b86b77';
+        const darkMud = '#3d251e';
+
+        if (this.isSliding) {
+          // Sliding Pose (flattened)
+          ctx.fillStyle = pigColor;
+          ctx.beginPath();
+          ctx.ellipse(this.width / 2, this.height / 2, this.width / 2, this.height / 2, 0, 0, Math.PI * 2);
+          ctx.fill();
+
+          // Ear
+          ctx.fillStyle = '#8a4b54';
+          ctx.beginPath();
+          ctx.moveTo(5, 5);
+          ctx.lineTo(15, 0);
+          ctx.lineTo(15, 10);
+          ctx.fill();
+
+          // Terrified Red/Glowing Eye
+          ctx.fillStyle = '#ff2222';
+          ctx.beginPath();
+          ctx.arc(this.width - 12, 8, 3, 0, Math.PI * 2);
+          ctx.fill();
+
+          // Snout
+          ctx.fillStyle = '#d98492';
+          ctx.fillRect(this.width - 6, 8, 6, 8);
+
+        } else {
+          // Standing / Running / Jumping Pose
+          // Legs animation
+          const legAnim = Math.sin(gameTime * 0.3) * 8;
+
+          ctx.fillStyle = '#221115';
+          // Back Legs
+          ctx.fillRect(10 + legAnim, this.height - 10, 6, 12);
+          ctx.fillRect(this.width - 20 - legAnim, this.height - 10, 6, 12);
+
+          // Body
+          ctx.fillStyle = pigColor;
+          ctx.beginPath();
+          ctx.roundRect(0, 0, this.width, this.height - 6, [15, 20, 10, 10]);
+          ctx.fill();
+
+          // Mud Splatters (Thriller Texture)
+          ctx.fillStyle = darkMud;
+          ctx.beginPath();
+          ctx.arc(12, 18, 5, 0, Math.PI * 2);
+          ctx.arc(25, 22, 4, 0, Math.PI * 2);
+          ctx.arc(32, 12, 3, 0, Math.PI * 2);
+          ctx.fill();
+
+          // Front Legs
+          ctx.fillStyle = '#11080a';
+          ctx.fillRect(12 - legAnim, this.height - 8, 6, 10);
+          ctx.fillRect(this.width - 16 + legAnim, this.height - 8, 6, 10);
+
+          // Ears
+          ctx.fillStyle = '#8a4b54';
+          ctx.beginPath();
+          ctx.moveTo(8, -2);
+          ctx.lineTo(18, -8);
+          ctx.lineTo(20, 8);
+          ctx.fill();
+
+          // Scared Face Details
+          // Wide Panic Eye
+          ctx.fillStyle = '#ffffff';
+          ctx.beginPath();
+          ctx.arc(this.width - 14, 12, 5, 0, Math.PI * 2);
+          ctx.fill();
+          
+          // Pupil (terrified)
+          ctx.fillStyle = '#ff0000';
+          ctx.beginPath();
+          ctx.arc(this.width - 13, 12, 2, 0, Math.PI * 2);
+          ctx.fill();
+
+          // Snout
+          ctx.fillStyle = '#d98492';
+          ctx.beginPath();
+          ctx.roundRect(this.width - 8, 12, 10, 12, 3);
+          ctx.fill();
+          // Nostrils
+          ctx.fillStyle = '#5c2d34';
+          ctx.fillRect(this.width - 2, 15, 2, 2);
+          ctx.fillRect(this.width - 2, 19, 2, 2);
+
+          // Curly Tail
+          ctx.strokeStyle = pigColor;
+          ctx.lineWidth = 3;
+          ctx.beginPath();
+          ctx.arc(-4, 12, 6, 0, Math.PI * 1.5);
+          ctx.stroke();
+        }
+
+        ctx.restore();
+      }
+    };
+
+    // The Pursuer (Chainsaw Butcher Silhouette)
+    const butcher = {
+      x: -100,
+      distanceFromPig: 220, // Lower means closer
+      minDistance: 60,
+      maxDistance: 250,
+
+      update() {
+        // Butcher approaches pig if pig trips or slows down
+        const targetX = pig.x - this.distanceFromPig;
+        this.x += (targetX - this.x) * 0.1;
+
+        // Sound threat when close
+        if (this.distanceFromPig < 120 && Math.random() < 0.05) {
+          soundCtrl.playChainsaw();
+        }
+      },
+
+      draw() {
+        ctx.save();
+        ctx.translate(this.x, groundY() - 90);
+
+        // Ominous Red Aura
+        const aura = ctx.createRadialGradient(40, 40, 10, 40, 40, 80);
+        aura.addColorStop(0, 'rgba(220, 38, 38, 0.4)');
+        aura.addColorStop(1, 'rgba(0, 0, 0, 0)');
+        ctx.fillStyle = aura;
+        ctx.beginPath();
+        ctx.arc(40, 40, 80, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Dark Silhouette of Butcher
+        ctx.fillStyle = '#050508';
+
+        // Head with mask
+        ctx.fillRect(30, 0, 25, 25);
+        // Glowing Red Eyes
+        ctx.fillStyle = '#ff0000';
+        ctx.fillRect(48, 6, 4, 3);
+
+        // Body (Apron)
+        ctx.fillStyle = '#0a0a0f';
+        ctx.beginPath();
+        ctx.moveTo(20, 25);
+        ctx.lineTo(60, 25);
+        ctx.lineTo(70, 85);
+        ctx.lineTo(10, 85);
+        ctx.fill();
+
+        // Chainsaw Arm
+        ctx.fillStyle = '#111';
+        ctx.fillRect(55, 35, 35, 12);
+
+        // Saw Blade (Flashing)
+        const flash = Math.random() > 0.5 ? '#e11d48' : '#94a3b8';
+        ctx.fillStyle = flash;
+        ctx.fillRect(85, 25, 30, 28);
+
+        // Blood Splatters on Saw
+        ctx.fillStyle = '#990000';
+        ctx.fillRect(95, 28, 8, 8);
+        ctx.fillRect(105, 38, 6, 10);
+
+        ctx.restore();
+      }
+    };
+
+    // Rain & Environment Particles
+    let raindrops = [];
+    function initRain() {
+      raindrops = [];
+      for (let i = 0; i < 80; i++) {
+        raindrops.push({
+          x: Math.random() * canvas.width,
+          y: Math.random() * canvas.height,
+          length: Math.random() * 20 + 10,
+          speed: Math.random() * 10 + 12
         });
+      }
+    }
 
-        function setupEventListeners() {
-            document.getElementById('btn-decrease').addEventListener('click', () => {
-                sfx.playClick();
-                updatePlayerCount(-1);
-            });
-            document.getElementById('btn-increase').addEventListener('click', () => {
-                sfx.playClick();
-                updatePlayerCount(1);
-            });
-            document.getElementById('btn-start-game').addEventListener('click', () => {
-                sfx.playClick();
-                startGame();
-            });
-            document.getElementById('btn-reset').addEventListener('click', () => {
-                sfx.playClick();
-                resetToSetup();
-            });
-            document.getElementById('btn-reveal-all').addEventListener('click', () => {
-                sfx.playClick();
-                revealAllResults();
-            });
-
-            document.getElementById('btn-close-modal').addEventListener('click', () => {
-                sfx.playClick();
-                closeModal();
-            });
-            document.getElementById('btn-modal-confirm').addEventListener('click', () => {
-                sfx.playClick();
-                closeModal();
-            });
-
-            // Mute Toggle Event Listener
-            const muteBtn = document.getElementById('btn-toggle-mute');
-            const muteIcon = document.getElementById('mute-icon');
-            const muteText = document.getElementById('mute-text');
-            
-            muteBtn.addEventListener('click', () => {
-                const isMuted = sfx.toggleMute();
-                if (isMuted) {
-                    muteIcon.className = 'fa-solid fa-volume-xmark text-slate-500';
-                    muteText.textContent = '음소거';
-                    muteText.className = 'text-slate-500';
-                } else {
-                    muteIcon.className = 'fa-solid fa-volume-high text-pink-400';
-                    muteText.textContent = '소리 켬';
-                    muteText.className = 'text-pink-300';
-                    sfx.playClick();
-                }
-            });
-
-            window.addEventListener('resize', () => {
-                if (!gamePanel.classList.contains('hidden')) {
-                    resizeAndDrawLadder();
-                }
-            });
+    function updateAndDrawRain() {
+      ctx.strokeStyle = 'rgba(160, 175, 200, 0.25)';
+      ctx.lineWidth = 1.2;
+      ctx.beginPath();
+      for (let r of raindrops) {
+        r.y += r.speed;
+        r.x -= 2; // Wind effect
+        if (r.y > canvas.height) {
+          r.y = -20;
+          r.x = Math.random() * canvas.width;
         }
+        ctx.moveTo(r.x, r.y);
+        ctx.lineTo(r.x - 4, r.y + r.length);
+      }
+      ctx.stroke();
+    }
 
-        function updatePlayerCount(delta) {
-            const newCount = playerCount + delta;
-            if (newCount >= 2 && newCount <= 8) {
-                playerCount = newCount;
-                playerCountDisplay.textContent = playerCount;
-                renderInputs();
+    // Background Buildings & Streetlamps
+    let bgElements = [];
+    function initBg() {
+      bgElements = [];
+      for (let i = 0; i < 6; i++) {
+        bgElements.push({
+          x: i * 200,
+          width: 120 + Math.random() * 80,
+          height: 150 + Math.random() * 150,
+          hasLight: Math.random() > 0.4
+        });
+      }
+    }
+
+    function updateAndDrawBg() {
+      ctx.fillStyle = '#0d0d14';
+      for (let el of bgElements) {
+        el.x -= speed * 0.2; // Parallax
+        if (el.x + el.width < 0) {
+          el.x = canvas.width + Math.random() * 50;
+        }
+        // Building body
+        ctx.fillRect(el.x, groundY() - el.height, el.width, el.height);
+
+        // Windows (Creepy dim light)
+        if (el.hasLight) {
+          ctx.fillStyle = 'rgba(234, 179, 8, 0.15)';
+          for (let wx = el.x + 15; wx < el.x + el.width - 20; wx += 25) {
+            for (let wy = groundY() - el.height + 20; wy < groundY() - 30; wy += 35) {
+              if (Math.random() > 0.1) {
+                ctx.fillRect(wx, wy, 12, 18);
+              }
             }
+          }
+          ctx.fillStyle = '#0d0d14';
+        }
+      }
+
+      // Street Fog / Mist on Ground
+      const fogGradient = ctx.createLinearGradient(0, groundY() - 40, 0, groundY() + 40);
+      fogGradient.addColorStop(0, 'rgba(15, 23, 42, 0)');
+      fogGradient.addColorStop(0.5, 'rgba(30, 41, 59, 0.6)');
+      fogGradient.addColorStop(1, 'rgba(15, 23, 42, 0.9)');
+      ctx.fillStyle = fogGradient;
+      ctx.fillRect(0, groundY() - 40, canvas.width, 100);
+    }
+
+    // Obstacles
+    let obstacles = [];
+    let spawnTimer = 0;
+
+    class Obstacle {
+      constructor() {
+        this.type = Math.random() < 0.5 ? 'low' : 'high'; // low = jump over, high = slide under
+        this.x = canvas.width + 50;
+        
+        if (this.type === 'low') {
+          // Meat Meat Cleaver / Meat Hook / Barrel
+          this.width = 35;
+          this.height = 40 + Math.random() * 10;
+          this.y = groundY() - this.height;
+          this.subType = Math.random() < 0.5 ? 'cleaver' : 'barrel';
+        } else {
+          // Hanging Meat Hook / Blade
+          this.width = 40;
+          this.height = 50;
+          this.y = groundY() - pig.normalHeight - 25; // Requires slide
+          this.subType = 'hook';
         }
 
-        function renderInputs() {
-            const currentPlayers = Array.from(playerInputsContainer.querySelectorAll('input')).map(i => i.value);
-            const currentPrizes = Array.from(prizeInputsContainer.querySelectorAll('input')).map(i => i.value);
+        this.passed = false;
+      }
 
-            playerInputsContainer.innerHTML = '';
-            prizeInputsContainer.innerHTML = '';
+      update() {
+        this.x -= speed;
+      }
 
-            const defaultPreset = PRESETS.couple;
+      draw() {
+        ctx.save();
+        if (this.subType === 'cleaver') {
+          // Giant Cleaver stuck in ground
+          ctx.fillStyle = '#475569';
+          ctx.fillRect(this.x + 10, this.y, 15, this.height);
+          ctx.fillStyle = '#94a3b8';
+          ctx.beginPath();
+          ctx.moveTo(this.x, this.y + 10);
+          ctx.lineTo(this.x + 30, this.y);
+          ctx.lineTo(this.x + 25, this.y + this.height);
+          ctx.lineTo(this.x, this.y + this.height - 5);
+          ctx.fill();
 
-            for (let i = 0; i < playerCount; i++) {
-                const pValue = currentPlayers[i] || defaultPreset.players[i] || `참가자 ${i+1}`;
-                const pDiv = document.createElement('div');
-                pDiv.className = 'flex items-center gap-2';
-                pDiv.innerHTML = `
-                    <span class="w-6 h-6 rounded-full bg-pink-500/20 text-pink-300 font-bold text-xs flex items-center justify-center border border-pink-500/30">${i+1}</span>
-                    <input type="text" id="player-input-${i}" value="${pValue}" class="w-full bg-slate-900/80 border border-pink-500/20 rounded-xl px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-pink-500 transition placeholder-slate-600" placeholder="이름 입력">
-                `;
-                playerInputsContainer.appendChild(pDiv);
+          // Blood on blade
+          ctx.fillStyle = '#990000';
+          ctx.fillRect(this.x + 2, this.y + this.height - 15, 18, 12);
 
-                const prValue = currentPrizes[i] || defaultPreset.prizes[i] || `미션 / 벌칙 ${i+1}`;
-                const prDiv = document.createElement('div');
-                prDiv.className = 'flex items-center gap-2';
-                prDiv.innerHTML = `
-                    <span class="w-6 h-6 rounded-full bg-purple-500/20 text-purple-300 font-bold text-xs flex items-center justify-center border border-purple-500/30">${i+1}</span>
-                    <input type="text" id="prize-input-${i}" value="${prValue}" class="w-full bg-slate-900/80 border border-purple-500/20 rounded-xl px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-purple-500 transition placeholder-slate-600" placeholder="결과 입력">
-                `;
-                prizeInputsContainer.appendChild(prDiv);
-            }
+        } else if (this.subType === 'barrel') {
+          // Toxic/Biohazard Slime Barrel
+          ctx.fillStyle = '#1e293b';
+          ctx.beginPath();
+          ctx.roundRect(this.x, this.y, this.width, this.height, 5);
+          ctx.fill();
+
+          // Glowing hazard stripe
+          ctx.fillStyle = '#ca8a04';
+          ctx.fillRect(this.x, this.y + 12, this.width, 8);
+
+        } else if (this.subType === 'hook') {
+          // Hanging Meat Hook
+          ctx.strokeStyle = '#64748b';
+          ctx.lineWidth = 3;
+          ctx.beginPath();
+          ctx.moveTo(this.x + this.width / 2, 0);
+          ctx.lineTo(this.x + this.width / 2, this.y + 20);
+          ctx.stroke();
+
+          // Sharp Hook Blade
+          ctx.fillStyle = '#cbd5e1';
+          ctx.beginPath();
+          ctx.arc(this.x + this.width / 2, this.y + 30, 15, 0, Math.PI);
+          ctx.fill();
+
+          ctx.fillStyle = '#990000'; // Blood tip
+          ctx.beginPath();
+          ctx.arc(this.x + this.width / 2 - 12, this.y + 30, 4, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        ctx.restore();
+      }
+    }
+
+    function handleObstacles() {
+      spawnTimer++;
+      // Min distance between obstacles decreases as speed increases
+      const minInterval = Math.max(70, 140 - Math.floor(speed * 4));
+      
+      if (spawnTimer > minInterval + Math.random() * 50) {
+        obstacles.push(new Obstacle());
+        spawnTimer = 0;
+      }
+
+      for (let i = obstacles.length - 1; i >= 0; i--) {
+        const obs = obstacles[i];
+        obs.update();
+        obs.draw();
+
+        // Collision Check (AABB)
+        const hitBoxBuffer = 6; // slightly forgiving
+        if (
+          pig.x + hitBoxBuffer < obs.x + obs.width &&
+          pig.x + pig.width - hitBoxBuffer > obs.x &&
+          pig.y + hitBoxBuffer < obs.y + obs.height &&
+          pig.y + pig.height - hitBoxBuffer > obs.y
+        ) {
+          // Hit obstacle!
+          soundCtrl.playHit();
+          soundCtrl.playSqueal();
+
+          // Butcher gets closer on stumble
+          butcher.distanceFromPig -= 60;
+          obstacles.splice(i, 1);
+
+          // Danger visual flash
+          dangerOverlay.style.opacity = '0.8';
+          setTimeout(() => { dangerOverlay.style.opacity = '0'; }, 300);
+
+          if (butcher.distanceFromPig <= butcher.minDistance) {
+            triggerGameOver("장애물에 걸려 도살자에게 잡혔습니다!");
+          }
+          continue;
         }
 
-        function applyPreset(presetKey) {
-            sfx.playClick();
-            const preset = PRESETS[presetKey];
-            if (!preset) return;
-
-            playerCount = preset.players.length;
-            playerCountDisplay.textContent = playerCount;
-
-            playerInputsContainer.innerHTML = '';
-            prizeInputsContainer.innerHTML = '';
-
-            for (let i = 0; i < playerCount; i++) {
-                const pDiv = document.createElement('div');
-                pDiv.className = 'flex items-center gap-2';
-                pDiv.innerHTML = `
-                    <span class="w-6 h-6 rounded-full bg-pink-500/20 text-pink-300 font-bold text-xs flex items-center justify-center border border-pink-500/30">${i+1}</span>
-                    <input type="text" id="player-input-${i}" value="${preset.players[i]}" class="w-full bg-slate-900/80 border border-pink-500/20 rounded-xl px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-pink-500 transition placeholder-slate-600">
-                `;
-                playerInputsContainer.appendChild(pDiv);
-
-                const prDiv = document.createElement('div');
-                prDiv.className = 'flex items-center gap-2';
-                prDiv.innerHTML = `
-                    <span class="w-6 h-6 rounded-full bg-purple-500/20 text-purple-300 font-bold text-xs flex items-center justify-center border border-purple-500/30">${i+1}</span>
-                    <input type="text" id="prize-input-${i}" value="${preset.prizes[i]}" class="w-full bg-slate-900/80 border border-purple-500/20 rounded-xl px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-purple-500 transition placeholder-slate-600">
-                `;
-                prizeInputsContainer.appendChild(prDiv);
-            }
+        // Remove offscreen
+        if (obs.x + obs.width < 0) {
+          obstacles.splice(i, 1);
         }
+      }
+    }
 
-        function generateLadderData() {
-            ladderData = [];
-            const rows = 12;
+    // Draw Ground
+    function drawGround() {
+      const gY = groundY();
+      // Wet Asphalt
+      ctx.fillStyle = '#12131a';
+      ctx.fillRect(0, gY, canvas.width, canvas.height - gY);
 
-            for (let r = 1; r < rows - 1; r++) {
-                let rowRungs = [];
-                for (let col = 0; col < playerCount - 1; col++) {
-                    if (Math.random() < 0.45 && (col === 0 || !rowRungs[col - 1])) {
-                        rowRungs[col] = true;
-                    } else {
-                        rowRungs[col] = false;
-                    }
-                }
-                ladderData.push(rowRungs);
-            }
+      // Sidewalk Line
+      ctx.fillStyle = '#27272a';
+      ctx.fillRect(0, gY, canvas.width, 4);
 
-            playerResults = {};
-            for (let i = 0; i < playerCount; i++) {
-                playerResults[i] = calculatePath(i).endCol;
-            }
-        }
+      // Reflective puddles
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.05)';
+      ctx.fillRect((gameTime * 3) % canvas.width, gY + 15, 60, 6);
+      ctx.fillRect((gameTime * 2 + 200) % canvas.width, gY + 35, 90, 8);
+    }
 
-        function calculatePath(startCol) {
-            let currentCol = startCol;
-            let path = [{ col: currentCol, row: 0, isTurn: false }];
+    // --- Input Handlers ---
+    function handleJumpInput() {
+      if (!gameRunning) return;
+      pig.jump();
+    }
 
-            for (let r = 0; r < ladderData.length; r++) {
-                const rowRungs = ladderData[r];
-                
-                path.push({ col: currentCol, row: r + 1, isTurn: false });
+    function handleSlideInput() {
+      if (!gameRunning) return;
+      pig.slide();
+    }
 
-                if (currentCol < playerCount - 1 && rowRungs[currentCol]) {
-                    currentCol++;
-                    path.push({ col: currentCol, row: r + 1, isTurn: true });
-                } 
-                else if (currentCol > 0 && rowRungs[currentCol - 1]) {
-                    currentCol--;
-                    path.push({ col: currentCol, row: r + 1, isTurn: true });
-                }
-            }
+    window.addEventListener('keydown', (e) => {
+      if (e.code === 'Space' || e.code === 'ArrowUp') {
+        e.preventDefault();
+        handleJumpInput();
+      } else if (e.code === 'ArrowDown') {
+        e.preventDefault();
+        handleSlideInput();
+      }
+    });
 
-            path.push({ col: currentCol, row: ladderData.length + 1, isTurn: false });
+    // Touch & Mouse Support
+    canvas.addEventListener('touchstart', (e) => {
+      e.preventDefault();
+      const touch = e.touches[0];
+      this.touchStartY = touch.clientY;
+    }, { passive: false });
 
-            return { path, endCol: currentCol };
-        }
+    canvas.addEventListener('touchend', (e) => {
+      e.preventDefault();
+      if (!this.touchStartY) return;
+      const touchEndY = e.changedTouches[0].clientY;
+      const diffY = touchEndY - this.touchStartY;
 
-        function startGame() {
-            setupPanel.classList.add('hidden');
-            gamePanel.classList.remove('hidden');
-            gamePanel.classList.add('flex');
+      if (diffY > 30) {
+        // Swipe Down
+        handleSlideInput();
+      } else {
+        // Tap / Swipe Up
+        handleJumpInput();
+      }
+      this.touchStartY = null;
+    }, { passive: false });
 
-            generateLadderData();
-            buildLabels();
-            resizeAndDrawLadder();
-        }
+    // Buttons
+    document.getElementById('mobileJumpBtn').addEventListener('click', handleJumpInput);
+    document.getElementById('mobileSlideBtn').addEventListener('click', handleSlideInput);
 
-        function resetToSetup() {
-            gamePanel.classList.add('hidden');
-            gamePanel.classList.remove('flex');
-            setupPanel.classList.remove('hidden');
-            animatedPaths = [];
-            isAnimating = false;
-        }
+    // --- Game Loop & Control ---
+    function startNewGame() {
+      soundCtrl.init();
+      gameRunning = true;
+      distance = 0;
+      speed = baseSpeed;
+      gameTime = 0;
+      obstacles = [];
+      spawnTimer = 0;
 
-        function buildLabels() {
-            topLabelsContainer.innerHTML = '';
-            bottomLabelsContainer.innerHTML = '';
+      pig.reset();
+      butcher.distanceFromPig = butcher.maxDistance;
 
-            const players = getPlayerNames();
-            const prizes = getPrizeNames();
+      initRain();
+      initBg();
 
-            players.forEach((p, idx) => {
-                const btn = document.createElement('button');
-                btn.className = `player-top-btn px-2 py-1.5 rounded-xl text-xs font-bold transition flex flex-col items-center gap-1 border border-pink-500/30 glass-card hover:border-pink-400 hover:scale-105 active:scale-95`;
-                btn.style.width = `${100 / playerCount}%`;
-                btn.innerHTML = `
-                    <span class="w-5 h-5 rounded-full bg-pink-500 text-white flex items-center justify-center text-[10px] shadow">${idx+1}</span>
-                    <span class="truncate max-w-full text-pink-200">${p}</span>
-                `;
-                btn.onclick = () => tracePlayerPath(idx);
-                topLabelsContainer.appendChild(btn);
-            });
+      uiOverlay.classList.add('hidden');
+      startMenu.classList.add('hidden');
+      gameOverMenu.classList.add('hidden');
 
-            prizes.forEach((pr, idx) => {
-                const div = document.createElement('div');
-                div.id = `bottom-label-${idx}`;
-                div.className = `px-2 py-2 rounded-xl text-xs font-semibold text-center glass-card border border-purple-500/20 text-purple-200 transition duration-300 flex flex-col items-center justify-center`;
-                div.style.width = `${100 / playerCount}%`;
-                div.innerHTML = `<span class="truncate max-w-full">${pr}</span>`;
-                bottomLabelsContainer.appendChild(div);
-            });
-        }
+      requestAnimationFrame(gameLoop);
+    }
 
-        function getPlayerNames() {
-            const names = [];
-            for (let i = 0; i < playerCount; i++) {
-                const val = document.getElementById(`player-input-${i}`).value.trim();
-                names.push(val || `참가자 ${i+1}`);
-            }
-            return names;
-        }
+    function triggerGameOver(reason) {
+      gameRunning = false;
+      soundCtrl.playSqueal();
 
-        function getPrizeNames() {
-            const prizes = [];
-            for (let i = 0; i < playerCount; i++) {
-                const val = document.getElementById(`prize-input-${i}`).value.trim();
-                prizes.push(val || `미션 ${i+1}`);
-            }
-            return prizes;
-        }
+      if (distance > highScore) {
+        highScore = distance;
+        localStorage.setItem('pig_escape_highscore', highScore);
+        highScoreText.textContent = Math.floor(highScore);
+      }
 
-        function resizeAndDrawLadder() {
-            const containerWidth = canvasWrapper.clientWidth;
-            canvas.width = containerWidth;
-            canvas.height = Math.max(380, window.innerHeight * 0.45);
+      deathReason.textContent = reason;
+      finalDistance.textContent = `${Math.floor(distance)}m`;
+      finalHighScore.textContent = `${Math.floor(highScore)}m`;
 
-            drawLadderBase();
-            animatedPaths.forEach(pData => drawPathTrace(pData.path, pData.color));
-        }
+      uiOverlay.classList.remove('hidden');
+      gameOverMenu.classList.remove('hidden');
+    }
 
-        function getLadderCoords() {
-            const numCols = playerCount;
-            const paddingX = canvas.width / (numCols * 2);
-            const colSpacing = (canvas.width - paddingX * 2) / (numCols - 1);
-            
-            const numRows = ladderData.length + 1;
-            const paddingY = 20;
-            const rowSpacing = (canvas.height - paddingY * 2) / numRows;
+    function gameLoop() {
+      if (!gameRunning) return;
 
-            return { paddingX, colSpacing, paddingY, rowSpacing };
-        }
+      gameTime++;
+      distance += speed * 0.05;
+      distanceText.textContent = Math.floor(distance);
 
-        function drawLadderBase() {
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
+      // Gradually increase difficulty
+      speed = baseSpeed + Math.min(8, distance * 0.005);
 
-            const { paddingX, colSpacing, paddingY, rowSpacing } = getLadderCoords();
+      // Slowly recover butcher distance if running smoothly
+      if (butcher.distanceFromPig < butcher.maxDistance) {
+        butcher.distanceFromPig += 0.05;
+      }
 
-            ctx.lineWidth = 4;
-            ctx.strokeStyle = 'rgba(255, 105, 180, 0.25)';
-            ctx.lineCap = 'round';
+      // Danger UI warning when butcher is close
+      if (butcher.distanceFromPig < 130) {
+        dangerOverlay.style.opacity = (130 - butcher.distanceFromPig) / 100;
+      } else {
+        dangerOverlay.style.opacity = '0';
+      }
 
-            for (let col = 0; col < playerCount; col++) {
-                const x = paddingX + col * colSpacing;
-                ctx.beginPath();
-                ctx.moveTo(x, paddingY);
-                ctx.lineTo(x, canvas.height - paddingY);
-                ctx.stroke();
-            }
+      // Clear Frame
+      ctx.fillStyle = '#050508';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-            ctx.lineWidth = 3;
-            ctx.strokeStyle = 'rgba(186, 85, 211, 0.35)';
+      // Render World Elements
+      updateAndDrawBg();
+      drawGround();
+      updateAndDrawRain();
 
-            for (let r = 0; r < ladderData.length; r++) {
-                const y = paddingY + (r + 1) * rowSpacing;
-                for (let c = 0; c < playerCount - 1; c++) {
-                    if (ladderData[r][c]) {
-                        const x1 = paddingX + c * colSpacing;
-                        const x2 = paddingX + (c + 1) * colSpacing;
-                        ctx.beginPath();
-                        ctx.moveTo(x1, y);
-                        ctx.lineTo(x2, y);
-                        ctx.stroke();
-                    }
-                }
-            }
-        }
+      // Render Entities
+      handleObstacles();
+      pig.update();
+      pig.draw();
 
-        // Animate path traversal with direction turn pop sound & step sounds
-        function tracePlayerPath(playerIdx) {
-            if (isAnimating) return;
+      butcher.update();
+      butcher.draw();
 
-            const existingIdx = animatedPaths.findIndex(p => p.playerIdx === playerIdx);
-            if (existingIdx !== -1) {
-                sfx.playClick();
-                showResultModal(playerIdx, playerResults[playerIdx]);
-                return;
-            }
+      requestAnimationFrame(gameLoop);
+    }
 
-            isAnimating = true;
-            sfx.init();
+    // Event Listeners
+    startBtn.addEventListener('click', startNewGame);
+    restartBtn.addEventListener('click', startNewGame);
 
-            const { path, endCol } = calculatePath(playerIdx);
-            const colors = ['#ff2a85', '#00f3ff', '#b537ff', '#ffb800', '#00ff66', '#ff0055', '#3399ff', '#ff66cc'];
-            const pathColor = colors[playerIdx % colors.length];
-
-            const { paddingX, colSpacing, paddingY, rowSpacing } = getLadderCoords();
-
-            const pixelPoints = path.map(pt => ({
-                x: paddingX + pt.col * colSpacing,
-                y: paddingY + pt.row * rowSpacing,
-                isTurn: pt.isTurn
-            }));
-
-            let currentSegment = 0;
-            let progress = 0;
-            const speed = 0.08;
-
-            function animate() {
-                if (currentSegment >= pixelPoints.length - 1) {
-                    isAnimating = false;
-                    animatedPaths.push({ playerIdx, path: pixelPoints, color: pathColor });
-                    
-                    sfx.playWin();
-
-                    const targetLabel = document.getElementById(`bottom-label-${endCol}`);
-                    if (targetLabel) {
-                        targetLabel.classList.add('border-pink-400', 'bg-pink-500/20', 'neon-border-pink', 'scale-105');
-                    }
-
-                    setTimeout(() => {
-                        showResultModal(playerIdx, endCol);
-                    }, 200);
-                    return;
-                }
-
-                const p1 = pixelPoints[currentSegment];
-                const p2 = pixelPoints[currentSegment + 1];
-
-                progress += speed;
-                if (progress >= 1) {
-                    progress = 0;
-                    currentSegment++;
-                    
-                    // Sound effects on step or turn
-                    if (p2.isTurn) {
-                        sfx.playTurnPop();
-                    } else {
-                        sfx.playStep();
-                    }
-                }
-
-                drawLadderBase();
-                animatedPaths.forEach(pData => drawPathTrace(pData.path, pData.color));
-
-                ctx.lineWidth = 5;
-                ctx.strokeStyle = pathColor;
-                ctx.shadowColor = pathColor;
-                ctx.shadowBlur = 12;
-                ctx.lineCap = 'round';
-                ctx.lineJoin = 'round';
-
-                ctx.beginPath();
-                ctx.moveTo(pixelPoints[0].x, pixelPoints[0].y);
-
-                for (let i = 0; i < currentSegment; i++) {
-                    ctx.lineTo(pixelPoints[i + 1].x, pixelPoints[i + 1].y);
-                }
-
-                const currX = p1.x + (p2.x - p1.x) * progress;
-                const currY = p1.y + (p2.y - p1.y) * progress;
-                ctx.lineTo(currX, currY);
-                ctx.stroke();
-
-                // Leading glowing orb
-                ctx.fillStyle = '#ffffff';
-                ctx.beginPath();
-                ctx.arc(currX, currY, 6, 0, Math.PI * 2);
-                ctx.fill();
-
-                ctx.shadowBlur = 0;
-
-                requestAnimationFrame(animate);
-            }
-
-            requestAnimationFrame(animate);
-        }
-
-        function drawPathTrace(pixelPoints, color) {
-            ctx.lineWidth = 5;
-            ctx.strokeStyle = color;
-            ctx.shadowColor = color;
-            ctx.shadowBlur = 10;
-            ctx.lineCap = 'round';
-            ctx.lineJoin = 'round';
-
-            ctx.beginPath();
-            ctx.moveTo(pixelPoints[0].x, pixelPoints[0].y);
-            for (let i = 1; i < pixelPoints.length; i++) {
-                ctx.lineTo(pixelPoints[i].x, pixelPoints[i].y);
-            }
-            ctx.stroke();
-            ctx.shadowBlur = 0;
-        }
-
-        function revealAllResults() {
-            if (isAnimating) return;
-
-            animatedPaths = [];
-            const colors = ['#ff2a85', '#00f3ff', '#b537ff', '#ffb800', '#00ff66', '#ff0055', '#3399ff', '#ff66cc'];
-            const { paddingX, colSpacing, paddingY, rowSpacing } = getLadderCoords();
-
-            for (let i = 0; i < playerCount; i++) {
-                const { path, endCol } = calculatePath(i);
-                const pixelPoints = path.map(pt => ({
-                    x: paddingX + pt.col * colSpacing,
-                    y: paddingY + pt.row * rowSpacing,
-                    isTurn: pt.isTurn
-                }));
-
-                animatedPaths.push({
-                    playerIdx: i,
-                    path: pixelPoints,
-                    color: colors[i % colors.length]
-                });
-
-                const targetLabel = document.getElementById(`bottom-label-${endCol}`);
-                if (targetLabel) {
-                    targetLabel.classList.add('border-pink-400', 'bg-pink-500/20', 'neon-border-pink');
-                }
-            }
-
-            drawLadderBase();
-            animatedPaths.forEach(pData => drawPathTrace(pData.path, pData.color));
-            sfx.playWin();
-        }
-
-        function showResultModal(playerIdx, prizeIdx) {
-            const players = getPlayerNames();
-            const prizes = getPrizeNames();
-
-            modalPlayerName.textContent = `[ ${players[playerIdx]} ] 님의 운명`;
-            modalResultText.textContent = prizes[prizeIdx];
-
-            const randomComment = COMMENTS[Math.floor(Math.random() * COMMENTS.length)];
-            modalComment.textContent = `"${randomComment}"`;
-
-            modal.classList.remove('opacity-0', 'pointer-events-none');
-            modal.querySelector('div').classList.remove('scale-90');
-            modal.querySelector('div').classList.add('scale-100');
-        }
-
-        function closeModal() {
-            modal.classList.add('opacity-0', 'pointer-events-none');
-            modal.querySelector('div').classList.remove('scale-100');
-            modal.querySelector('div').classList.add('scale-90');
-        }
-    </script>
+  </script>
 </body>
 </html>
