@@ -1,1032 +1,1004 @@
-
 <!DOCTYPE html>
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>총림고수 (Gun-Forest) - 무적 상점 에디션</title>
-    <!-- Tailwind CSS -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>오목 (Gomoku)</title>
+    <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Font Awesome Icons -->
+    <!-- FontAwesome CDN -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <!-- Google Fonts -->
-    <link href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Noto+Sans+KR:wght@400;700;900&display=swap" rel="stylesheet">
+    <!-- Tone.js CDN for Sound Effects -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
     <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&display=swap');
+
         body {
             font-family: 'Noto Sans KR', sans-serif;
-            user-select: none;
-            -webkit-user-select: none;
-            touch-action: none;
+            touch-action: manipulation;
         }
-        .title-font {
-            font-family: 'Black Han Sans', sans-serif;
+
+        /* 전통적인 나무 느낌의 바둑판 텍스처 및 그림자 */
+        .board-container {
+            background-color: #e5a95f;
+            background-image: radial-gradient(#f2c888 15%, transparent 16%),
+                              radial-gradient(#d39343 15%, transparent 16%);
+            background-size: 60px 60px;
+            background-position: 0 0, 30px 30px;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.4), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
         }
-        #gameCanvas {
-            background: radial-gradient(circle at center, #1b2838 0%, #0d131d 100%);
-            touch-action: none;
+
+        /* 돌 그림자 및 하이라이트 효과 */
+        .black-stone {
+            background: radial-gradient(circle at 30% 30%, #666, #000 70%);
+            box-shadow: 2px 3px 5px rgba(0,0,0,0.5);
         }
-        .glow-red {
-            box-shadow: 0 0 20px rgba(239, 68, 68, 0.5);
+
+        .white-stone {
+            background: radial-gradient(circle at 30% 30%, #fff, #e0e0e0 70%);
+            box-shadow: 2px 3px 5px rgba(0,0,0,0.4);
         }
-        .glow-gold {
-            box-shadow: 0 0 20px rgba(245, 158, 11, 0.5);
-        }
-        .glow-cyan {
-            box-shadow: 0 0 20px rgba(6, 182, 212, 0.5);
-        }
-        .glow-shield {
-            box-shadow: 0 0 25px rgba(234, 179, 8, 0.8);
-        }
-        .pulse-gold {
-            animation: pulseGold 1.5s infinite;
-        }
-        @keyframes pulseGold {
-            0%, 100% { transform: scale(1); }
-            50% { transform: scale(1.05); }
+
+        /* 캔버스 커스텀 커서 */
+        canvas {
+            cursor: crosshair;
         }
     </style>
 </head>
-<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col justify-between items-center p-2 sm:p-4 overflow-hidden select-none">
+<body class="bg-slate-900 text-slate-100 min-h-screen flex flex-col justify-between items-center p-3 md:p-6">
 
-    <!-- Header Section -->
-    <header class="w-full max-w-xl flex justify-between items-center py-2 px-3 bg-slate-900/90 backdrop-blur border border-slate-800 rounded-2xl shadow-lg z-10">
-        <div class="flex items-center space-x-3">
-            <div class="bg-gradient-to-tr from-amber-500 to-red-600 text-white p-2.5 rounded-xl shadow">
-                <i class="fa-solid fa-person-running text-xl"></i>
-            </div>
-            <div>
-                <h1 class="title-font text-xl sm:text-2xl tracking-wider text-transparent bg-clip-text bg-gradient-to-r from-amber-400 via-orange-400 to-red-500">
-                    총림고수 <span class="text-xs text-slate-400 font-sans tracking-normal">GUN-FOREST</span>
-                </h1>
-                <p class="text-[10px] sm:text-xs text-slate-400">사방에서 빗발치는 총알을 피하라!</p>
-            </div>
+    <!-- 상단 헤더 -->
+    <header class="w-full max-w-4xl flex justify-between items-center mb-4">
+        <div class="flex items-center gap-3">
+            <i class="fa-solid fa-circle-dot text-amber-500 text-3xl"></i>
+            <h1 class="text-2xl md:text-3xl font-bold tracking-tight bg-gradient-to-r from-amber-400 to-orange-500 bg-clip-text text-transparent">
+                전통 오목 (Gomoku)
+            </h1>
         </div>
-        
-        <div class="flex items-center space-x-2">
-            <!-- Coin Display -->
-            <div class="flex items-center space-x-1.5 bg-slate-800 px-3 py-1.5 rounded-xl border border-slate-700">
-                <i class="fa-solid fa-coins text-amber-400 text-sm"></i>
-                <span id="coinDisplay" class="font-mono font-bold text-amber-300 text-sm">0</span>
-            </div>
-
-            <!-- Shop Button Header -->
-            <button id="openShopHeaderBtn" class="bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-400 hover:to-orange-500 text-slate-950 font-bold p-2 sm:px-3 rounded-xl shadow transition active:scale-95 flex items-center gap-1 text-xs">
-                <i class="fa-solid fa-store text-sm"></i>
-                <span class="hidden sm:inline">상점</span>
+        <div class="flex items-center gap-2">
+            <button id="soundToggleBtn" class="p-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 transition-all border border-slate-700">
+                <i class="fa-solid fa-volume-high text-lg" id="soundIcon"></i>
             </button>
-
-            <button id="soundToggleBtn" class="bg-slate-800 hover:bg-slate-700 text-slate-300 p-2 rounded-xl border border-slate-700 transition active:scale-95" title="음향 온/오프">
-                <i class="fa-solid fa-volume-high text-base" id="soundIcon"></i>
-            </button>
-            <button id="helpBtn" class="bg-slate-800 hover:bg-slate-700 text-slate-300 p-2 rounded-xl border border-slate-700 transition active:scale-95" title="도움말">
-                <i class="fa-solid fa-circle-question text-base"></i>
+            <button id="helpBtn" class="p-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 transition-all border border-slate-700">
+                <i class="fa-solid fa-circle-question text-lg"></i>
             </button>
         </div>
     </header>
 
-    <!-- Main Game Area Container -->
-    <main class="relative w-full max-w-xl my-auto flex flex-col items-center justify-center">
-        <!-- Game HUD Overlay -->
-        <div class="w-full flex justify-between items-center px-4 py-2 bg-slate-900/90 rounded-t-2xl border-t border-x border-slate-800 font-mono">
-            <div class="flex items-center space-x-2">
-                <span class="text-xs text-slate-400 uppercase tracking-widest">생존 시간</span>
-                <span id="timeDisplay" class="text-2xl font-black text-amber-400">00:00.00</span>
-            </div>
-            <div class="flex items-center space-x-3">
-                <!-- Shield Inventory Indicator -->
-                <div class="flex items-center space-x-1 text-xs bg-slate-800/80 px-2.5 py-1 rounded-lg border border-slate-700">
-                    <i class="fa-solid fa-shield-halved text-yellow-400"></i>
-                    <span id="shieldCountDisplay" class="font-bold text-yellow-300">0</span>
-                </div>
-                <div class="flex items-center space-x-1">
-                    <i class="fa-solid fa-trophy text-amber-500 text-xs"></i>
-                    <span id="bestTimeDisplay" class="text-xs font-bold text-slate-300">00:00.00</span>
-                </div>
-            </div>
-        </div>
+    <!-- 메인 콘텐츠 구역 -->
+    <main class="w-full max-w-4xl flex flex-col lg:flex-row gap-6 justify-center items-center my-auto">
 
-        <!-- Canvas Container -->
-        <div class="relative w-full aspect-square max-h-[58vh] bg-slate-900 border border-slate-800 rounded-b-2xl overflow-hidden shadow-2xl">
-            <canvas id="gameCanvas" class="w-full h-full block"></canvas>
-
-            <!-- Dash & Shield Status Bar inside canvas -->
-            <div class="absolute bottom-3 left-1/2 -translate-x-1/2 flex items-center space-x-3 bg-slate-950/80 border border-slate-800 px-3 py-1.5 rounded-full backdrop-blur pointer-events-none">
-                <!-- Dash Gauge -->
-                <div class="flex items-center space-x-1.5 text-xs">
-                    <span class="text-cyan-400 font-bold text-[10px]">DASH</span>
-                    <div class="w-16 h-2 bg-slate-800 rounded-full overflow-hidden border border-slate-700">
-                        <div id="dashBar" class="h-full bg-cyan-400 transition-all duration-75" style="width: 100%;"></div>
-                    </div>
+        <!-- 바둑판 플레이 영역 -->
+        <div class="relative flex flex-col items-center">
+            <!-- 턴 & 타이머 상태바 -->
+            <div class="w-full flex justify-between items-center bg-slate-800/80 backdrop-blur-md px-4 py-2.5 rounded-t-2xl border border-slate-700 border-b-0">
+                <!-- 흑돌 플레이어 정보 -->
+                <div id="playerBlackCard" class="flex items-center gap-2 px-3 py-1.5 rounded-lg border-2 border-amber-500 bg-slate-900/60 transition-all">
+                    <div class="w-4 h-4 rounded-full black-stone border border-slate-600"></div>
+                    <span class="text-sm font-semibold">흑 (Player 1)</span>
                 </div>
-                <div class="w-px h-3 bg-slate-700"></div>
-                <!-- Shield Active Gauge -->
-                <div class="flex items-center space-x-1.5 text-xs">
-                    <span class="text-yellow-400 font-bold text-[10px]">SHIELD</span>
-                    <div class="w-16 h-2 bg-slate-800 rounded-full overflow-hidden border border-slate-700">
-                        <div id="shieldActiveBar" class="h-full bg-yellow-400 transition-all duration-75" style="width: 0%;"></div>
-                    </div>
+
+                <!-- 중앙 타이머 / 메시지 -->
+                <div class="flex flex-col items-center">
+                    <span id="turnTimer" class="text-xs font-mono font-bold text-amber-400">15s</span>
+                    <span id="statusText" class="text-xs text-slate-400 font-medium">흑돌의 차례입니다</span>
+                </div>
+
+                <!-- 백돌 플레이어 정보 -->
+                <div id="playerWhiteCard" class="flex items-center gap-2 px-3 py-1.5 rounded-lg border-2 border-transparent bg-slate-900/60 opacity-60 transition-all">
+                    <div class="w-4 h-4 rounded-full white-stone border border-slate-300"></div>
+                    <span id="whitePlayerName" class="text-sm font-semibold">백 (AI)</span>
                 </div>
             </div>
 
-            <!-- Start / Menu Overlay -->
-            <div id="startOverlay" class="absolute inset-0 bg-slate-950/85 backdrop-blur-md flex flex-col items-center justify-center p-6 text-center z-20">
-                <div class="w-16 h-16 bg-red-500/20 rounded-full flex items-center justify-center mb-3 border border-red-500/50 glow-red">
-                    <i class="fa-solid fa-crosshair text-3xl text-red-500"></i>
-                </div>
-                <h2 class="title-font text-3xl sm:text-4xl text-amber-400 mb-1">총림고수 (銃林高手)</h2>
-                <p class="text-xs text-slate-300 mb-5 max-w-xs leading-relaxed">
-                    추억의 죽림고수 컨트롤을 완벽 재현!<br>
-                    살아남을수록 <span class="text-amber-400 font-bold">포인트(골드)</span>가 적립됩니다.<br>
-                    상점에서 <span class="text-yellow-400 font-bold">3초 무적 방어막</span>을 구비해보세요!
-                </p>
-                <div class="flex flex-col gap-2.5 w-full max-w-xs">
-                    <button id="startBtn" class="w-full py-3.5 rounded-xl bg-gradient-to-r from-red-600 to-amber-600 hover:from-red-500 hover:to-amber-500 text-white font-black text-lg shadow-lg glow-red active:scale-95 transition-all flex items-center justify-center gap-2">
-                        <i class="fa-solid fa-play"></i> 게임 시작
-                    </button>
-                    <button id="openShopMenuBtn" class="w-full py-3 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-slate-950 font-black text-base shadow-lg glow-gold active:scale-95 transition-all flex items-center justify-center gap-2">
-                        <i class="fa-solid fa-store"></i> 무적 아이템 상점
-                    </button>
-                </div>
-            </div>
-
-            <!-- Game Over Overlay -->
-            <div id="gameOverOverlay" class="hidden absolute inset-0 bg-slate-950/90 backdrop-blur-md flex flex-col items-center justify-center p-6 text-center z-20">
-                <div class="text-xs font-bold text-red-400 tracking-widest uppercase mb-1">GAME OVER</div>
-                <h2 class="title-font text-3xl sm:text-4xl text-white mb-2">전사하셨습니다!</h2>
-                
-                <div class="bg-slate-900 border border-slate-800 rounded-xl p-4 my-3 w-full max-w-xs space-y-2">
-                    <div class="flex justify-between items-center text-sm">
-                        <span class="text-slate-400">이번 생존시간:</span>
-                        <span id="finalTime" class="font-mono text-xl font-black text-amber-400">00:00.00</span>
-                    </div>
-                    <div class="flex justify-between items-center text-xs">
-                        <span class="text-slate-400">획득한 골드:</span>
-                        <span class="font-mono text-amber-300 font-bold flex items-center gap-1">
-                            +<span id="earnedCoins">0</span> <i class="fa-solid fa-coins text-amber-400"></i>
-                        </span>
-                    </div>
-                    <div class="flex justify-between items-center text-xs pt-1 border-t border-slate-800">
-                        <span class="text-slate-500">최고 생존기록:</span>
-                        <span id="finalBest" class="font-mono text-slate-300">00:00.00</span>
-                    </div>
-                </div>
-
-                <div class="flex gap-2 w-full max-w-xs mb-2">
-                    <button id="restartBtn" class="flex-1 py-3 rounded-xl bg-gradient-to-r from-amber-500 to-red-600 text-white font-black text-base shadow-lg glow-red active:scale-95 transition flex items-center justify-center gap-1.5">
-                        <i class="fa-solid fa-rotate-right"></i> 재도전
-                    </button>
-                    <button id="gameOverShopBtn" class="flex-1 py-3 rounded-xl bg-amber-500 text-slate-950 font-black text-base shadow-lg hover:bg-amber-400 active:scale-95 transition flex items-center justify-center gap-1.5">
-                        <i class="fa-solid fa-store"></i> 상점
-                    </button>
-                </div>
-                <button id="shareBtn" class="w-full max-w-xs py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs border border-slate-700 active:scale-95 transition flex items-center justify-center gap-1">
-                    <i class="fa-regular fa-copy"></i> 기록 결과 복사
-                </button>
+            <!-- 바둑판 Canvas -->
+            <div class="board-container p-3 sm:p-5 rounded-b-2xl border-4 border-amber-800 relative">
+                <canvas id="boardCanvas" class="block rounded-md shadow-inner"></canvas>
             </div>
         </div>
 
-        <!-- Mobile Controls Area -->
-        <div id="mobileControls" class="w-full flex justify-between items-center mt-3 px-2">
-            <!-- Virtual Joystick Zone -->
-            <div id="joystickZone" class="relative w-28 h-28 sm:w-32 sm:h-32 bg-slate-900/80 border border-slate-800 rounded-full flex items-center justify-center touch-none">
-                <div id="joystickKnob" class="w-10 h-10 sm:w-12 sm:h-12 bg-amber-500/80 border border-amber-300 rounded-full shadow-lg absolute pointer-events-none transition-transform duration-75"></div>
+        <!-- 컨트롤 패널 -->
+        <div class="w-full lg:w-80 flex flex-col gap-4">
+            
+            <!-- 게임 모드 및 설정 카드 -->
+            <div class="bg-slate-800 rounded-2xl p-5 border border-slate-700 shadow-xl flex flex-col gap-4">
+                <h2 class="text-lg font-bold text-slate-200 border-b border-slate-700 pb-2 flex items-center gap-2">
+                    <i class="fa-solid fa-sliders text-amber-500"></i> 게임 설정
+                </h2>
+
+                <!-- 모드 선택 -->
+                <div class="flex flex-col gap-1.5">
+                    <label class="text-xs font-medium text-slate-400">대국 모드</label>
+                    <div class="grid grid-cols-2 gap-2">
+                        <button id="modePvP" class="py-2 px-3 rounded-xl border border-amber-500/50 bg-amber-500/10 text-amber-400 text-sm font-semibold transition-all">
+                            <i class="fa-solid fa-user-group mr-1"></i> 2인 대국
+                        </button>
+                        <button id="modeAi" class="py-2 px-3 rounded-xl border border-slate-600 bg-slate-700/50 text-slate-300 text-sm font-semibold transition-all hover:bg-slate-700">
+                            <i class="fa-solid fa-robot mr-1"></i> AI 대국
+                        </button>
+                    </div>
+                </div>
+
+                <!-- AI 난이도 설정 (AI 모드일 때만 활성화) -->
+                <div id="aiDifficultyGroup" class="flex flex-col gap-1.5 opacity-50 pointer-events-none transition-all">
+                    <label class="text-xs font-medium text-slate-400">AI 난이도 (5단계)</label>
+                    <div class="grid grid-cols-5 gap-1">
+                        <button data-diff="easy" class="diff-btn py-1.5 text-[11px] sm:text-xs rounded-lg border border-slate-600 bg-slate-700/50 text-slate-300 font-medium hover:bg-slate-700">초보</button>
+                        <button data-diff="med-low" class="diff-btn py-1.5 text-[11px] sm:text-xs rounded-lg border border-slate-600 bg-slate-700/50 text-slate-300 font-medium hover:bg-slate-700">하수</button>
+                        <button data-diff="normal" class="diff-btn py-1.5 text-[11px] sm:text-xs rounded-lg border border-amber-500 bg-amber-500/20 text-amber-400 font-medium">중수</button>
+                        <button data-diff="hard" class="diff-btn py-1.5 text-[11px] sm:text-xs rounded-lg border border-slate-600 bg-slate-700/50 text-slate-300 font-medium hover:bg-slate-700">고수</button>
+                        <button data-diff="expert" class="diff-btn py-1.5 text-[11px] sm:text-xs rounded-lg border border-slate-600 bg-slate-700/50 text-slate-300 font-medium hover:bg-slate-700">초고수</button>
+                    </div>
+                </div>
+
+                <!-- 보기 옵션 -->
+                <div class="flex justify-between items-center pt-1 border-t border-slate-700/50">
+                    <span class="text-sm font-medium text-slate-300">수순(번호) 표시</span>
+                    <label class="relative inline-flex items-center cursor-pointer">
+                        <input type="checkbox" id="toggleMoveNum" class="sr-only peer" checked>
+                        <div class="w-11 h-6 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-amber-500"></div>
+                    </label>
+                </div>
             </div>
 
-            <!-- Action Buttons Zone -->
-            <div class="flex items-center space-x-2">
-                <!-- Dash Button -->
-                <button id="dashBtn" class="w-20 h-20 sm:w-24 sm:h-24 rounded-full bg-gradient-to-tr from-cyan-600 to-blue-500 text-white font-black text-xs border-2 border-cyan-300 shadow-lg glow-cyan active:scale-90 transition flex flex-col items-center justify-center gap-1">
-                    <i class="fa-solid fa-bolt text-lg"></i>
-                    <span>대시</span>
+            <!-- 게임 액션 버튼 -->
+            <div class="bg-slate-800 rounded-2xl p-5 border border-slate-700 shadow-xl flex flex-col gap-3">
+                <button id="restartBtn" class="w-full py-3 bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white font-bold rounded-xl shadow-lg shadow-orange-950/40 active:scale-95 transition-all flex justify-center items-center gap-2">
+                    <i class="fa-solid fa-rotate-right"></i> 새 게임 시작 <span class="text-xs opacity-75 font-mono bg-black/20 px-1.5 py-0.5 rounded ml-1">[R]</span>
                 </button>
-                
-                <!-- Shield Button -->
-                <button id="shieldBtn" class="w-20 h-20 sm:w-24 sm:h-24 rounded-full bg-gradient-to-tr from-amber-500 via-yellow-400 to-orange-500 text-slate-950 font-black text-xs border-2 border-yellow-200 shadow-lg glow-shield active:scale-90 transition flex flex-col items-center justify-center gap-1">
-                    <i class="fa-solid fa-shield-halved text-xl"></i>
-                    <span>무적 (<span id="mobileShieldCount">0</span>)</span>
-                </button>
+
+                <div class="grid grid-cols-2 gap-2">
+                    <button id="undoBtn" class="py-2.5 bg-slate-700 hover:bg-slate-600 text-slate-200 font-semibold rounded-xl active:scale-95 transition-all flex justify-center items-center gap-1.5 border border-slate-600">
+                        <i class="fa-solid fa-rotate-left text-sm"></i> 무르기 <span class="text-[10px] opacity-75 font-mono bg-black/30 px-1 py-0.5 rounded">[U]</span>
+                    </button>
+                    <button id="hintBtn" class="py-2.5 bg-slate-700 hover:bg-slate-600 text-amber-400 font-semibold rounded-xl active:scale-95 transition-all flex justify-center items-center gap-1.5 border border-slate-600">
+                        <i class="fa-solid fa-lightbulb text-sm"></i> 힌트 보기 <span class="text-[10px] opacity-75 font-mono bg-black/30 px-1 py-0.5 rounded">[H]</span>
+                    </button>
+                </div>
             </div>
+
+            <!-- 게임 통계 / 경기 기록 -->
+            <div class="bg-slate-800 rounded-2xl p-4 border border-slate-700 shadow-xl flex justify-around text-center">
+                <div>
+                    <div class="text-xs text-slate-400">총 진행 수</div>
+                    <div id="totalMovesText" class="text-xl font-bold text-amber-400">0</div>
+                </div>
+                <div class="w-px bg-slate-700"></div>
+                <div>
+                    <div class="text-xs text-slate-400">흑 전적</div>
+                    <div id="blackScoreText" class="text-xl font-bold text-slate-200">0승</div>
+                </div>
+                <div class="w-px bg-slate-700"></div>
+                <div>
+                    <div class="text-xs text-slate-400">백 전적</div>
+                    <div id="whiteScoreText" class="text-xl font-bold text-slate-200">0승</div>
+                </div>
+            </div>
+
         </div>
     </main>
 
-    <!-- Footer Guide -->
-    <footer class="w-full max-w-xl text-center text-xs text-slate-500 my-2">
-        <p class="hidden sm:block">조작: <span class="text-amber-400 font-semibold">방향키/WASD</span> | <span class="text-cyan-400 font-semibold">Space</span> 대시 | <span class="text-yellow-400 font-semibold">Shift 또는 E</span> 3초 무적</p>
-        <p class="sm:hidden">조이스틱 이동 & 대시/무적 버튼을 이용하세요!</p>
+    <!-- 하단 푸터 -->
+    <footer class="mt-4 text-xs text-slate-500 text-center">
+        Classic Gomoku Game &copy; 2026. Made with HTML5 Canvas & Tailwind CSS.
     </footer>
 
-    <!-- Shop Modal -->
-    <div id="shopModal" class="hidden fixed inset-0 bg-slate-950/85 backdrop-blur-md z-50 flex items-center justify-center p-4">
-        <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-md w-full p-6 text-slate-200 shadow-2xl relative">
-            <div class="flex justify-between items-center mb-4 pb-3 border-b border-slate-800">
-                <h3 class="title-font text-2xl text-amber-400 flex items-center gap-2">
-                    <i class="fa-solid fa-store text-amber-500"></i> 무적 아이템 상점
+    <!-- 승리/결과 안내 모달 -->
+    <div id="resultModal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm flex justify-center items-center z-50 hidden opacity-0 transition-opacity duration-300">
+        <div class="bg-slate-800 border border-slate-700 rounded-3xl p-6 sm:p-8 max-w-sm w-full mx-4 text-center shadow-2xl transform scale-90 transition-transform duration-300" id="modalCard">
+            <div id="modalIconContainer" class="w-20 h-20 mx-auto mb-4 rounded-full flex justify-center items-center bg-amber-500/10 border-2 border-amber-500 text-amber-400">
+                <i id="modalIcon" class="fa-solid fa-trophy text-4xl"></i>
+            </div>
+            <h3 id="modalTitle" class="text-2xl font-bold text-slate-100 mb-2">흑돌 승리!</h3>
+            <p id="modalDesc" class="text-slate-400 text-sm mb-6">오목을 만들어 멋지게 승리하셨습니다.</p>
+            <button id="modalRestartBtn" class="w-full py-3 bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold rounded-xl active:scale-95 transition-all shadow-lg shadow-amber-500/20">
+                다시 하기
+            </button>
+        </div>
+    </div>
+
+    <!-- 규칙 및 도움말 모달 -->
+    <div id="helpModal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm flex justify-center items-center z-50 hidden opacity-0 transition-opacity duration-300">
+        <div class="bg-slate-800 border border-slate-700 rounded-3xl p-6 max-w-md w-full mx-4 shadow-2xl">
+            <div class="flex justify-between items-center border-b border-slate-700 pb-3 mb-4">
+                <h3 class="text-lg font-bold text-slate-100 flex items-center gap-2">
+                    <i class="fa-solid fa-book-open text-amber-500"></i> 오목 게임 규칙
                 </h3>
-                <button id="closeShopBtn" class="text-slate-400 hover:text-white p-2 text-lg">
-                    <i class="fa-solid fa-xmark"></i>
+                <button id="closeHelpBtn" class="text-slate-400 hover:text-slate-200">
+                    <i class="fa-solid fa-xmark text-xl"></i>
                 </button>
             </div>
-
-            <!-- Coin Status -->
-            <div class="bg-slate-950 border border-slate-800 rounded-xl p-3 mb-4 flex justify-between items-center">
-                <span class="text-xs text-slate-400">보유 골드:</span>
-                <div class="flex items-center space-x-1">
-                    <i class="fa-solid fa-coins text-amber-400"></i>
-                    <span id="shopCoinDisplay" class="font-mono font-bold text-amber-300 text-lg">0</span>
+            <div class="text-sm text-slate-300 space-y-3 leading-relaxed max-h-80 overflow-y-auto pr-1">
+                <p><strong>1. 기본 규칙:</strong> 가로, 세로, 대각선 중 어느 방향으로든 **자신의 돌 5개**를 먼저 연속으로 나열하는 사람이 승리합니다.</p>
+                <p><strong>2. 진행 순서:</strong> 흑돌이 먼저 착수하며, 백돌과 교대로 바둑판의 교차점에 돌을 놓습니다.</p>
+                <p><strong>3. 삼삼 (3x3) 금수:</strong> 본 게임에서는 흑돌의 가로, 세로, 대각선 방향 열린 3-3 동시 금지 규칙이 기본 적용되어 더 흥미로운 대국이 가능합니다.</p>
+                <p><strong>4. AI 모드:</strong> AI 대국 모드에서는 AI 난이도를 언제든지 변경하여 플레이할 수 있습니다.</p>
+                <div class="pt-2 border-t border-slate-700">
+                    <p class="font-bold text-amber-400 mb-1"><i class="fa-solid fa-keyboard mr-1"></i> 단축키 안내</p>
+                    <ul class="grid grid-cols-2 gap-1 text-xs text-slate-400">
+                        <li><kbd class="px-1 py-0.5 bg-slate-700 text-slate-200 rounded">R</kbd> : 새 게임 시작</li>
+                        <li><kbd class="px-1 py-0.5 bg-slate-700 text-slate-200 rounded">U</kbd> / <kbd class="px-1 py-0.5 bg-slate-700 text-slate-200 rounded">Ctrl+Z</kbd> : 무르기</li>
+                        <li><kbd class="px-1 py-0.5 bg-slate-700 text-slate-200 rounded">H</kbd> : 힌트 보기</li>
+                        <li><kbd class="px-1 py-0.5 bg-slate-700 text-slate-200 rounded">N</kbd> : 수순 표시 토글</li>
+                        <li><kbd class="px-1 py-0.5 bg-slate-700 text-slate-200 rounded">M</kbd> : 소리 On/Off</li>
+                        <li><kbd class="px-1 py-0.5 bg-slate-700 text-slate-200 rounded">Esc</kbd> : 팝업 닫기</li>
+                    </ul>
                 </div>
             </div>
-
-            <!-- Shop Items List -->
-            <div class="space-y-3 mb-6">
-                <!-- Item 1: 3-Second Shield -->
-                <div class="bg-slate-800/80 border border-amber-500/30 rounded-xl p-4 flex items-center justify-between">
-                    <div class="flex items-center space-x-3">
-                        <div class="w-12 h-12 bg-yellow-500/20 border border-yellow-400/50 rounded-xl flex items-center justify-center text-yellow-400 text-2xl shadow">
-                            <i class="fa-solid fa-shield-halved"></i>
-                        </div>
-                        <div>
-                            <h4 class="font-bold text-sm text-yellow-300">3초 무적 방어막</h4>
-                            <p class="text-[11px] text-slate-400 leading-tight">사용 시 3초 동안 모든 총알 무시 & 파괴</p>
-                            <p class="text-[10px] text-slate-500 mt-1">보유량: <span id="shopShieldInventory" class="font-bold text-yellow-400">0</span>개</p>
-                        </div>
-                    </div>
-                    <button id="buyShieldBtn" class="bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-slate-950 font-black px-3.5 py-2 rounded-xl text-xs shadow glow-gold active:scale-95 transition flex items-center gap-1">
-                        <span>100</span>
-                        <i class="fa-solid fa-coins text-xs"></i>
-                    </button>
-                </div>
-            </div>
-
-            <div class="text-[11px] text-slate-400 bg-slate-950/50 p-2.5 rounded-lg border border-slate-800 mb-4">
-                💡 <span class="text-slate-300">Tip:</span> 생존 시간 1초당 <strong>10 골드</strong>가 적립됩니다! (10초 버틸 시 100골드)
-            </div>
-
-            <button id="closeShopBtn2" class="w-full py-3 bg-slate-800 hover:bg-slate-700 text-white font-bold text-sm rounded-xl border border-slate-700">
-                게임으로 돌아가기
-            </button>
         </div>
     </div>
 
-    <!-- Help Modal -->
-    <div id="helpModal" class="hidden fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-        <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-sm w-full p-6 text-slate-200">
-            <h3 class="title-font text-xl text-amber-400 mb-3 flex items-center gap-2">
-                <i class="fa-solid fa-circle-info"></i> 게임 특징 & 조작
-            </h3>
-            <ul class="text-xs space-y-2.5 text-slate-300 mb-6 leading-relaxed">
-                <li class="flex items-start gap-2">
-                    <span class="text-amber-400 font-bold">•</span>
-                    <span><strong>이동:</strong> 방향키 / WASD / 모바일 터치 조이스틱</span>
-                </li>
-                <li class="flex items-start gap-2">
-                    <span class="text-cyan-400 font-bold">•</span>
-                    <span><strong>대시 스킬(Space):</strong> 짧고 신속하게 이동 (쿨타임 1.5초)</span>
-                </li>
-                <li class="flex items-start gap-2">
-                    <span class="text-yellow-400 font-bold">•</span>
-                    <span><strong>3초 무적 스킬(Shift / E):</strong> 상점에서 구매한 무적 방어막을 발동합니다. 3초간 모든 탄환을 소멸시킵니다.</span>
-                </li>
-                <li class="flex items-start gap-2">
-                    <span class="text-emerald-400 font-bold">•</span>
-                    <span><strong>골드 시스템:</strong> 버틴 시간만큼 쌓인 골드로 언제든지 무적 아이템을 추가 구매하세요!</span>
-                </li>
-            </ul>
-            <button id="closeHelpBtn" class="w-full py-2.5 bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs rounded-xl border border-slate-700">
-                확인
-            </button>
-        </div>
-    </div>
-
-    <!-- Toast Notification -->
-    <div id="toast" class="fixed bottom-6 left-1/2 transform -translate-x-1/2 bg-slate-800 border border-slate-700 text-white px-4 py-2 rounded-full shadow-2xl text-xs opacity-0 pointer-events-none transition-opacity duration-300 z-50 flex items-center gap-2">
-        <i class="fa-solid fa-circle-check text-emerald-400" id="toastIcon"></i>
-        <span id="toastMsg">알림 메세지</span>
-    </div>
-
-    <!-- Game Logic Engine -->
+    <!-- 게임 핵심 로직 및 인터랙션 Script -->
     <script>
-        // Web Audio Synthesizer
-        class SoundSystem {
-            constructor() {
-                this.ctx = null;
-                this.enabled = true;
-            }
+        // --- 게임 전역 상수 및 상태 변수 ---
+        const BOARD_SIZE = 15; // 15x15 오목판
+        let board = Array(BOARD_SIZE).fill(null).map(() => Array(BOARD_SIZE).fill(0)); // 0: 빈칸, 1: 흑, 2: 백
+        let moveHistory = []; // 수순 기록 [{r, c, color}]
+        let currentPlayer = 1; // 1: 흑, 2: 백
+        let isGameOver = false;
+        let isAiMode = false;
+        let aiDifficulty = 'normal'; // 'easy', 'med-low', 'normal', 'hard', 'expert'
+        let showMoveNumbers = true;
+        let hintPos = null;
+        let soundEnabled = true;
 
-            init() {
-                if (!this.ctx) {
-                    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
-                    if (AudioContextClass) this.ctx = new AudioContextClass();
-                }
-                if (this.ctx && this.ctx.state === 'suspended') {
-                    this.ctx.resume();
-                }
-            }
+        // 스코어 통계
+        let stats = { blackWins: 0, whiteWins: 0 };
 
-            playShootSound() {
-                if (!this.enabled || !this.ctx) return;
-                try {
-                    const osc = this.ctx.createOscillator();
-                    const gain = this.ctx.createGain();
-                    osc.type = 'sawtooth';
-                    osc.frequency.setValueAtTime(400, this.ctx.currentTime);
-                    osc.frequency.exponentialRampToValueAtTime(50, this.ctx.currentTime + 0.04);
-                    gain.gain.setValueAtTime(0.025, this.ctx.currentTime);
-                    gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.04);
-                    osc.connect(gain);
-                    gain.connect(this.ctx.destination);
-                    osc.start();
-                    osc.stop(this.ctx.currentTime + 0.04);
-                } catch(e) {}
-            }
+        // 타이머 관련 Variables
+        let timerInterval = null;
+        let timeLeft = 15;
+        const TURN_TIME_LIMIT = 15;
 
-            playHitSound() {
-                if (!this.enabled || !this.ctx) return;
-                try {
-                    const osc = this.ctx.createOscillator();
-                    const gain = this.ctx.createGain();
-                    osc.type = 'square';
-                    osc.frequency.setValueAtTime(120, this.ctx.currentTime);
-                    osc.frequency.exponentialRampToValueAtTime(20, this.ctx.currentTime + 0.25);
-                    gain.gain.setValueAtTime(0.2, this.ctx.currentTime);
-                    gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.25);
-                    osc.connect(gain);
-                    gain.connect(this.ctx.destination);
-                    osc.start();
-                    osc.stop(this.ctx.currentTime + 0.25);
-                } catch(e) {}
-            }
-
-            playDashSound() {
-                if (!this.enabled || !this.ctx) return;
-                try {
-                    const osc = this.ctx.createOscillator();
-                    const gain = this.ctx.createGain();
-                    osc.type = 'sine';
-                    osc.frequency.setValueAtTime(350, this.ctx.currentTime);
-                    osc.frequency.linearRampToValueAtTime(700, this.ctx.currentTime + 0.08);
-                    gain.gain.setValueAtTime(0.07, this.ctx.currentTime);
-                    gain.gain.linearRampToValueAtTime(0.001, this.ctx.currentTime + 0.08);
-                    osc.connect(gain);
-                    gain.connect(this.ctx.destination);
-                    osc.start();
-                    osc.stop(this.ctx.currentTime + 0.08);
-                } catch(e) {}
-            }
-
-            playShieldSound() {
-                if (!this.enabled || !this.ctx) return;
-                try {
-                    const osc = this.ctx.createOscillator();
-                    const gain = this.ctx.createGain();
-                    osc.type = 'triangle';
-                    osc.frequency.setValueAtTime(300, this.ctx.currentTime);
-                    osc.frequency.exponentialRampToValueAtTime(900, this.ctx.currentTime + 0.2);
-                    gain.gain.setValueAtTime(0.15, this.ctx.currentTime);
-                    gain.gain.linearRampToValueAtTime(0.001, this.ctx.currentTime + 0.2);
-                    osc.connect(gain);
-                    gain.connect(this.ctx.destination);
-                    osc.start();
-                    osc.stop(this.ctx.currentTime + 0.2);
-                } catch(e) {}
-            }
-
-            playBuySound() {
-                if (!this.enabled || !this.ctx) return;
-                try {
-                    const osc = this.ctx.createOscillator();
-                    const gain = this.ctx.createGain();
-                    osc.type = 'sine';
-                    osc.frequency.setValueAtTime(523.25, this.ctx.currentTime); // C5
-                    osc.frequency.setValueAtTime(659.25, this.ctx.currentTime + 0.08); // E5
-                    gain.gain.setValueAtTime(0.1, this.ctx.currentTime);
-                    gain.gain.linearRampToValueAtTime(0.001, this.ctx.currentTime + 0.2);
-                    osc.connect(gain);
-                    gain.connect(this.ctx.destination);
-                    osc.start();
-                    osc.stop(this.ctx.currentTime + 0.2);
-                } catch(e) {}
-            }
-        }
-
-        const sounds = new SoundSystem();
-
-        // Canvas Setup
-        const canvas = document.getElementById('gameCanvas');
+        // Canvas 및 Rendering 관련
+        const canvas = document.getElementById('boardCanvas');
         const ctx = canvas.getContext('2d');
+        let cellSize = 0;
+        let padding = 0;
 
-        let isPlaying = false;
-        let startTime = 0;
-        let elapsedTime = 0;
-        let animationFrameId = null;
-
-        // Save Data State
-        let bestScore = parseFloat(localStorage.getItem('gun_forest_best') || '0');
-        let coins = parseInt(localStorage.getItem('gun_forest_coins') || '0', 10);
-        let shieldInventory = parseInt(localStorage.getItem('gun_forest_shields') || '1', 10); // Start with 1 free shield
-
-        // Input Management
-        const keys = {};
-        let joystickVector = { x: 0, y: 0 };
-
-        // Player Parameters
-        const DASH_COOLDOWN_MAX = 90; // ~1.5s
-        const SHIELD_DURATION_MAX = 180; // 3 seconds at 60fps
-        const SHIELD_PRICE = 100;
-
-        const player = {
-            x: 0,
-            y: 0,
-            radius: 5,
-            speed: 3.8,
-            dashCooldown: 0,
-            isDashing: false,
-            dashTimer: 0,
-            isShieldActive: false,
-            shieldTimer: 0,
-            trail: []
-        };
-
-        let bullets = [];
-        let particles = [];
-
-        // DOM Elements
-        const timeDisplay = document.getElementById('timeDisplay');
-        const bestTimeDisplay = document.getElementById('bestTimeDisplay');
-        const coinDisplay = document.getElementById('coinDisplay');
-        const shieldCountDisplay = document.getElementById('shieldCountDisplay');
-        const mobileShieldCount = document.getElementById('mobileShieldCount');
-        const shopCoinDisplay = document.getElementById('shopCoinDisplay');
-        const shopShieldInventory = document.getElementById('shopShieldInventory');
-
-        const startOverlay = document.getElementById('startOverlay');
-        const gameOverOverlay = document.getElementById('gameOverOverlay');
-        const startBtn = document.getElementById('startBtn');
-        const restartBtn = document.getElementById('restartBtn');
-        const finalTime = document.getElementById('finalTime');
-        const finalBest = document.getElementById('finalBest');
-        const earnedCoins = document.getElementById('earnedCoins');
-
-        const openShopHeaderBtn = document.getElementById('openShopHeaderBtn');
-        const openShopMenuBtn = document.getElementById('openShopMenuBtn');
-        const gameOverShopBtn = document.getElementById('gameOverShopBtn');
-        const shopModal = document.getElementById('shopModal');
-        const closeShopBtn = document.getElementById('closeShopBtn');
-        const closeShopBtn2 = document.getElementById('closeShopBtn2');
-        const buyShieldBtn = document.getElementById('buyShieldBtn');
-
-        const shareBtn = document.getElementById('shareBtn');
-        const helpBtn = document.getElementById('helpBtn');
-        const helpModal = document.getElementById('helpModal');
-        const closeHelpBtn = document.getElementById('closeHelpBtn');
-        const soundToggleBtn = document.getElementById('soundToggleBtn');
-        const soundIcon = document.getElementById('soundIcon');
-
-        const dashBtn = document.getElementById('dashBtn');
-        const shieldBtn = document.getElementById('shieldBtn');
-        const dashBar = document.getElementById('dashBar');
-        const shieldActiveBar = document.getElementById('shieldActiveBar');
-
-        const joystickZone = document.getElementById('joystickZone');
-        const joystickKnob = document.getElementById('joystickKnob');
-
-        // Sync Saved UI Data
-        function updateUI() {
-            bestTimeDisplay.textContent = formatTime(bestScore);
-            coinDisplay.textContent = coins.toLocaleString();
-            shopCoinDisplay.textContent = coins.toLocaleString();
-            shieldCountDisplay.textContent = shieldInventory;
-            mobileShieldCount.textContent = shieldInventory;
-            shopShieldInventory.textContent = shieldInventory;
-
-            localStorage.setItem('gun_forest_coins', coins.toString());
-            localStorage.setItem('gun_forest_shields', shieldInventory.toString());
+        // --- Tone.js 사운드 효과 설정 ---
+        let synth = null;
+        function initSound() {
+            if (!synth && typeof Tone !== 'undefined') {
+                synth = new Tone.PolySynth(Tone.Synth, {
+                    oscillator: { type: 'sine' },
+                    envelope: { attack: 0.005, decay: 0.1, sustain: 0, release: 0.1 }
+                }).toDestination();
+                synth.volume.value = -12;
+            }
         }
 
+        function playStoneSound(player) {
+            if (!soundEnabled) return;
+            try {
+                if (Tone.context.state !== 'running') Tone.start();
+                initSound();
+                if (synth) {
+                    const note = player === 1 ? 'C4' : 'G4';
+                    synth.triggerAttackRelease(note, '16n');
+                }
+            } catch (e) {
+                console.warn('Audio playback error:', e);
+            }
+        }
+
+        function playWinSound() {
+            if (!soundEnabled) return;
+            try {
+                if (Tone.context.state !== 'running') Tone.start();
+                initSound();
+                if (synth) {
+                    const now = Tone.now();
+                    synth.triggerAttackRelease('C5', '8n', now);
+                    synth.triggerAttackRelease('E5', '8n', now + 0.1);
+                    synth.triggerAttackRelease('G5', '8n', now + 0.2);
+                    synth.triggerAttackRelease('C6', '4n', now + 0.3);
+                }
+            } catch (e) {
+                console.warn('Audio playback error:', e);
+            }
+        }
+
+        // --- Canvas 크기 조절 및 렌더링 ---
         function resizeCanvas() {
-            const rect = canvas.getBoundingClientRect();
-            canvas.width = rect.width;
-            canvas.height = rect.height;
-            if (!isPlaying) {
-                player.x = canvas.width / 2;
-                player.y = canvas.height / 2;
-            }
-        }
-        window.addEventListener('resize', resizeCanvas);
-        resizeCanvas();
-        updateUI();
-
-        function formatTime(seconds) {
-            const mins = Math.floor(seconds / 60);
-            const secs = Math.floor(seconds % 60);
-            const ms = Math.floor((seconds % 1) * 100);
-            return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}.${ms.toString().padStart(2, '0')}`;
-        }
-
-        // Keyboard Handlers
-        window.addEventListener('keydown', (e) => {
-            keys[e.code] = true;
-            if (isPlaying) {
-                if (e.code === 'Space') {
-                    e.preventDefault();
-                    triggerDash();
-                } else if (e.code === 'ShiftLeft' || e.code === 'ShiftRight' || e.code === 'KeyE') {
-                    e.preventDefault();
-                    triggerShield();
-                }
-            }
-        });
-
-        window.addEventListener('keyup', (e) => {
-            keys[e.code] = false;
-        });
-
-        // Touch Joystick Controls
-        let joystickActive = false;
-        let joystickCenter = { x: 0, y: 0 };
-
-        joystickZone.addEventListener('touchstart', (e) => {
-            joystickActive = true;
-            const rect = joystickZone.getBoundingClientRect();
-            joystickCenter = { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
-            handleJoystickMove(e.touches[0]);
-        });
-
-        window.addEventListener('touchmove', (e) => {
-            if (joystickActive) {
-                handleJoystickMove(e.touches[0]);
-            }
-        });
-
-        window.addEventListener('touchend', () => {
-            if (joystickActive) {
-                joystickActive = false;
-                joystickVector = { x: 0, y: 0 };
-                joystickKnob.style.transform = `translate(0px, 0px)`;
-            }
-        });
-
-        function handleJoystickMove(touch) {
-            const dx = touch.clientX - joystickCenter.x;
-            const dy = touch.clientY - joystickCenter.y;
-            const maxRadius = 38;
-            const distance = Math.hypot(dx, dy);
+            // 모바일 및 데스크톱에 반응형으로 캔버스 크기 계산
+            const maxBoardWidth = Math.min(window.innerWidth - 40, 520);
+            const size = Math.max(280, maxBoardWidth);
             
-            const angle = Math.atan2(dy, dx);
-            const moveRadius = Math.min(distance, maxRadius);
+            canvas.width = size;
+            canvas.height = size;
 
-            const knobX = Math.cos(angle) * moveRadius;
-            const knobY = Math.sin(angle) * moveRadius;
+            padding = size / (BOARD_SIZE + 1);
+            cellSize = (size - padding * 2) / (BOARD_SIZE - 1);
 
-            joystickKnob.style.transform = `translate(${knobX}px, ${knobY}px)`;
-            joystickVector = {
-                x: knobX / maxRadius,
-                y: knobY / maxRadius
-            };
+            drawBoard();
         }
 
-        dashBtn.addEventListener('click', () => { if (isPlaying) triggerDash(); });
-        shieldBtn.addEventListener('click', () => { if (isPlaying) triggerShield(); });
-
-        function triggerDash() {
-            if (player.dashCooldown <= 0) {
-                sounds.init();
-                player.isDashing = true;
-                player.dashTimer = 8;
-                player.dashCooldown = DASH_COOLDOWN_MAX;
-                sounds.playDashSound();
-
-                for (let i = 0; i < 8; i++) {
-                    particles.push({
-                        x: player.x,
-                        y: player.y,
-                        vx: (Math.random() - 0.5) * 5,
-                        vy: (Math.random() - 0.5) * 5,
-                        radius: Math.random() * 3 + 1,
-                        color: '#06b6d4',
-                        life: 15
-                    });
-                }
-            }
-        }
-
-        function triggerShield() {
-            if (player.isShieldActive) {
-                showToast("이미 방어막이 활성화되어 있습니다!");
-                return;
-            }
-
-            if (shieldInventory > 0) {
-                sounds.init();
-                shieldInventory--;
-                player.isShieldActive = true;
-                player.shieldTimer = SHIELD_DURATION_MAX;
-                sounds.playShieldSound();
-                updateUI();
-                showToast("🛡️ 3초 무적 방어막 발동!");
-
-                // Shield Activation Burst
-                for (let i = 0; i < 20; i++) {
-                    const ang = (Math.PI * 2 / 20) * i;
-                    particles.push({
-                        x: player.x + Math.cos(ang) * 15,
-                        y: player.y + Math.sin(ang) * 15,
-                        vx: Math.cos(ang) * 3,
-                        vy: Math.sin(ang) * 3,
-                        radius: 3,
-                        color: '#eab308',
-                        life: 25
-                    });
-                }
-            } else {
-                showToast("보유한 무적 방어막이 없습니다! 상점에서 구매하세요.");
-            }
-        }
-
-        // Bullet Spawner
-        function spawnBullet() {
-            const side = Math.floor(Math.random() * 4);
-            let x, y;
-
-            if (side === 0) { x = Math.random() * canvas.width; y = -15; }
-            else if (side === 1) { x = canvas.width + 15; y = Math.random() * canvas.height; }
-            else if (side === 2) { x = Math.random() * canvas.width; y = canvas.height + 15; }
-            else { x = -15; y = Math.random() * canvas.height; }
-
-            const speedScale = Math.min(elapsedTime * 0.02, 1.5);
-            const baseSpeed = Math.random() * 1.2 + 1.5 + speedScale;
-
-            const angle = Math.atan2(player.y - y, player.x - x) + (Math.random() - 0.5) * 0.65;
-
-            let type = 'normal';
-            let radius = 3;
-            let color = '#ef4444';
-
-            const rand = Math.random();
-            if (rand < 0.12 && elapsedTime > 10) {
-                type = 'heavy';
-                radius = 5.5;
-                color = '#a855f7';
-            } else if (rand < 0.22 && elapsedTime > 18) {
-                type = 'homing';
-                radius = 3;
-                color = '#f97316';
-            }
-
-            bullets.push({
-                x, y,
-                vx: Math.cos(angle) * baseSpeed,
-                vy: Math.sin(angle) * baseSpeed,
-                radius,
-                color,
-                type,
-                life: 0
-            });
-
-            if (Math.random() < 0.08) sounds.playShootSound();
-        }
-
-        // Game Initialization
-        function startGame() {
-            sounds.init();
-            isPlaying = true;
-            startTime = performance.now();
-            elapsedTime = 0;
-            bullets = [];
-            particles = [];
-            
-            player.x = canvas.width / 2;
-            player.y = canvas.height / 2;
-            player.dashCooldown = 0;
-            player.isDashing = false;
-            player.isShieldActive = false;
-            player.shieldTimer = 0;
-            player.trail = [];
-
-            startOverlay.classList.add('hidden');
-            gameOverOverlay.classList.add('hidden');
-            shopModal.classList.add('hidden');
-
-            cancelAnimationFrame(animationFrameId);
-            gameLoop();
-        }
-
-        // Game Over Handler
-        function gameOver() {
-            isPlaying = false;
-            sounds.playHitSound();
-
-            const earned = Math.floor(elapsedTime * 10); // 10 Coins per second
-            coins += earned;
-
-            if (elapsedTime > bestScore) {
-                bestScore = elapsedTime;
-                localStorage.setItem('gun_forest_best', bestScore.toString());
-                showToast("🎉 최고 생존 기록 경신!");
-            }
-
-            updateUI();
-
-            finalTime.textContent = formatTime(elapsedTime);
-            earnedCoins.textContent = earned.toLocaleString();
-            finalBest.textContent = formatTime(bestScore);
-            gameOverOverlay.classList.remove('hidden');
-
-            // Death Particle Explosion
-            for (let i = 0; i < 25; i++) {
-                particles.push({
-                    x: player.x,
-                    y: player.y,
-                    vx: (Math.random() - 0.5) * 7,
-                    vy: (Math.random() - 0.5) * 7,
-                    radius: Math.random() * 4 + 2,
-                    color: i % 2 === 0 ? '#ef4444' : '#f59e0b',
-                    life: 35
-                });
-            }
-        }
-
-        // Main Loop
-        function gameLoop() {
+        function drawBoard() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-            if (isPlaying) {
-                elapsedTime = (performance.now() - startTime) / 1000;
-                timeDisplay.textContent = formatTime(elapsedTime);
+            // 1. 선 그리기
+            ctx.strokeStyle = '#5c3a21';
+            ctx.lineWidth = 1.2;
 
-                // Controlled Spawn Rate
-                const spawnRate = Math.min(0.18, 0.08 + elapsedTime * 0.002);
-                if (Math.random() < spawnRate) {
-                    spawnBullet();
-                }
+            for (let i = 0; i < BOARD_SIZE; i++) {
+                // 가로선
+                ctx.beginPath();
+                ctx.moveTo(padding, padding + i * cellSize);
+                ctx.lineTo(canvas.width - padding, padding + i * cellSize);
+                ctx.stroke();
 
-                // Player Movement Calculation
-                let moveX = 0;
-                let moveY = 0;
-
-                if (keys['ArrowLeft'] || keys['KeyA']) moveX -= 1;
-                if (keys['ArrowRight'] || keys['KeyD']) moveX += 1;
-                if (keys['ArrowUp'] || keys['KeyW']) moveY -= 1;
-                if (keys['ArrowDown'] || keys['KeyS']) moveY += 1;
-
-                if (joystickVector.x !== 0 || joystickVector.y !== 0) {
-                    moveX = joystickVector.x;
-                    moveY = joystickVector.y;
-                }
-
-                if (moveX !== 0 && moveY !== 0 && joystickVector.x === 0) {
-                    moveX *= 0.7071;
-                    moveY *= 0.7071;
-                }
-
-                let currentSpeed = player.speed;
-                if (player.isDashing) {
-                    currentSpeed *= 2.6;
-                    player.dashTimer--;
-                    if (player.dashTimer <= 0) player.isDashing = false;
-                }
-
-                if (player.dashCooldown > 0) player.dashCooldown--;
-
-                // Update Shield Active Duration
-                if (player.isShieldActive) {
-                    player.shieldTimer--;
-                    if (player.shieldTimer <= 0) {
-                        player.isShieldActive = false;
-                        showToast("방어막이 해제되었습니다.");
-                    }
-                }
-                
-                // HUD Gauges
-                const dashPercent = Math.max(0, 100 - (player.dashCooldown / DASH_COOLDOWN_MAX) * 100);
-                dashBar.style.width = `${dashPercent}%`;
-
-                const shieldPercent = (player.shieldTimer / SHIELD_DURATION_MAX) * 100;
-                shieldActiveBar.style.width = `${shieldPercent}%`;
-
-                player.x += moveX * currentSpeed;
-                player.y += moveY * currentSpeed;
-
-                player.x = Math.max(player.radius + 2, Math.min(canvas.width - player.radius - 2, player.x));
-                player.y = Math.max(player.radius + 2, Math.min(canvas.height - player.radius - 2, player.y));
-
-                player.trail.push({ x: player.x, y: player.y, alpha: 0.5 });
-                if (player.trail.length > (player.isDashing ? 8 : 4)) player.trail.shift();
+                // 세로선
+                ctx.beginPath();
+                ctx.moveTo(padding + i * cellSize, padding);
+                ctx.lineTo(padding + i * cellSize, canvas.height - padding);
+                ctx.stroke();
             }
 
-            // Draw Bamboo Background
-            drawBambooBackground();
-
-            // Render Player Trail
-            player.trail.forEach((t, i) => {
-                ctx.beginPath();
-                ctx.arc(t.x, t.y, player.radius * (i / player.trail.length), 0, Math.PI * 2);
-                ctx.fillStyle = player.isShieldActive 
-                    ? `rgba(234, 179, 8, ${t.alpha})` 
-                    : (player.isDashing ? `rgba(6, 182, 212, ${t.alpha})` : `rgba(245, 158, 11, ${t.alpha})`);
-                ctx.fill();
-                t.alpha -= 0.04;
+            // 2. 화점(Star points) 그리기 (3, 7, 11 번 위치)
+            const starPoints = [3, 7, 11];
+            ctx.fillStyle = '#5c3a21';
+            starPoints.forEach(r => {
+                starPoints.forEach(c => {
+                    const x = padding + c * cellSize;
+                    const y = padding + r * cellSize;
+                    ctx.beginPath();
+                    ctx.arc(x, y, cellSize * 0.1, 0, Math.PI * 2);
+                    ctx.fill();
+                });
             });
 
-            // Render Player Character & Shield Effect
-            ctx.save();
-            ctx.translate(player.x, player.y);
+            // 3. 놓여진 돌 그리기
+            for (let r = 0; r < BOARD_SIZE; r++) {
+                for (let c = 0; c < BOARD_SIZE; c++) {
+                    if (board[r][c] !== 0) {
+                        drawStone(r, c, board[r][c]);
+                    }
+                }
+            }
 
-            // Active Invincibility Shield Ring
-            if (player.isShieldActive) {
-                const pulseRadius = player.radius + 12 + Math.sin(Date.now() * 0.01) * 2;
-                ctx.beginPath();
-                ctx.arc(0, 0, pulseRadius, 0, Math.PI * 2);
-                ctx.fillStyle = 'rgba(234, 179, 8, 0.25)';
-                ctx.fill();
-                ctx.strokeStyle = '#facc15';
+            // 4. 수순(번호) 표시
+            if (showMoveNumbers) {
+                moveHistory.forEach((move, index) => {
+                    const x = padding + move.c * cellSize;
+                    const y = padding + move.r * cellSize;
+                    ctx.fillStyle = move.color === 1 ? '#ffffff' : '#000000';
+                    ctx.font = `bold ${cellSize * 0.4}px sans-serif`;
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText(index + 1, x, y);
+                });
+            }
+
+            // 5. 마지막 착수 지점 하이라이트 표시
+            if (moveHistory.length > 0) {
+                const lastMove = moveHistory[moveHistory.length - 1];
+                const lx = padding + lastMove.c * cellSize;
+                const ly = padding + lastMove.r * cellSize;
+
+                ctx.strokeStyle = '#ef4444'; // 빨간색 하이라이트 링
                 ctx.lineWidth = 2.5;
-                ctx.setLineDash([4, 4]);
+                ctx.beginPath();
+                ctx.arc(lx, ly, cellSize * 0.25, 0, Math.PI * 2);
                 ctx.stroke();
-                ctx.setLineDash([]);
             }
 
-            // Gat (Hat)
-            ctx.beginPath();
-            ctx.arc(0, 0, player.radius + 5, 0, Math.PI * 2);
-            ctx.fillStyle = '#1e293b';
-            ctx.fill();
-            ctx.strokeStyle = player.isShieldActive ? '#facc15' : (player.isDashing ? '#06b6d4' : '#f59e0b');
-            ctx.lineWidth = 1.5;
-            ctx.stroke();
+            // 6. 힌트 하이라이트 표시
+            if (hintPos) {
+                const hx = padding + hintPos.c * cellSize;
+                const hy = padding + hintPos.r * cellSize;
+                ctx.strokeStyle = '#10b981'; // 에메랄드 그린
+                ctx.lineWidth = 3;
+                ctx.beginPath();
+                ctx.arc(hx, hy, cellSize * 0.35, 0, Math.PI * 2);
+                ctx.stroke();
+            }
+        }
 
-            // Gat Inner Top
-            ctx.beginPath();
-            ctx.arc(0, 0, player.radius - 1, 0, Math.PI * 2);
-            ctx.fillStyle = '#0f172a';
-            ctx.fill();
+        // 입체적인 돌 입체 그리기
+        function drawStone(r, c, color) {
+            const x = padding + c * cellSize;
+            const y = padding + r * cellSize;
+            const radius = cellSize * 0.43;
 
+            ctx.save();
+            ctx.beginPath();
+            ctx.arc(x, y, radius, 0, Math.PI * 2);
+
+            // 입체 그라데이션 적용
+            const grad = ctx.createRadialGradient(
+                x - radius * 0.3, y - radius * 0.3, radius * 0.1,
+                x, y, radius
+            );
+
+            if (color === 1) { // 흑돌
+                grad.addColorStop(0, '#666666');
+                grad.addColorStop(0.8, '#111111');
+                grad.addColorStop(1, '#000000');
+            } else { // 백돌
+                grad.addColorStop(0, '#ffffff');
+                grad.addColorStop(0.8, '#e6e6e6');
+                grad.addColorStop(1, '#d1d1d1');
+            }
+
+            // 돌 그림자
+            ctx.shadowColor = 'rgba(0, 0, 0, 0.4)';
+            ctx.shadowBlur = 6;
+            ctx.shadowOffsetX = 2;
+            ctx.shadowOffsetY = 3;
+
+            ctx.fillStyle = grad;
+            ctx.fill();
             ctx.restore();
+        }
 
-            // Bullets Logic & Render
-            for (let i = bullets.length - 1; i >= 0; i--) {
-                const b = bullets[i];
-                b.x += b.vx;
-                b.y += b.vy;
-                b.life++;
+        // --- 오목 핵심 판정 로직 ---
+        function checkWin(r, c, player) {
+            const dirs = [
+                [[0, 1], [0, -1]],  // 가로
+                [[1, 0], [-1, 0]],  // 세로
+                [[1, 1], [-1, -1]], // 대각선 ↘
+                [[1, -2], [-1, 1]]  // 대각선 ↗ (수정된 방향)
+            ];
 
-                if (b.type === 'homing' && b.life < 65) {
-                    const angle = Math.atan2(player.y - b.y, player.x - b.x);
-                    b.vx += Math.cos(angle) * 0.04;
-                    b.vy += Math.sin(angle) * 0.04;
-                    const spd = Math.hypot(b.vx, b.vy);
-                    if (spd > 2.7) {
-                        b.vx = (b.vx / spd) * 2.7;
-                        b.vy = (b.vy / spd) * 2.7;
+            const realDirs = [
+                [[0, 1], [0, -1]],   // 가로
+                [[1, 0], [-1, 0]],   // 세로
+                [[1, 1], [-1, -1]],  // 대각선 ↘
+                [[1, -1], [-1, 1]]   // 대각선 ↗
+            ];
+
+            for (let d = 0; d < realDirs.length; d++) {
+                let count = 1;
+                for (let i = 0; i < 2; i++) {
+                    const [dr, dc] = realDirs[d][i];
+                    let nr = r + dr;
+                    let nc = c + dc;
+                    while (nr >= 0 && nr < BOARD_SIZE && nc >= 0 && nc < BOARD_SIZE && board[nr][nc] === player) {
+                        count++;
+                        nr += dr;
+                        nc += dc;
                     }
                 }
+                if (count >= 5) return true;
+            }
+            return false;
+        }
 
-                // Bullet Trail
-                ctx.beginPath();
-                ctx.moveTo(b.x, b.y);
-                ctx.lineTo(b.x - b.vx * 2, b.y - b.vy * 2);
-                ctx.strokeStyle = b.color;
-                ctx.lineWidth = b.radius;
-                ctx.stroke();
+        // 간단한 3x3 금수 체크 (흑돌 기준)
+        function isForbiddenMove33(r, c, player) {
+            if (player !== 1) return false; // 흑돌에만 금수 적용
 
-                // Bullet Head
-                ctx.beginPath();
-                ctx.arc(b.x, b.y, b.radius, 0, Math.PI * 2);
-                ctx.fillStyle = b.color;
-                ctx.fill();
+            board[r][c] = player;
+            let openThrees = 0;
 
-                // Collision Check
-                if (isPlaying) {
-                    const dist = Math.hypot(player.x - b.x, player.y - b.y);
+            const dirs = [
+                [[0, 1], [0, -1]],   // 가로
+                [[1, 0], [-1, 0]],   // 세로
+                [[1, 1], [-1, -1]],  // 대각선 ↘
+                [[1, -1], [-1, 1]]   // 대각선 ↗
+            ];
 
-                    // Shield Collision (Destroys bullet)
-                    if (player.isShieldActive && dist < player.radius + b.radius + 12) {
-                        for (let p = 0; p < 6; p++) {
-                            particles.push({
-                                x: b.x,
-                                y: b.y,
-                                vx: (Math.random() - 0.5) * 4,
-                                vy: (Math.random() - 0.5) * 4,
-                                radius: Math.random() * 2 + 1,
-                                color: '#facc15',
-                                life: 12
-                            });
+            dirs.forEach(dir => {
+                let consecutive = 1;
+                let openEnds = 0;
+
+                // 양방향 탐색
+                dir.forEach(([dr, dc]) => {
+                    let nr = r + dr;
+                    let nc = c + dc;
+                    while (nr >= 0 && nr < BOARD_SIZE && nc >= 0 && nc < BOARD_SIZE && board[nr][nc] === player) {
+                        consecutive++;
+                        nr += dr;
+                        nc += dc;
+                    }
+                    if (nr >= 0 && nr < BOARD_SIZE && nc >= 0 && nc < BOARD_SIZE && board[nr][nc] === 0) {
+                        openEnds++;
+                    }
+                });
+
+                if (consecutive === 3 && openEnds === 2) {
+                    openThrees++;
+                }
+            });
+
+            board[r][c] = 0; // 복원
+            return openThrees >= 2;
+        }
+
+        // --- 착수 및 게임 상태 변경 ---
+        function placeStone(r, c) {
+            if (isGameOver || board[r][c] !== 0) return false;
+
+            // 금수 체크
+            if (currentPlayer === 1 && isForbiddenMove33(r, c, 1)) {
+                showMessage("삼삼(3x3) 금수 위치입니다!");
+                return false;
+            }
+
+            // 착수 진행
+            board[r][c] = currentPlayer;
+            moveHistory.push({ r, c, color: currentPlayer });
+            hintPos = null; // 착수 시 힌트 초기화
+
+            playStoneSound(currentPlayer);
+            drawBoard();
+            document.getElementById('totalMovesText').innerText = moveHistory.length;
+
+            // 승리 검사
+            if (checkWin(r, c, currentPlayer)) {
+                endGame(currentPlayer);
+                return true;
+            }
+
+            // 무승부 검사 (판이 꽉 찬 경우)
+            if (moveHistory.length === BOARD_SIZE * BOARD_SIZE) {
+                endGame(0);
+                return true;
+            }
+
+            // 턴 교체
+            currentPlayer = currentPlayer === 1 ? 2 : 1;
+            updateTurnUI();
+            resetTimer();
+
+            // AI 차례 분기
+            if (isAiMode && currentPlayer === 2 && !isGameOver) {
+                setTimeout(makeAiMove, 400);
+            }
+
+            return true;
+        }
+
+        // --- AI 알고리즘 (가중치 기반 평가 함수) ---
+        function makeAiMove() {
+            if (isGameOver) return;
+
+            const bestMove = getBestAiMove();
+            if (bestMove) {
+                placeStone(bestMove.r, bestMove.c);
+            }
+        }
+
+        function getBestAiMove() {
+            let candidateMoves = [];
+
+            // 빈 공간 탐색 (돌 주변 2칸 이내 위주 평가)
+            let hasAdjacent = false;
+            for (let r = 0; r < BOARD_SIZE; r++) {
+                for (let c = 0; c < BOARD_SIZE; c++) {
+                    if (board[r][c] === 0) {
+                        if (isNearExistingStones(r, c)) {
+                            hasAdjacent = true;
+                            const score = evaluatePosition(r, c);
+                            candidateMoves.push({ r, c, score });
                         }
-                        bullets.splice(i, 1);
-                        continue;
-                    }
-
-                    // Normal Death Collision
-                    if (dist < player.radius + b.radius - 0.5) {
-                        gameOver();
                     }
                 }
+            }
 
-                if (b.x < -30 || b.x > canvas.width + 30 || b.y < -30 || b.y > canvas.height + 30) {
-                    bullets.splice(i, 1);
+            // 판이 비어있다면 정중앙 선택
+            if (!hasAdjacent || candidateMoves.length === 0) {
+                return { r: 7, c: 7 };
+            }
+
+            // 점수 기준 내림차순 정렬
+            candidateMoves.sort((a, b) => b.score - a.score);
+
+            // 난이도별 세분화된 AI 선택 로직
+            if (aiDifficulty === 'easy') {
+                // 초보: 상위 8개 후보 중 무작위 선택
+                const topN = candidateMoves.slice(0, Math.min(8, candidateMoves.length));
+                return topN[Math.floor(Math.random() * topN.length)];
+            } else if (aiDifficulty === 'med-low') {
+                // 하수: 상위 4개 후보 중 무작위 선택
+                const topN = candidateMoves.slice(0, Math.min(4, candidateMoves.length));
+                return topN[Math.floor(Math.random() * topN.length)];
+            } else if (aiDifficulty === 'normal') {
+                // 중수: 상위 2개 후보 중 선택 (약간의 랜덤성)
+                const topN = candidateMoves.slice(0, Math.min(2, candidateMoves.length));
+                return topN[Math.floor(Math.random() * topN.length)];
+            } else if (aiDifficulty === 'hard') {
+                // 고수: 최선의 수 선택 (약간의 방어 우선 처리)
+                return candidateMoves[0];
+            } else {
+                // 초고수 (Expert): 완벽에 가까운 가중치 선택 및 흑돌 금수 감지 회피
+                for (let i = 0; i < candidateMoves.length; i++) {
+                    const move = candidateMoves[i];
+                    // AI 착수시 금수 제약 없이 최상위 점수 선택
+                    return move;
+                }
+                return candidateMoves[0];
+            }
+        }
+
+        function isNearExistingStones(r, c) {
+            for (let dr = -2; dr <= 2; dr++) {
+                for (let dc = -2; dc <= 2; dc++) {
+                    const nr = r + dr;
+                    const nc = c + dc;
+                    if (nr >= 0 && nr < BOARD_SIZE && nc >= 0 && nc < BOARD_SIZE) {
+                        if (board[nr][nc] !== 0) return true;
+                    }
                 }
             }
+            return false;
+        }
 
-            // Particles Update & Render
-            for (let i = particles.length - 1; i >= 0; i--) {
-                const p = particles[i];
-                p.x += p.vx;
-                p.y += p.vy;
-                p.life--;
+        // 위치 평가 함수 (AI 및 힌트용)
+        function evaluatePosition(r, c) {
+            let totalScore = 0;
 
-                ctx.beginPath();
-                ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
-                ctx.fillStyle = p.color;
-                ctx.fill();
+            // 난이도별 공격/방어 가중치 차등화
+            let attackWeight = 1.1;
+            let defenseWeight = 1.0;
 
-                if (p.life <= 0) particles.splice(i, 1);
+            if (aiDifficulty === 'expert') {
+                attackWeight = 1.3;
+                defenseWeight = 1.25;
+            } else if (aiDifficulty === 'hard') {
+                attackWeight = 1.2;
+                defenseWeight = 1.1;
             }
 
-            if (isPlaying || particles.length > 0) {
-                animationFrameId = requestAnimationFrame(gameLoop);
-            }
+            // AI (백: 2) 공격 가중치 + 플레이어 (흑: 1) 방어 가중치 계산
+            const aiScore = getLineScore(r, c, 2);
+            const playerScore = getLineScore(r, c, 1);
+
+            // 종합 점수 산출
+            totalScore = (aiScore * attackWeight) + (playerScore * defenseWeight);
+            return totalScore;
         }
 
-        function drawBambooBackground() {
-            ctx.strokeStyle = 'rgba(30, 41, 59, 0.35)';
-            ctx.lineWidth = 10;
-            const step = canvas.width / 5;
-            for (let x = step / 2; x < canvas.width; x += step) {
-                ctx.beginPath();
-                ctx.moveTo(x, 0);
-                ctx.lineTo(x, canvas.height);
-                ctx.stroke();
-            }
+        function getLineScore(r, c, player) {
+            board[r][c] = player;
+            let score = 0;
+
+            const dirs = [
+                [[0, 1], [0, -1]],
+                [[1, 0], [-1, 0]],
+                [[1, 1], [-1, -1]],
+                [[1, -1], [-1, 1]]
+            ];
+
+            dirs.forEach(dir => {
+                let consecutive = 1;
+                let openEnds = 0;
+
+                dir.forEach(([dr, dc]) => {
+                    let nr = r + dr;
+                    let nc = c + dc;
+                    while (nr >= 0 && nr < BOARD_SIZE && nc >= 0 && nc < BOARD_SIZE && board[nr][nc] === player) {
+                        consecutive++;
+                        nr += dr;
+                        nc += dc;
+                    }
+                    if (nr >= 0 && nr < BOARD_SIZE && nc >= 0 && nc < BOARD_SIZE && board[nr][nc] === 0) {
+                        openEnds++;
+                    }
+                });
+
+                // 패턴별 가중치 부여
+                if (consecutive >= 5) score += 100000;
+                else if (consecutive === 4 && openEnds === 2) score += 10000;
+                else if (consecutive === 4 && openEnds === 1) score += 2500;
+                else if (consecutive === 3 && openEnds === 2) score += 1000;
+                else if (consecutive === 3 && openEnds === 1) score += 200;
+                else if (consecutive === 2 && openEnds === 2) score += 50;
+            });
+
+            board[r][c] = 0; // 원래대로 복원
+            return score;
         }
 
-        // Shop Modal Handlers
-        function openShop() {
-            shopModal.classList.remove('hidden');
-            updateUI();
+        // --- 타이머 기능 ---
+        function startTimer() {
+            clearInterval(timerInterval);
+            timeLeft = TURN_TIME_LIMIT;
+            updateTimerDisplay();
+
+            timerInterval = setInterval(() => {
+                timeLeft--;
+                updateTimerDisplay();
+
+                if (timeLeft <= 0) {
+                    clearInterval(timerInterval);
+                    // 시간 초과 시 상대방 승리
+                    const winner = currentPlayer === 1 ? 2 : 1;
+                    showMessage(`시간 초과! ${winner === 1 ? '흑돌' : '백돌'}의 승리입니다.`);
+                    endGame(winner);
+                }
+            }, 1000);
         }
 
-        function closeShop() {
-            shopModal.classList.add('hidden');
-        }
-
-        openShopHeaderBtn.addEventListener('click', openShop);
-        openShopMenuBtn.addEventListener('click', openShop);
-        gameOverShopBtn.addEventListener('click', openShop);
-        closeShopBtn.addEventListener('click', closeShop);
-        closeShopBtn2.addEventListener('click', closeShop);
-
-        buyShieldBtn.addEventListener('click', () => {
-            if (coins >= SHIELD_PRICE) {
-                coins -= SHIELD_PRICE;
-                shieldInventory++;
-                sounds.playBuySound();
-                updateUI();
-                showToast("🛡️ 3초 무적 방어막을 구매했습니다!");
+        function resetTimer() {
+            if (!isGameOver) {
+                startTimer();
             } else {
-                showToast("골드가 부족합니다! (게임에서 더 살아남으세요)");
+                clearInterval(timerInterval);
             }
-        });
+        }
 
-        // Event Listeners
-        startBtn.addEventListener('click', startGame);
-        restartBtn.addEventListener('click', startGame);
-
-        soundToggleBtn.addEventListener('click', () => {
-            sounds.enabled = !sounds.enabled;
-            if (sounds.enabled) {
-                sounds.init();
-                soundIcon.className = 'fa-solid fa-volume-high text-base';
-                showToast("음향 효과가 켜졌습니다.");
+        function updateTimerDisplay() {
+            const timerEl = document.getElementById('turnTimer');
+            timerEl.innerText = `${timeLeft}s`;
+            if (timeLeft <= 5) {
+                timerEl.classList.add('text-red-500', 'animate-pulse');
             } else {
-                soundIcon.className = 'fa-solid fa-volume-xmark text-base text-slate-500';
-                showToast("음향 효과가 꺼졌습니다.");
+                timerEl.classList.remove('text-red-500', 'animate-pulse');
             }
-        });
+        }
 
-        helpBtn.addEventListener('click', () => helpModal.classList.remove('hidden'));
-        closeHelpBtn.addEventListener('click', () => helpModal.classList.add('hidden'));
+        // --- UI 업데이트 및 상태 조절 ---
+        function updateTurnUI() {
+            const p1Card = document.getElementById('playerBlackCard');
+            const p2Card = document.getElementById('playerWhiteCard');
+            const statusText = document.getElementById('statusText');
 
-        shareBtn.addEventListener('click', () => {
-            const textToCopy = `🔫 [총림고수 : Gun-Forest]\n생존 시간: ${finalTime.textContent}\n빗발치는 총알을 피하고 3초 무적으로 기록을 경신해보세요!`;
-            const dummy = document.createElement('textarea');
-            document.body.appendChild(dummy);
-            dummy.value = textToCopy;
-            dummy.select();
-            document.execCommand('copy');
-            document.body.removeChild(dummy);
-            showToast("결과가 클립보드에 복사되었습니다!");
-        });
+            if (currentPlayer === 1) {
+                p1Card.classList.add('border-amber-500');
+                p1Card.classList.remove('border-transparent', 'opacity-60');
+                p2Card.classList.add('border-transparent', 'opacity-60');
+                p2Card.classList.remove('border-amber-500');
+                statusText.innerText = "흑돌의 차례입니다";
+            } else {
+                p2Card.classList.add('border-amber-500');
+                p2Card.classList.remove('border-transparent', 'opacity-60');
+                p1Card.classList.add('border-transparent', 'opacity-60');
+                p1Card.classList.remove('border-amber-500');
+                statusText.innerText = isAiMode ? "AI가 생각 중입니다..." : "백돌의 차례입니다";
+            }
+        }
 
-        function showToast(msg) {
-            const toast = document.getElementById('toast');
-            const toastMsg = document.getElementById('toastMsg');
-            toastMsg.textContent = msg;
-            toast.classList.remove('opacity-0');
-            toast.classList.add('opacity-100');
+        function showMessage(msg) {
+            document.getElementById('statusText').innerText = msg;
+        }
+
+        function endGame(winner) {
+            isGameOver = true;
+            clearInterval(timerInterval);
+
+            const modal = document.getElementById('resultModal');
+            const modalCard = document.getElementById('modalCard');
+            const title = document.getElementById('modalTitle');
+            const desc = document.getElementById('modalDesc');
+
+            if (winner === 1) {
+                title.innerText = "흑돌 (Player 1) 승리!";
+                desc.innerText = "멋진 전략으로 5목을 완성했습니다.";
+                stats.blackWins++;
+                playWinSound();
+            } else if (winner === 2) {
+                title.innerText = isAiMode ? "AI 승리!" : "백돌 (Player 2) 승리!";
+                desc.innerText = isAiMode ? "AI에게 패배했습니다. 다시 도전해보세요!" : "멋진 전략으로 5목을 완성했습니다.";
+                stats.whiteWins++;
+                playWinSound();
+            } else {
+                title.innerText = "무승부!";
+                desc.innerText = "바둑판이 가득 찼습니다.";
+            }
+
+            document.getElementById('blackScoreText').innerText = `${stats.blackWins}승`;
+            document.getElementById('whiteScoreText').innerText = `${stats.whiteWins}승`;
+
+            // 모달 열기
+            modal.classList.remove('hidden');
             setTimeout(() => {
-                toast.classList.remove('opacity-100');
-                toast.classList.add('opacity-0');
-            }, 2500);
+                modal.classList.remove('opacity-0');
+                modalCard.classList.remove('scale-90');
+            }, 10);
         }
+
+        function resetGame() {
+            board = Array(BOARD_SIZE).fill(null).map(() => Array(BOARD_SIZE).fill(0));
+            moveHistory = [];
+            currentPlayer = 1;
+            isGameOver = false;
+            hintPos = null;
+
+            document.getElementById('totalMovesText').innerText = '0';
+            updateTurnUI();
+            drawBoard();
+            resetTimer();
+
+            // 모달 닫기
+            const modal = document.getElementById('resultModal');
+            const modalCard = document.getElementById('modalCard');
+            modal.classList.add('opacity-0');
+            modalCard.classList.add('scale-90');
+            setTimeout(() => {
+                modal.classList.add('hidden');
+            }, 300);
+        }
+
+        // --- 이벤트 리스너 설정 ---
+        function initEvents() {
+            // 캔버스 클릭/터치 착수 처리
+            canvas.addEventListener('click', (e) => {
+                if (isGameOver) return;
+                if (isAiMode && currentPlayer === 2) return; // AI 차례에는 입력 불가
+
+                const rect = canvas.getBoundingClientRect();
+                const x = e.clientX - rect.left;
+                const y = e.clientY - rect.top;
+
+                // 클릭 좌표를 바둑판 인덱스로 변환
+                const col = Math.round((x - padding) / cellSize);
+                const row = Math.round((y - padding) / cellSize);
+
+                if (row >= 0 && row < BOARD_SIZE && col >= 0 && col < BOARD_SIZE) {
+                    placeStone(row, col);
+                }
+            });
+
+            // 모드 변경 (2인 / AI)
+            const modePvPBtn = document.getElementById('modePvP');
+            const modeAiBtn = document.getElementById('modeAi');
+            const aiGroup = document.getElementById('aiDifficultyGroup');
+            const whitePlayerName = document.getElementById('whitePlayerName');
+
+            modePvPBtn.addEventListener('click', () => {
+                isAiMode = false;
+                modePvPBtn.className = "py-2 px-3 rounded-xl border border-amber-500/50 bg-amber-500/10 text-amber-400 text-sm font-semibold transition-all";
+                modeAiBtn.className = "py-2 px-3 rounded-xl border border-slate-600 bg-slate-700/50 text-slate-300 text-sm font-semibold transition-all hover:bg-slate-700";
+                aiGroup.classList.add('opacity-50', 'pointer-events-none');
+                whitePlayerName.innerText = "백 (Player 2)";
+                resetGame();
+            });
+
+            modeAiBtn.addEventListener('click', () => {
+                isAiMode = true;
+                modeAiBtn.className = "py-2 px-3 rounded-xl border border-amber-500/50 bg-amber-500/10 text-amber-400 text-sm font-semibold transition-all";
+                modePvPBtn.className = "py-2 px-3 rounded-xl border border-slate-600 bg-slate-700/50 text-slate-300 text-sm font-semibold transition-all hover:bg-slate-700";
+                aiGroup.classList.remove('opacity-50', 'pointer-events-none');
+                whitePlayerName.innerText = "백 (AI)";
+                resetGame();
+            });
+
+            // AI 난이도 버튼
+            const diffBtns = document.querySelectorAll('.diff-btn');
+            diffBtns.forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    diffBtns.forEach(b => {
+                        b.className = "diff-btn py-1.5 text-xs rounded-lg border border-slate-600 bg-slate-700/50 text-slate-300 font-medium hover:bg-slate-700";
+                    });
+                    e.target.className = "diff-btn py-1.5 text-xs rounded-lg border border-amber-500 bg-amber-500/20 text-amber-400 font-medium";
+                    aiDifficulty = e.target.getAttribute('data-diff');
+                });
+            });
+
+            // 수순 표시 토글
+            document.getElementById('toggleMoveNum').addEventListener('change', (e) => {
+                showMoveNumbers = e.target.checked;
+                drawBoard();
+            });
+
+            // 새 게임 시작
+            document.getElementById('restartBtn').addEventListener('click', resetGame);
+            document.getElementById('modalRestartBtn').addEventListener('click', resetGame);
+
+            // 무르기 기능
+            document.getElementById('undoBtn').addEventListener('click', () => {
+                if (isGameOver || moveHistory.length === 0) return;
+
+                // AI 모드일 경우 2수를 뺌 (플레이어 + AI)
+                const undoCount = (isAiMode && moveHistory.length >= 2) ? 2 : 1;
+
+                for (let i = 0; i < undoCount; i++) {
+                    const last = moveHistory.pop();
+                    if (last) {
+                        board[last.r][last.c] = 0;
+                    }
+                }
+
+                if (!isAiMode) {
+                    currentPlayer = currentPlayer === 1 ? 2 : 1;
+                } else {
+                    currentPlayer = 1;
+                }
+
+                hintPos = null;
+                document.getElementById('totalMovesText').innerText = moveHistory.length;
+                updateTurnUI();
+                drawBoard();
+                resetTimer();
+            });
+
+            // 힌트 보기
+            document.getElementById('hintBtn').addEventListener('click', () => {
+                if (isGameOver) return;
+                const best = getBestAiMove();
+                if (best) {
+                    hintPos = best;
+                    drawBoard();
+                }
+            });
+
+            // 사운드 토글
+            document.getElementById('soundToggleBtn').addEventListener('click', toggleSound);
+
+            function toggleSound() {
+                soundEnabled = !soundEnabled;
+                const icon = document.getElementById('soundIcon');
+                icon.className = soundEnabled ? "fa-solid fa-volume-high text-lg" : "fa-solid fa-volume-xmark text-lg text-slate-500";
+            }
+
+            // 도움말 모달
+            const helpModal = document.getElementById('helpModal');
+            const toggleHelpModal = (show) => {
+                if (show) {
+                    helpModal.classList.remove('hidden');
+                    setTimeout(() => helpModal.classList.remove('opacity-0'), 10);
+                } else {
+                    helpModal.classList.add('opacity-0');
+                    setTimeout(() => helpModal.classList.add('hidden'), 300);
+                }
+            };
+
+            document.getElementById('helpBtn').addEventListener('click', () => toggleHelpModal(true));
+            document.getElementById('closeHelpBtn').addEventListener('click', () => toggleHelpModal(false));
+
+            // 단축키 이벤트 처리 (Keyboard Shortcuts)
+            window.addEventListener('keydown', (e) => {
+                // 입력 창이나 폼 조작 중일 때는 단축키 동작 안 함
+                if (['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target.tagName)) return;
+
+                const key = e.key.toLowerCase();
+
+                // Ctrl+Z 또는 U (무르기)
+                if ((e.ctrlKey && key === 'z') || key === 'u' || key === 'ㅕ') {
+                    e.preventDefault();
+                    document.getElementById('undoBtn').click();
+                } 
+                // R (새 게임 / 다시하기)
+                else if (key === 'r' || key === 'ㄱ') {
+                    e.preventDefault();
+                    resetGame();
+                }
+                // H (힌트 보기)
+                else if (key === 'h' || key === 'ㅗ') {
+                    e.preventDefault();
+                    document.getElementById('hintBtn').click();
+                }
+                // N (수순 번호 표시 토글)
+                else if (key === 'n' || key === 'ㅜ') {
+                    e.preventDefault();
+                    const toggleEl = document.getElementById('toggleMoveNum');
+                    toggleEl.checked = !toggleEl.checked;
+                    showMoveNumbers = toggleEl.checked;
+                    drawBoard();
+                }
+                // M (음소거 / 소리 토글)
+                else if (key === 'm' || key === 'ㅡ') {
+                    e.preventDefault();
+                    toggleSound();
+                }
+                // ? 또는 F1 (도움말)
+                else if (key === '?' || e.key === 'F1') {
+                    e.preventDefault();
+                    const isHidden = helpModal.classList.contains('hidden');
+                    toggleHelpModal(isHidden);
+                }
+                // Escape (모달/결과 창 닫기)
+                else if (e.key === 'Escape') {
+                    toggleHelpModal(false);
+                    const resultModal = document.getElementById('resultModal');
+                    if (!resultModal.classList.contains('hidden')) {
+                        resetGame();
+                    }
+                }
+            });
+
+            // 화면 크기 변경 감지
+            window.addEventListener('resize', resizeCanvas);
+        }
+
+        // --- 게임 초기화 ---
+        window.onload = function() {
+            resizeCanvas();
+            initEvents();
+            resetGame();
+        };
     </script>
 </body>
 </html>
