@@ -1,1068 +1,1309 @@
-
 <!DOCTYPE html>
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>랜덤 추첨기 - Random Picker Web App</title>
+    <title>울트라 리얼 피자 셰프 시뮬레이터 - Ultra Pizzeria Simulator</title>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Font Awesome Icons -->
+    <!-- FontAwesome Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <!-- Canvas Confetti Library -->
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700&family=Jua&family=Noto+Sans+KR:wght@300;400;500;700;900&display=swap" rel="stylesheet">
+    <!-- Canvas Confetti -->
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Pretendard:wght@300;400;600;800&display=swap');
-        
         body {
-            font-family: 'Pretendard', sans-serif;
-            background: #0f172a;
-            color: #f8fafc;
-            min-height: 100vh;
-            overflow-x: hidden;
+            font-family: 'Noto Sans KR', sans-serif;
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: manipulation;
+            background-color: #090d14;
+            color: #f1f5f9;
+        }
+        .font-cinzel { font-family: 'Cinzel', serif; }
+        .font-jua { font-family: 'Jua', sans-serif; }
+
+        /* Real Restaurant Textures */
+        .brick-wall {
+            background-color: #1a0f0a;
+            background-image: radial-gradient(#2d1910 15%, transparent 16%), radial-gradient(#2d1910 15%, transparent 16%);
+            background-size: 24px 24px;
+            background-position: 0 0, 12px 12px;
+        }
+        .stainless-steel {
+            background: linear-gradient(180deg, #334155 0%, #1e293b 50%, #0f172a 100%);
+            border-top: 2px solid #64748b;
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.1);
+        }
+        .wood-board {
+            background: linear-gradient(135deg, #78350f 0%, #451a03 100%);
+            box-shadow: inset 0 0 15px rgba(0,0,0,0.6);
         }
 
-        /* 배경 미세 애니메이션 */
-        .bg-glow-1 {
-            position: fixed;
-            top: -10%;
-            left: 20%;
-            width: 450px;
-            height: 450px;
-            background: radial-gradient(circle, rgba(99, 102, 241, 0.25) 0%, rgba(0, 0, 0, 0) 70%);
+        /* Flame and Oven Sizzle Glow */
+        @keyframes fireGlow {
+            0%, 100% { box-shadow: inset 0 -10px 40px #f97316, 0 0 30px #ef4444; }
+            50% { box-shadow: inset 0 -15px 60px #fbbf24, 0 0 50px #dc2626; }
+        }
+        .oven-active {
+            animation: fireGlow 0.8s infinite alternate ease-in-out;
+        }
+
+        /* Topping pop animation with natural randomness */
+        @keyframes toppingDrop {
+            0% { transform: translate(-50%, -50%) scale(1.6) rotate(-15deg); opacity: 0; }
+            100% { transform: translate(-50%, -50%) scale(1) rotate(var(--rot, 0deg)); opacity: 1; }
+        }
+        .topping-item {
+            animation: toppingDrop 0.18s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+        }
+
+        /* Thermal Smoke Steam Effect */
+        @keyframes steamRise {
+            0% { opacity: 0; transform: translateY(0) scale(0.6); filter: blur(4px); }
+            50% { opacity: 0.5; }
+            100% { opacity: 0; transform: translateY(-45px) scale(1.4); filter: blur(8px); }
+        }
+        .steam-bubble {
+            position: absolute;
+            width: 16px;
+            height: 16px;
+            background: rgba(255, 255, 255, 0.75);
             border-radius: 50%;
-            filter: blur(80px);
-            z-index: 0;
+            animation: steamRise 1.8s infinite ease-out;
             pointer-events: none;
         }
 
-        .bg-glow-2 {
+        /* Floating status popup */
+        @keyframes floatUp {
+            0% { opacity: 1; transform: translateY(0) scale(1); }
+            100% { opacity: 0; transform: translateY(-70px) scale(1.1); }
+        }
+        .float-text {
             position: fixed;
-            bottom: -10%;
-            right: 15%;
-            width: 500px;
-            height: 500px;
-            background: radial-gradient(circle, rgba(236, 72, 153, 0.2) 0%, rgba(0, 0, 0, 0) 70%);
-            border-radius: 50%;
-            filter: blur(90px);
-            z-index: 0;
+            animation: floatUp 1.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
             pointer-events: none;
+            z-index: 100;
+            font-family: 'Jua', sans-serif;
+            text-shadow: 0 2px 10px rgba(0,0,0,0.8);
         }
 
-        .glass-card {
-            background: rgba(30, 41, 59, 0.7);
-            backdrop-filter: blur(16px);
-            -webkit-backdrop-filter: blur(16px);
-            border: 1px solid rgba(255, 255, 255, 0.1);
+        /* Receipt Slide-in */
+        @keyframes ticketPrint {
+            0% { transform: translateY(-100%); opacity: 0; }
+            100% { transform: translateY(0); opacity: 1; }
+        }
+        .receipt-anim {
+            animation: ticketPrint 0.35s ease-out forwards;
         }
 
-        /* 3D 카드 뒤집기 애니메이션 스타일 */
-        .perspective-1000 {
-            perspective: 1000px;
-        }
-        .transform-style-3d {
-            transform-style: preserve-3d;
-        }
-        .backface-hidden {
-            backface-visibility: hidden;
-        }
-        .rotate-y-180 {
-            transform: rotateY(180deg);
-        }
-
-        /* 스크롤바 모던 스타일 */
-        ::-webkit-scrollbar {
-            width: 6px;
-            height: 6px;
-        }
-        ::-webkit-scrollbar-track {
-            background: rgba(15, 23, 42, 0.6);
-        }
-        ::-webkit-scrollbar-thumb {
-            background: rgba(100, 116, 139, 0.5);
-            border-radius: 4px;
-        }
-
-        /* 룰렛 바늘 핀 애니메이션 */
-        @keyframes pointerBounce {
-            0%, 100% { transform: translateY(0); }
-            50% { transform: translateY(-4px); }
-        }
-        .pointer-bounce {
-            animation: pointerBounce 0.4s infinite;
+        /* Cutting Line Knife Effect */
+        .cut-line {
+            position: absolute;
+            background-color: rgba(255, 255, 255, 0.85);
+            box-shadow: 0 0 10px rgba(255,255,255,0.8);
+            pointer-events: none;
+            z-index: 30;
         }
     </style>
 </head>
-<body class="relative flex flex-col min-h-screen">
+<body class="min-h-screen flex flex-col justify-between">
 
-    <div class="bg-glow-1"></div>
-    <div class="bg-glow-2"></div>
+    <!-- REALISTIC WEB AUDIO ENGINE (Jazz BGM & Realistic SFX) -->
+    <script>
+        class PizzeriaAudioEngine {
+            constructor() {
+                this.ctx = null;
+                this.bgmTimer = null;
+                this.isMuted = false;
+                this.bgmStep = 0;
+            }
 
-    <!-- Main Wrapper -->
-    <div class="relative z-10 container mx-auto px-4 py-6 flex-1 flex flex-col max-w-6xl">
-        
-        <!-- Header -->
-        <header class="flex flex-col sm:flex-row justify-between items-center pb-6 mb-6 border-b border-slate-700/60 gap-4">
-            <div class="flex items-center gap-3">
-                <div class="w-12 h-12 rounded-2xl bg-gradient-to-br from-indigo-500 to-pink-500 flex items-center justify-center shadow-lg shadow-indigo-500/30">
-                    <i class="fa-solid fa-dice text-2xl text-white"></i>
+            init() {
+                if (!this.ctx) {
+                    this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+                }
+                if (this.ctx.state === 'suspended') {
+                    this.ctx.resume();
+                }
+            }
+
+            toggleMute() {
+                this.isMuted = !this.isMuted;
+                if (this.isMuted && this.bgmTimer) {
+                    clearInterval(this.bgmTimer);
+                    this.bgmTimer = null;
+                } else if (!this.isMuted) {
+                    this.startJazzBGM();
+                }
+                return this.isMuted;
+            }
+
+            startJazzBGM() {
+                this.init();
+                if (this.bgmTimer || this.isMuted) return;
+
+                const bassLine = [130.81, 110.00, 146.83, 98.00];
+                const chordNotes = [
+                    [261.63, 329.63, 392.00, 493.88], // Cmaj7
+                    [220.00, 261.63, 329.63, 392.00], // Am7
+                    [293.66, 349.23, 440.00, 523.25], // Dm7
+                    [196.00, 246.94, 293.66, 349.23]  // G7
+                ];
+
+                this.bgmStep = 0;
+                this.bgmTimer = setInterval(() => {
+                    if (this.isMuted) return;
+                    const now = this.ctx.currentTime;
+                    const chordIdx = Math.floor(this.bgmStep / 4) % 4;
+
+                    // Bass
+                    const bassOsc = this.ctx.createOscillator();
+                    const bassGain = this.ctx.createGain();
+                    bassOsc.type = 'sine';
+                    bassOsc.frequency.value = bassLine[chordIdx];
+                    bassGain.gain.setValueAtTime(0.08, now);
+                    bassGain.gain.exponentialRampToValueAtTime(0.001, now + 0.38);
+                    bassOsc.connect(bassGain);
+                    bassGain.connect(this.ctx.destination);
+                    bassOsc.start(now);
+                    bassOsc.stop(now + 0.38);
+
+                    // Piano Chords
+                    if (this.bgmStep % 2 === 0) {
+                        chordNotes[chordIdx].forEach((freq, i) => {
+                            const osc = this.ctx.createOscillator();
+                            const gain = this.ctx.createGain();
+                            osc.type = 'triangle';
+                            osc.frequency.value = freq;
+                            gain.gain.setValueAtTime(0.012, now + i * 0.02);
+                            gain.gain.exponentialRampToValueAtTime(0.001, now + 0.32);
+                            osc.connect(gain);
+                            gain.connect(this.ctx.destination);
+                            osc.start(now + i * 0.02);
+                            osc.stop(now + 0.32);
+                        });
+                    }
+                    this.bgmStep++;
+                }, 400);
+            }
+
+            playDoughSlap() {
+                if (this.isMuted) return;
+                this.init();
+                const now = this.ctx.currentTime;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(120, now);
+                osc.frequency.exponentialRampToValueAtTime(40, now + 0.08);
+                gain.gain.setValueAtTime(0.25, now);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
+                osc.connect(gain); gain.connect(this.ctx.destination);
+                osc.start(now); osc.stop(now + 0.08);
+            }
+
+            playSauceSpread() {
+                if (this.isMuted) return;
+                this.init();
+                const now = this.ctx.currentTime;
+                const bufferSize = this.ctx.sampleRate * 0.06;
+                const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+                const data = buffer.getChannelData(0);
+                for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
+
+                const src = this.ctx.createBufferSource();
+                src.buffer = buffer;
+                const filter = this.ctx.createBiquadFilter();
+                filter.type = 'lowpass';
+                filter.frequency.value = 600;
+                const gain = this.ctx.createGain();
+                gain.gain.setValueAtTime(0.12, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.06);
+
+                src.connect(filter); filter.connect(gain); gain.connect(this.ctx.destination);
+                src.start(now);
+            }
+
+            playToppingDrop() {
+                if (this.isMuted) return;
+                this.init();
+                const now = this.ctx.currentTime;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(380, now);
+                osc.frequency.exponentialRampToValueAtTime(150, now + 0.05);
+                gain.gain.setValueAtTime(0.18, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.05);
+                osc.connect(gain); gain.connect(this.ctx.destination);
+                osc.start(now); osc.stop(now + 0.05);
+            }
+
+            playOvenBell() {
+                if (this.isMuted) return;
+                this.init();
+                const now = this.ctx.currentTime;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(1567.98, now); // G6
+                gain.gain.setValueAtTime(0.2, now);
+                gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.9);
+                osc.connect(gain); gain.connect(this.ctx.destination);
+                osc.start(now); osc.stop(now + 0.9);
+            }
+
+            playCutterSlice() {
+                if (this.isMuted) return;
+                this.init();
+                const now = this.ctx.currentTime;
+                const bufferSize = this.ctx.sampleRate * 0.09;
+                const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+                const data = buffer.getChannelData(0);
+                for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
+
+                const src = this.ctx.createBufferSource();
+                src.buffer = buffer;
+                const filter = this.ctx.createBiquadFilter();
+                filter.type = 'bandpass';
+                filter.frequency.value = 1400;
+                const gain = this.ctx.createGain();
+                gain.gain.setValueAtTime(0.25, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.09);
+
+                src.connect(filter); filter.connect(gain); gain.connect(this.ctx.destination);
+                src.start(now);
+            }
+
+            playBoxClose() {
+                if (this.isMuted) return;
+                this.init();
+                const now = this.ctx.currentTime;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(160, now);
+                osc.frequency.exponentialRampToValueAtTime(30, now + 0.1);
+                gain.gain.setValueAtTime(0.35, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
+                osc.connect(gain); gain.connect(this.ctx.destination);
+                osc.start(now); osc.stop(now + 0.1);
+            }
+
+            playCashRegister() {
+                if (this.isMuted) return;
+                this.init();
+                const now = this.ctx.currentTime;
+                [987.77, 1318.51, 1567.98].forEach((freq, idx) => {
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.type = 'sine';
+                    osc.frequency.value = freq;
+                    const st = now + idx * 0.05;
+                    gain.gain.setValueAtTime(0.2, st);
+                    gain.gain.exponentialRampToValueAtTime(0.001, st + 0.22);
+                    osc.connect(gain); gain.connect(this.ctx.destination);
+                    osc.start(st); osc.stop(st + 0.22);
+                });
+            }
+
+            playReceiptPrinter() {
+                if (this.isMuted) return;
+                this.init();
+                const now = this.ctx.currentTime;
+                for (let i = 0; i < 5; i++) {
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.type = 'square';
+                    osc.frequency.value = 900 + (i % 2) * 200;
+                    const st = now + i * 0.035;
+                    gain.gain.setValueAtTime(0.025, st);
+                    gain.gain.exponentialRampToValueAtTime(0.001, st + 0.025);
+                    osc.connect(gain); gain.connect(this.ctx.destination);
+                    osc.start(st); osc.stop(st + 0.025);
+                }
+            }
+        }
+        const sound = new PizzeriaAudioEngine();
+    </script>
+
+    <!-- Top Dashboard Header -->
+    <header class="bg-slate-950 border-b border-amber-600/40 px-4 py-2.5 sticky top-0 z-40 shadow-2xl">
+        <div class="max-w-7xl mx-auto flex justify-between items-center">
+            <div class="flex items-center space-x-3">
+                <div class="w-10 h-10 bg-gradient-to-tr from-amber-700 to-red-700 rounded-2xl flex items-center justify-center text-xl shadow-lg border border-amber-400">
+                    👨‍🍳
                 </div>
                 <div>
-                    <h1 class="text-2xl sm:text-3xl font-extrabold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-indigo-300 via-pink-300 to-amber-200">
-                        랜덤 추첨기
+                    <h1 class="text-lg font-cinzel text-amber-400 font-bold tracking-wider flex items-center gap-2">
+                        ULTRA PIZZERIA <span class="text-[9px] bg-amber-500 text-slate-950 font-bold px-2 py-0.5 rounded uppercase">SIMULATOR</span>
                     </h1>
-                    <p class="text-xs sm:text-sm text-slate-400">공정하고 재미있는 추첨을 즐겨보세요!</p>
+                    <p class="text-[11px] text-slate-400">POS 주문서 ➔ 수제 토핑 ➔ 화덕 Peak 타이밍 ➔ 피자 커팅 ➔ 리뷰 평가</p>
                 </div>
             </div>
 
-            <!-- 모드 탭 스위처 -->
-            <div class="flex bg-slate-900/80 p-1.5 rounded-2xl border border-slate-700/70 w-full sm:w-auto overflow-x-auto">
-                <button onclick="switchTab('wheel')" id="tab-wheel" class="tab-btn flex-1 sm:flex-none px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all duration-200 bg-indigo-600 text-white shadow-md">
-                    <i class="fa-solid fa-dharmachakra mr-1.5"></i>룰렛
+            <div class="flex items-center gap-3">
+                <div class="bg-slate-900 border border-amber-500/40 px-3 py-1 rounded-xl flex items-center gap-2">
+                    <i class="fa-solid fa-coins text-amber-400 text-xs"></i>
+                    <span id="stat-money" class="font-jua text-base text-amber-300">₩15,000</span>
+                </div>
+                <div class="bg-slate-900 border border-slate-700 px-3 py-1 rounded-xl flex items-center gap-2">
+                    <i class="fa-solid fa-star text-yellow-400 text-xs"></i>
+                    <span id="stat-rating" class="font-jua text-sm text-yellow-300">4.9 / 5.0</span>
+                </div>
+                <div class="bg-slate-900 border border-slate-700 px-2.5 py-1 rounded-xl flex items-center gap-1.5">
+                    <i class="fa-solid fa-heart text-red-500 text-xs"></i>
+                    <span id="stat-lives" class="font-jua text-sm text-red-400">5</span>
+                </div>
+
+                <button id="btn-sound-toggle" class="bg-amber-500/20 border border-amber-500/50 hover:bg-amber-500/30 text-amber-300 px-3 py-1 rounded-xl text-xs font-jua flex items-center gap-1.5 transition-all">
+                    <i id="sound-icon" class="fa-solid fa-volume-high"></i> <span id="sound-text">재즈 BGM ON</span>
                 </button>
-                <button onclick="switchTab('cards')" id="tab-cards" class="tab-btn flex-1 sm:flex-none px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold text-slate-400 hover:text-white transition-all duration-200">
-                    <i class="fa-solid fa-clone mr-1.5"></i>카드 뽑기
-                </button>
-                <button onclick="switchTab('slot')" id="tab-slot" class="tab-btn flex-1 sm:flex-none px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold text-slate-400 hover:text-white transition-all duration-200">
-                    <i class="fa-solid fa-bolt mr-1.5"></i>슬롯 머신
-                </button>
-                <button onclick="switchTab('raffle')" id="tab-raffle" class="tab-btn flex-1 sm:flex-none px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold text-slate-400 hover:text-white transition-all duration-200">
-                    <i class="fa-solid fa-ticket mr-1.5"></i>빠른 래플
-                </button>
-            </div>
-        </header>
-
-        <!-- Content Grid -->
-        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 flex-1 items-start">
-            
-            <!-- Left Controls Sidebar -->
-            <div class="lg:col-span-4 flex flex-col gap-4">
-                
-                <!-- 참가자 입력 카드 -->
-                <div class="glass-card rounded-2xl p-5 shadow-xl flex flex-col flex-1">
-                    <div class="flex justify-between items-center mb-3">
-                        <label for="items-input" class="text-sm font-bold text-slate-200 flex items-center gap-2">
-                            <i class="fa-solid fa-users text-indigo-400"></i>
-                            참가자 / 항목 목록
-                        </label>
-                        <span id="item-count" class="text-xs bg-indigo-950 text-indigo-300 border border-indigo-700/50 px-2.5 py-0.5 rounded-full font-mono">
-                            0개
-                        </span>
-                    </div>
-
-                    <textarea id="items-input" rows="7" class="w-full bg-slate-900/90 text-slate-200 placeholder-slate-500 text-sm p-3.5 rounded-xl border border-slate-700 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 resize-none font-mono transition" placeholder="줄바꿈 또는 쉼표(,)로 구분하여 입력하세요&#10;점수/가중치 부여 가능 (형식: 이름:점수)&#10;예시:&#10;김철수:3&#10;이영희:1&#10;박민수:5&#10;최수진"></textarea>
-
-                        <!-- 빠른 샘플 버튼 및 지우기 -->
-                        <div class="flex justify-between gap-2 mt-3">
-                            <button onclick="loadSampleData()" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs rounded-lg transition border border-slate-700 flex items-center gap-1.5">
-                                <i class="fa-solid fa-wand-magic-sparkles text-amber-400"></i> 샘플 채우기
-                            </button>
-                            <button onclick="clearItems()" class="px-3 py-1.5 bg-slate-800 hover:bg-rose-950 text-slate-400 hover:text-rose-300 text-xs rounded-lg transition border border-slate-700 flex items-center gap-1.5">
-                                <i class="fa-solid fa-trash-can"></i> 비우기
-                            </button>
-                        </div>
-
-                        <!-- 참가자별 당첨 확률 배분 목록 -->
-                        <div class="mt-4 pt-3 border-t border-slate-700/60">
-                            <div class="flex justify-between items-center mb-2">
-                                <span class="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
-                                    <i class="fa-solid fa-chart-pie text-indigo-400"></i> 역가중치 확률 <span class="text-[10px] font-normal text-slate-500">(낮은 점수 = 높은 확률)</span>
-                                </span>
-                                <span id="total-score-badge" class="text-[10px] text-amber-400 bg-amber-950/60 border border-amber-800/50 px-2 py-0.5 rounded-full font-mono">총 가중치: 0</span>
-                            </div>
-                            <div id="probabilities-list" class="max-h-28 overflow-y-auto space-y-1 text-xs text-slate-300 pr-1">
-                                <p class="text-slate-500 italic text-center py-2 text-[11px]">참가자를 입력하면 확률이 표시됩니다.</p>
-                            </div>
-                        </div>
-
-                        <!-- 설정 옵션 -->
-                        <div class="mt-4 pt-4 border-t border-slate-700/60 space-y-3">
-                            <h3 class="text-xs font-bold text-slate-400 uppercase tracking-wider">추첨 옵션</h3>
-                            
-                            <div class="flex justify-between items-center">
-                                <span class="text-xs text-slate-300 flex items-center gap-1.5">
-                                    <i class="fa-solid fa-rotate-left text-slate-400"></i> 당첨자 중복 허용
-                                </span>
-                                <label class="relative inline-flex items-center cursor-pointer">
-                                    <input type="checkbox" id="allow-duplicates" class="sr-only peer">
-                                    <div class="w-9 h-5 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-indigo-600"></div>
-                                </label>
-                            </div>
-
-                            <div class="flex justify-between items-center">
-                                <span class="text-xs text-slate-300 flex items-center gap-1.5">
-                                    <i class="fa-solid fa-volume-high text-slate-400"></i> 사운드 효과
-                                </span>
-                                <label class="relative inline-flex items-center cursor-pointer">
-                                    <input type="checkbox" id="sound-toggle" checked class="sr-only peer">
-                                    <div class="w-9 h-5 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-indigo-600"></div>
-                                </label>
-                            </div>
-
-                            <div id="winner-count-container" class="hidden pt-2">
-                                <div class="flex justify-between items-center mb-1">
-                                    <label class="text-xs text-slate-300">뽑을 인원수</label>
-                                    <span id="winner-count-display" class="text-xs font-mono font-bold text-indigo-400">1명</span>
-                                </div>
-                                <input type="range" id="winner-count-range" min="1" max="10" value="1" class="w-full accent-indigo-500 bg-slate-800 h-1.5 rounded-lg appearance-none cursor-pointer">
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- 히스토리 패널 -->
-                <div class="glass-card rounded-2xl p-4 shadow-xl">
-                    <div class="flex justify-between items-center mb-2">
-                        <span class="text-xs font-bold text-slate-300 flex items-center gap-1.5">
-                            <i class="fa-solid fa-clock-rotate-left text-indigo-400"></i> 당첨 히스토리
-                        </span>
-                        <div class="flex gap-1">
-                            <button onclick="downloadHistory()" class="text-xs text-slate-400 hover:text-slate-200 p-1 hover:bg-slate-800 rounded transition" title="내보내기">
-                                <i class="fa-solid fa-download"></i>
-                            </button>
-                            <button onclick="clearHistory()" class="text-xs text-slate-400 hover:text-rose-400 p-1 hover:bg-slate-800 rounded transition" title="기록 삭제">
-                                <i class="fa-solid fa-xmark"></i>
-                            </button>
-                        </div>
-                    </div>
-                    <div id="history-list" class="max-h-32 overflow-y-auto space-y-1.5 pr-1 text-xs text-slate-400">
-                        <p class="text-slate-500 italic text-center py-3">아직 당첨 기록이 없습니다.</p>
-                    </div>
-                </div>
-
-            </div>
-
-            <!-- Right Interactive Canvas Area -->
-            <div class="lg:col-span-8 flex flex-col">
-                
-                <div class="glass-card rounded-2xl p-6 shadow-2xl flex-1 flex flex-col items-center justify-center relative overflow-hidden min-h-[420px]">
-                    
-                    <!-- Mode 1: 룰렛 (Spin Wheel) -->
-                    <div id="mode-wheel" class="mode-container w-full h-full flex flex-col items-center justify-center relative">
-                        <!-- 룰렛 화살표 핀 -->
-                        <div class="absolute top-2 z-20 pointer-events-none text-rose-500 drop-shadow-md pointer-bounce">
-                            <i class="fa-solid fa-location-pin text-4xl"></i>
-                        </div>
-                        
-                        <div class="relative my-4 flex justify-center items-center">
-                            <canvas id="wheel-canvas" width="380" height="380" class="max-w-full h-auto drop-shadow-2xl transition-transform duration-300"></canvas>
-                        </div>
-
-                        <button id="spin-wheel-btn" onclick="startWheel()" class="px-8 py-3.5 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 text-white font-extrabold rounded-full shadow-lg shadow-indigo-500/40 hover:scale-105 active:scale-95 transition-all duration-200 text-base sm:text-lg flex items-center gap-2">
-                            <i class="fa-solid fa-play"></i> 룰렛 돌리기
-                        </button>
-                    </div>
-
-                    <!-- Mode 2: 카드 뽑기 (Card Flip) -->
-                    <div id="mode-cards" class="mode-container hidden w-full h-full flex flex-col items-center justify-center">
-                        <p class="text-slate-400 text-xs sm:text-sm mb-4">카드를 클릭하여 당첨자를 확인하세요!</p>
-                        <div id="cards-grid" class="flex flex-wrap justify-center items-center gap-4 max-w-2xl max-h-[380px] overflow-y-auto p-2">
-                            <!-- Cards inserted JS dynamically -->
-                        </div>
-                        <button onclick="setupCards()" class="mt-6 px-6 py-2.5 bg-slate-800 hover:bg-slate-700 text-indigo-300 font-semibold rounded-xl border border-slate-700 transition flex items-center gap-2 text-sm">
-                            <i class="fa-solid fa-shuffle"></i> 카드 다시 섞기
-                        </button>
-                    </div>
-
-                    <!-- Mode 3: 슬롯 머신 (Slot Machine) -->
-                    <div id="mode-slot" class="mode-container hidden w-full h-full flex flex-col items-center justify-center">
-                        <div class="bg-slate-900 border-4 border-indigo-600/80 rounded-3xl p-6 sm:p-8 shadow-2xl flex flex-col items-center mb-6 relative">
-                            <div class="absolute -top-3 bg-indigo-600 text-white text-[10px] font-bold px-3 py-0.5 rounded-full uppercase tracking-wider">
-                                LUCKY SLOT
-                            </div>
-                            <div class="w-64 sm:w-80 h-24 bg-slate-950 rounded-2xl border-2 border-slate-800 flex items-center justify-center overflow-hidden shadow-inner my-2">
-                                <div id="slot-display" class="text-2xl sm:text-4xl font-extrabold text-amber-300 tracking-wider font-mono text-center px-4">
-                                    READY
-                                </div>
-                            </div>
-                        </div>
-                        <button id="slot-btn" onclick="startSlot()" class="px-8 py-3.5 bg-gradient-to-r from-amber-500 to-rose-500 text-white font-extrabold rounded-full shadow-lg shadow-amber-500/30 hover:scale-105 active:scale-95 transition-all text-base sm:text-lg flex items-center gap-2">
-                            <i class="fa-solid fa-bolt"></i> 슬롯 돌리기
-                        </button>
-                    </div>
-
-                    <!-- Mode 4: 빠른 래플 (Quick Raffle) -->
-                    <div id="mode-raffle" class="mode-container hidden w-full h-full flex flex-col items-center justify-center">
-                        <div class="text-center max-w-md w-full my-auto">
-                            <div id="raffle-box" class="min-h-[140px] bg-slate-900/80 rounded-2xl border border-slate-700/80 flex flex-col items-center justify-center p-6 my-4">
-                                <span class="text-slate-500 text-sm">버튼을 눌러 다수의 당첨자를 빠르게 선정하세요!</span>
-                            </div>
-                            <button id="raffle-btn" onclick="startRaffle()" class="px-8 py-3.5 bg-gradient-to-r from-emerald-500 to-teal-500 text-white font-extrabold rounded-full shadow-lg shadow-emerald-500/30 hover:scale-105 active:scale-95 transition-all text-base sm:text-lg flex items-center gap-2 mx-auto">
-                                <i class="fa-solid fa-gift"></i> 당첨자 즉시 추첨
-                            </button>
-                        </div>
-                    </div>
-
-                </div>
-
-            </div>
-
-        </div>
-
-        <!-- 당첨 결과 오버레이 모달 -->
-        <div id="winner-modal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 flex items-center justify-center p-4 opacity-0 pointer-events-none transition-opacity duration-300">
-            <div class="glass-card bg-slate-900/90 border border-indigo-500/30 rounded-3xl p-6 sm:p-8 max-w-md w-full text-center shadow-2xl transform scale-90 transition-transform duration-300" id="modal-content">
-                <div id="modal-trophy-icon" class="w-16 h-16 bg-gradient-to-tr from-amber-400 to-rose-500 rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg shadow-amber-500/30 text-white text-2xl">
-                    <i class="fa-solid fa-trophy animate-bounce"></i>
-                </div>
-                <!-- 100점 달성 스페셜 배지 -->
-                <div id="score-100-badge" class="hidden mb-3">
-                    <span class="bg-gradient-to-r from-amber-400 via-amber-200 to-amber-500 text-slate-950 font-black text-xs px-3 py-1 rounded-full uppercase tracking-widest shadow-lg shadow-amber-500/40 animate-pulse border border-white/50">
-                        🔥 100점 목표 달성! 🔥
-                    </span>
-                </div>
-                <h3 class="text-xl font-bold text-slate-300">축하합니다! 🎉</h3>
-                <p class="text-xs text-slate-400 mt-1 mb-4">최종 당첨자가 선정되었습니다</p>
-
-                <div id="modal-winner-name" class="text-2xl sm:text-3xl font-black text-amber-300 bg-slate-950/80 py-4 px-3 rounded-2xl border border-amber-500/30 mb-6 tracking-wide break-words">
-                    --
-                </div>
-
-                <div class="flex gap-3">
-                    <button onclick="removeWinnerAndClose()" id="remove-winner-btn" class="flex-1 py-3 bg-rose-900/40 hover:bg-rose-900/70 border border-rose-700/50 text-rose-300 text-xs sm:text-sm font-semibold rounded-xl transition">
-                        목록에서 제거하기
-                    </button>
-                    <button onclick="closeModal()" class="flex-1 py-3 bg-indigo-600 hover:bg-indigo-500 text-white text-xs sm:text-sm font-semibold rounded-xl shadow-lg shadow-indigo-600/30 transition">
-                        확인
-                    </button>
-                </div>
             </div>
         </div>
+    </header>
 
-        <!-- 최종 승리 (Game Clear) 모달 -->
-        <div id="victory-modal" class="fixed inset-0 bg-slate-950/90 backdrop-blur-lg z-50 flex items-center justify-center p-4 opacity-0 pointer-events-none transition-opacity duration-500">
-            <div class="glass-card bg-slate-900/95 border-2 border-amber-500/60 rounded-3xl p-8 max-w-lg w-full text-center shadow-2xl shadow-amber-500/20 transform scale-90 transition-transform duration-500" id="victory-content">
-                
-                <div class="relative w-24 h-24 mx-auto mb-4 flex items-center justify-center">
-                    <div class="absolute inset-0 bg-amber-500/20 rounded-full blur-xl animate-pulse"></div>
-                    <div class="w-20 h-20 bg-gradient-to-tr from-amber-400 via-yellow-300 to-amber-600 rounded-2xl flex items-center justify-center shadow-xl shadow-amber-500/40 text-slate-950 text-4xl rotate-3">
-                        <i class="fa-solid fa-trophy"></i>
-                    </div>
-                </div>
+    <!-- Main Game Viewport -->
+    <main class="max-w-7xl mx-auto px-3 py-3 flex-grow flex flex-col gap-3 w-full">
 
-                <div class="inline-block bg-gradient-to-r from-amber-500 via-pink-500 to-indigo-500 text-white font-black text-xs px-4 py-1.5 rounded-full uppercase tracking-widest shadow-lg mb-3 animate-bounce">
-                    🎉 TARGET REACHED 🎉
-                </div>
-
-                <h2 class="text-3xl font-black bg-clip-text text-transparent bg-gradient-to-r from-amber-200 via-amber-400 to-amber-100 mb-1">
-                    목표 달성! 최종 승리!
+        <!-- 1. REAL POS RECEIPT LINE -->
+        <section class="brick-wall rounded-3xl border-4 border-amber-950 p-3 shadow-2xl relative">
+            <div class="flex justify-between items-center mb-2">
+                <h2 class="font-jua text-amber-300 text-xs flex items-center gap-2">
+                    <i class="fa-solid fa-receipt text-amber-400"></i> POS 카운터 실시간 영수증 티켓
                 </h2>
-                <p class="text-xs sm:text-sm text-slate-400 mb-6">100점을 달성하여 추첨 게임에서 승리하셨습니다!</p>
+                <span class="text-[10px] text-amber-200/70 bg-black/60 px-3 py-0.5 rounded-full border border-amber-500/30">
+                    💡 영수증을 클릭해 조리대로 접수하세요 (Half & Half 반반 피자 포함)
+                </span>
+            </div>
 
-                <!-- 승리자 프로필 카드 -->
-                <div class="bg-slate-950/80 border border-amber-500/40 rounded-2xl p-5 mb-6 text-center space-y-2">
-                    <span class="text-xs text-slate-400 uppercase tracking-wider font-semibold">CHAMPION</span>
-                    <div id="victory-winner-name" class="text-2xl sm:text-3xl font-black text-amber-300 break-words">
-                        --
+            <div id="customers-line" class="grid grid-cols-1 sm:grid-cols-3 gap-3 min-h-[170px] items-start">
+                <!-- POS Receipt Tickets Injected Here -->
+            </div>
+        </section>
+
+        <!-- 2. KITCHEN STATIONS (ORDER TICKET / PREP TABLE / BAKE & PACKAGING) -->
+        <section class="grid grid-cols-1 lg:grid-cols-12 gap-3">
+
+            <!-- Station 1: Active Order Slip & Requirements (3 cols) -->
+            <div class="lg:col-span-3 bg-slate-900 border-2 border-slate-700 rounded-2xl p-3 flex flex-col justify-between shadow-xl">
+                <div>
+                    <h3 class="font-jua text-xs text-slate-400 mb-2 flex items-center justify-between">
+                        <span><i class="fa-solid fa-clipboard-list text-amber-400"></i> 진행 중인 주문 영수증</span>
+                        <span id="ticket-count" class="bg-amber-500/20 text-amber-300 px-2 py-0.5 rounded-full text-[10px]">0건</span>
+                    </h3>
+                    <div id="active-order-slip" class="bg-amber-50 text-slate-900 p-3 rounded-xl shadow-inner font-mono text-xs border border-amber-200 receipt-anim hidden">
+                        <!-- Detailed POS Ticket Content -->
                     </div>
-                    <div class="flex justify-center items-center gap-4 pt-2 border-t border-slate-800 text-xs text-slate-300">
-                        <div>
-                            <span class="text-slate-500 block text-[10px]">최종 달성 점수</span>
-                            <span id="victory-score-display" class="font-bold text-amber-400 text-sm font-mono">0점</span>
+                    <div id="no-ticket-msg" class="text-xs text-slate-500 text-center py-12 border-2 border-dashed border-slate-800 rounded-xl">
+                        POS 카운터에서 손님의 주문 영수증을 접수하세요.
+                    </div>
+                </div>
+
+                <div class="mt-2 bg-slate-950 p-2 rounded-xl border border-slate-800 text-[10px] text-slate-400">
+                    <i class="fa-solid fa-circle-info text-amber-400"></i> Tip: Half & Half 주문은 왼쪽/오른쪽 반반에 요구 토핑을 맞추어야 합니다!
+                </div>
+            </div>
+
+            <!-- Station 2: Chef Prep Table (5 cols) -->
+            <div class="lg:col-span-5 stainless-steel rounded-2xl p-3 shadow-2xl flex flex-col items-center justify-between border-2 border-slate-600 relative">
+                <div class="w-full flex justify-between items-center">
+                    <span class="font-jua text-xs text-slate-200 flex items-center gap-1.5">
+                        <i class="fa-solid fa-utensils text-amber-400"></i> 도우 토핑 조리대 (Prep Station)
+                    </span>
+                    <button id="btn-trash" class="bg-red-950 hover:bg-red-900 border border-red-600/50 text-red-300 px-2.5 py-0.5 rounded-xl text-[10px] font-jua transition-transform active:scale-95 flex items-center gap-1">
+                        <i class="fa-solid fa-trash-can"></i> 도우 초기화
+                    </button>
+                </div>
+
+                <!-- High Visual Pizza Prep Canvas Display -->
+                <div id="prep-pizza" class="w-48 h-48 sm:w-56 sm:h-56 rounded-full bg-[#e3a869] border-[12px] border-[#b87a42] shadow-2xl relative flex items-center justify-center my-2 transition-all overflow-hidden cursor-crosshair">
+                    <div id="prep-sauce" class="absolute inset-2 rounded-full opacity-0 transition-opacity"></div>
+                    <div id="prep-cheese" class="absolute inset-3 rounded-full opacity-0 transition-opacity"></div>
+                    <div id="prep-toppings" class="absolute inset-0 rounded-full pointer-events-none"></div>
+
+                    <!-- Dough Half-Divider Line -->
+                    <div id="half-divider" class="absolute inset-y-0 left-1/2 w-0.5 bg-slate-900/40 pointer-events-none hidden"></div>
+
+                    <div id="prep-dough-status" class="text-slate-900/80 font-jua text-center px-3 text-xs select-none z-10 bg-amber-100/90 rounded-lg py-1 shadow">
+                        하단 재료를 선택 후<br>도우 위를 터치하여 올려놓으세요!
+                    </div>
+                </div>
+
+                <button id="btn-to-oven" class="w-full py-2 bg-gradient-to-r from-orange-500 to-amber-500 hover:brightness-110 active:scale-95 text-slate-950 font-jua text-xs rounded-xl shadow-lg transition-all flex items-center justify-center gap-1.5">
+                    <i class="fa-solid fa-fire-burner"></i> 참나무 화덕에 넣기 ➔
+                </button>
+            </div>
+
+            <!-- Station 3: Wood Oven & Packaging Station (4 cols) -->
+            <div class="lg:col-span-4 bg-slate-900 border-2 border-slate-700 rounded-2xl p-3 flex flex-col justify-between shadow-xl">
+                <div>
+                    <h3 class="font-jua text-xs text-amber-400 mb-1.5 flex items-center justify-between">
+                        <span><i class="fa-solid fa-fire text-red-500"></i> 참나무 화덕 & 포장 스테이션</span>
+                        <span id="oven-status-badge" class="text-[10px] bg-slate-800 text-slate-400 px-2 py-0.5 rounded-full">비어있음</span>
+                    </h3>
+
+                    <!-- Wood Oven Box -->
+                    <div id="wood-oven-box" class="bg-slate-950 border-4 border-amber-950 rounded-2xl p-3 text-center min-h-[125px] flex flex-col items-center justify-center relative overflow-hidden transition-all">
+                        <div id="oven-fire-bg" class="absolute inset-0 bg-red-900/40 opacity-0 transition-opacity pointer-events-none"></div>
+
+                        <div id="oven-pizza-preview" class="hidden text-4xl mb-1 relative">
+                            🍕
+                            <div id="steam-box" class="absolute -top-3 left-1/2 -translate-x-1/2"></div>
                         </div>
-                        <div class="w-px h-6 bg-slate-800"></div>
-                        <div>
-                            <span class="text-slate-500 block text-[10px]">총 당첨 횟수</span>
-                            <span id="victory-wins-display" class="font-bold text-indigo-400 text-sm font-mono">0회</span>
+
+                        <div id="oven-timer-text" class="font-jua text-slate-400 text-xs">
+                            피자를 화덕 오븐에 넣으세요
+                        </div>
+
+                        <!-- Heat Meter Gauge -->
+                        <div class="w-full bg-slate-800 h-2.5 rounded-full mt-2 overflow-hidden border border-slate-700 relative">
+                            <div id="oven-progress" class="h-full bg-gradient-to-r from-amber-500 via-emerald-400 to-red-600 w-0 transition-all"></div>
+                        </div>
+                        <div class="w-full flex justify-between text-[8px] text-slate-500 mt-0.5 font-mono">
+                            <span>Raw</span>
+                            <span class="text-emerald-400 font-bold">GOLDEN PEAK</span>
+                            <span class="text-red-400">Charred</span>
                         </div>
                     </div>
                 </div>
 
-                <button onclick="resetGameAndCloseVictory()" class="w-full py-4 bg-gradient-to-r from-amber-500 via-rose-500 to-indigo-600 hover:from-amber-400 hover:to-indigo-500 text-white text-base font-extrabold rounded-2xl shadow-xl shadow-amber-500/20 hover:scale-[1.02] active:scale-95 transition-all duration-200 flex items-center justify-center gap-2">
-                    <i class="fa-solid fa-rotate-right"></i> 새 게임 시작하기 (점수 초기화)
+                <!-- Cutting & Packaging -->
+                <div class="space-y-1.5 mt-2">
+                    <div class="flex gap-1.5">
+                        <button onclick="cutPizza(4)" class="flex-1 py-1 bg-slate-800 hover:bg-slate-700 border border-slate-600 text-amber-200 font-jua text-[11px] rounded-lg transition-all active:scale-95">
+                            ✂️ 4조각
+                        </button>
+                        <button onclick="cutPizza(6)" class="flex-1 py-1 bg-slate-800 hover:bg-slate-700 border border-slate-600 text-amber-200 font-jua text-[11px] rounded-lg transition-all active:scale-95">
+                            ✂️ 6조각
+                        </button>
+                        <button onclick="cutPizza(8)" class="flex-1 py-1 bg-slate-800 hover:bg-slate-700 border border-slate-600 text-amber-200 font-jua text-[11px] rounded-lg transition-all active:scale-95">
+                            ✂️ 8조각
+                        </button>
+                    </div>
+
+                    <button id="btn-serve-final" class="w-full py-2 bg-gradient-to-r from-emerald-500 to-green-600 hover:brightness-110 active:scale-95 text-slate-950 font-jua text-xs rounded-xl shadow-lg transition-all flex items-center justify-center gap-1.5">
+                        <i class="fa-solid fa-box-archive text-sm"></i> 피자 박스 포장 & 서빙
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- 3. REALISTIC INGREDIENT DOCK (16 REAL SVGs) -->
+        <section class="bg-slate-900 rounded-2xl border border-slate-700 p-3 shadow-xl space-y-2">
+            <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800 pb-1.5">
+                <h3 class="font-jua text-xs text-amber-400 flex items-center gap-1.5">
+                    <i class="fa-solid fa-boxes-packing"></i> 프리미엄 피자 재료 선반 (Ingredients Dock)
+                </h3>
+                <span class="text-[10px] text-slate-400">도우 ➔ 소스 ➔ 치즈 선택 후 원하는 토핑을 클릭하여 도우에 올리세요.</span>
+            </div>
+
+            <!-- Base Selection -->
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                <div>
+                    <label class="block text-[10px] font-jua text-slate-400 mb-1">🍞 도우 크러스트 (4종)</label>
+                    <div id="dough-selector" class="grid grid-cols-2 gap-1"></div>
+                </div>
+                <div>
+                    <label class="block text-[10px] font-jua text-slate-400 mb-1">🥫 특제 소스 (4종)</label>
+                    <div id="sauce-selector" class="grid grid-cols-2 gap-1"></div>
+                </div>
+                <div>
+                    <label class="block text-[10px] font-jua text-slate-400 mb-1">🧀 천연 치즈 (4종)</label>
+                    <div id="cheese-selector" class="grid grid-cols-2 gap-1"></div>
+                </div>
+            </div>
+
+            <!-- 16 Real SVGs Toppings -->
+            <div>
+                <label class="block text-[10px] font-jua text-slate-400 mb-1">🥓 16종 리얼 토핑</label>
+                <div id="topping-deck" class="grid grid-cols-4 sm:grid-cols-8 md:grid-cols-16 gap-1.5"></div>
+            </div>
+        </section>
+
+        <!-- 4. STORE UPGRADES -->
+        <section class="bg-slate-900/80 rounded-2xl border border-amber-900/40 p-2.5 shadow-lg">
+            <h3 class="font-jua text-xs text-amber-300 mb-1.5 flex items-center gap-1.5">
+                <i class="fa-solid fa-shop text-amber-400"></i> 매장 장비 업그레이드 (Business Upgrades)
+            </h3>
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                <button onclick="buyUpgrade('oven')" class="bg-slate-950 border border-slate-700 hover:border-amber-500 p-2 rounded-xl text-left flex justify-between items-center transition-all">
+                    <div>
+                        <div class="font-jua text-xs text-amber-300">🔥 고성능 화덕 (Lv.<span id="lvl-oven">1</span>)</div>
+                        <div class="text-[9px] text-slate-400">피자 굽는 속도가 25% 빨라집니다.</div>
+                    </div>
+                    <span id="cost-oven" class="font-jua text-xs bg-amber-500/20 text-amber-300 px-2 py-0.5 rounded-lg">₩5,000</span>
+                </button>
+
+                <button onclick="buyUpgrade('patience')" class="bg-slate-950 border border-slate-700 hover:border-amber-500 p-2 rounded-xl text-left flex justify-between items-center transition-all">
+                    <div>
+                        <div class="font-jua text-xs text-amber-300">🛋️ 웨이팅 라운지 (Lv.<span id="lvl-patience">1</span>)</div>
+                        <div class="text-[9px] text-slate-400">손님 대기 시간이 8초 늘어납니다.</div>
+                    </div>
+                    <span id="cost-patience" class="font-jua text-xs bg-amber-500/20 text-amber-300 px-2 py-0.5 rounded-lg">₩6,000</span>
+                </button>
+
+                <button onclick="buyUpgrade('tip')" class="bg-slate-950 border border-slate-700 hover:border-amber-500 p-2 rounded-xl text-left flex justify-between items-center transition-all">
+                    <div>
+                        <div class="font-jua text-xs text-amber-300">✨ 고메 팁 보너스 (Lv.<span id="lvl-tip">1</span>)</div>
+                        <div class="text-[9px] text-slate-400">완성 시 팁 보너스 +20% 추가.</div>
+                    </div>
+                    <span id="cost-tip" class="font-jua text-xs bg-amber-500/20 text-amber-300 px-2 py-0.5 rounded-lg">₩8,000</span>
                 </button>
             </div>
+        </section>
+    </main>
+
+    <!-- CUSTOMER REVIEW MODAL -->
+    <div id="review-modal" class="fixed inset-0 bg-slate-950/90 backdrop-blur-md z-50 flex items-center justify-center p-4 opacity-0 pointer-events-none transition-opacity duration-300">
+        <div class="bg-slate-900 border-2 border-amber-500/50 rounded-3xl max-w-md w-full p-6 text-center shadow-2xl">
+            <div id="review-avatar" class="text-4xl mb-2">🧑‍💼</div>
+            <h3 id="review-cust-name" class="font-jua text-xl text-white mb-1">손님 평가 리포트</h3>
+            <div id="review-stars" class="text-yellow-400 text-lg mb-3">⭐⭐⭐⭐⭐</div>
+
+            <!-- Detailed Metrics Breakdown -->
+            <div class="bg-slate-950 rounded-2xl p-3 space-y-2 text-xs mb-4 border border-slate-800 font-mono text-left">
+                <div class="flex justify-between">
+                    <span class="text-slate-400">🔥 도우 굽기 정도:</span>
+                    <span id="rev-bake-status" class="font-bold text-amber-300">Golden Perfection</span>
+                </div>
+                <div class="flex justify-between">
+                    <span class="text-slate-400">🎯 레시피 정확도:</span>
+                    <span id="rev-acc-status" class="font-bold text-emerald-400">100% Match</span>
+                </div>
+                <div class="flex justify-between">
+                    <span class="text-slate-400">⏱️ 조리 속도:</span>
+                    <span id="rev-speed-status" class="font-bold text-blue-300">Fast</span>
+                </div>
+                <div class="border-t border-slate-800 pt-2 flex justify-between text-sm font-bold">
+                    <span class="text-slate-300">최종 획득 매출:</span>
+                    <span id="rev-earned-money" class="text-amber-400">₩18,000</span>
+                </div>
+            </div>
+
+            <button onclick="closeReviewModal()" class="w-full py-3 bg-gradient-to-r from-amber-500 to-orange-500 hover:brightness-110 active:scale-95 text-slate-950 font-jua text-sm rounded-2xl shadow-lg transition-all">
+                확인 및 다음 주문 접수
+            </button>
         </div>
+    </div>
 
-    <!-- JavaScript Logic -->
+    <!-- GAME OVER MODAL -->
+    <div id="gameover-modal" class="fixed inset-0 bg-slate-950/90 backdrop-blur-md z-50 flex items-center justify-center p-4 opacity-0 pointer-events-none transition-opacity duration-300">
+        <div class="bg-slate-900 border-2 border-red-500/50 rounded-3xl max-w-sm w-full p-6 text-center shadow-2xl">
+            <div class="w-16 h-16 bg-red-500/20 text-red-500 rounded-full flex items-center justify-center text-3xl mx-auto mb-3 border border-red-500/40">
+                🍕
+            </div>
+            <h3 class="font-jua text-2xl text-white mb-1">오늘의 영업 종료!</h3>
+            <p class="text-xs text-slate-400 mb-4">손님들의 대기 시간이 초과되어 영업을 마감했습니다.</p>
+
+            <div class="bg-slate-950 rounded-2xl p-3 text-xs mb-5 border border-slate-800">
+                <div class="flex justify-between">
+                    <span class="text-slate-400">최종 누적 매출:</span>
+                    <span id="final-money" class="font-jua text-amber-400 text-sm">₩0</span>
+                </div>
+            </div>
+
+            <button id="btn-restart" class="w-full py-3 bg-gradient-to-r from-amber-500 to-orange-500 hover:brightness-110 active:scale-95 text-slate-950 font-jua text-base rounded-2xl shadow-lg transition-all">
+                다시 매장 열기
+            </button>
+        </div>
+    </div>
+
+    <footer class="bg-slate-950 border-t border-slate-800 text-center py-2 text-[10px] text-slate-500">
+        🍕 Ultra Pizzeria Chef Simulator - High-Precision Pizza Crafting Engine
+    </footer>
+
+    <!-- GAME ENGINE LOGIC -->
     <script>
-        // App State
-        // items 항목 객체 구조: { name: string, score: number, weight: number }
-        let items = [];
-        let totalInverseWeight = 0;
-        let winnersHistory = [];
-        let cumulativeScores = {}; // 누적 점수 트래킹
-        let winCounts = {}; // 당첨 횟수 트래킹
-        let currentTab = 'wheel';
-        let isSpinning = false;
-        let lastWinner = null;
-        let isGameOver = false;
-
-        // Sound Effects Engine (Web Audio API)
-        const AudioContext = window.AudioContext || window.webkitAudioContext;
-        let audioCtx = null;
-
-        function initAudio() {
-            if (!audioCtx) {
-                audioCtx = new AudioContext();
-            }
-        }
-
-        function playSound(type) {
-            const soundEnabled = document.getElementById('sound-toggle').checked;
-            if (!soundEnabled) return;
-            try {
-                initAudio();
-                const now = audioCtx.currentTime;
-
-                if (type === 'tick') {
-                    const osc = audioCtx.createOscillator();
-                    const gain = audioCtx.createGain();
-                    osc.type = 'triangle';
-                    osc.frequency.setValueAtTime(400, now);
-                    osc.frequency.exponentialRampToValueAtTime(100, now + 0.04);
-                    gain.gain.setValueAtTime(0.15, now);
-                    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.04);
-                    osc.connect(gain);
-                    gain.connect(audioCtx.destination);
-                    osc.start(now);
-                    osc.stop(now + 0.05);
-                } else if (type === 'win') {
-                    // Win fanfare chords
-                    [261.63, 329.63, 392.00, 523.25].forEach((freq, idx) => {
-                        const osc = audioCtx.createOscillator();
-                        const gain = audioCtx.createGain();
-                        osc.type = 'sine';
-                        osc.frequency.setValueAtTime(freq, now + idx * 0.08);
-                        gain.gain.setValueAtTime(0.2, now + idx * 0.08);
-                        gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.08 + 0.5);
-                        osc.connect(gain);
-                        gain.connect(audioCtx.destination);
-                        osc.start(now + idx * 0.08);
-                        osc.stop(now + idx * 0.08 + 0.6);
-                    });
-                } else if (type === 'flip') {
-                    const osc = audioCtx.createOscillator();
-                    const gain = audioCtx.createGain();
-                    osc.type = 'sine';
-                    osc.frequency.setValueAtTime(200, now);
-                    osc.frequency.exponentialRampToValueAtTime(600, now + 0.08);
-                    gain.gain.setValueAtTime(0.2, now);
-                    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.08);
-                    osc.connect(gain);
-                    gain.connect(audioCtx.destination);
-                    osc.start(now);
-                    osc.stop(now + 0.09);
-                } else if (type === 'victory') {
-                    // Final Victory Fanfare Sound
-                    const notes = [261.63, 329.63, 392.00, 523.25, 659.25, 783.99];
-                    notes.forEach((freq, idx) => {
-                        const osc = audioCtx.createOscillator();
-                        const gain = audioCtx.createGain();
-                        osc.type = 'triangle';
-                        osc.frequency.setValueAtTime(freq, now + idx * 0.1);
-                        gain.gain.setValueAtTime(0.25, now + idx * 0.1);
-                        gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.1 + 0.6);
-                        osc.connect(gain);
-                        gain.connect(audioCtx.destination);
-                        osc.start(now + idx * 0.1);
-                        osc.stop(now + idx * 0.1 + 0.7);
-                    });
-                }
-            } catch (e) {
-                console.log('Audio playback prevented or unsupported');
-            }
-        }
-
-        // Color Palette for Wheel & Cards
-        const palette = [
-            '#6366f1', '#ec4899', '#14b8a6', '#f59e0b', 
-            '#8b5cf6', '#06b6d4', '#10b981', '#f43f5e',
-            '#3b82f6', '#a855f7', '#84cc16', '#eab308'
+        // --- 16 REAL DETAILED SVG FOOD DESIGNS ---
+        const DOUGHS = [
+            { id: 'classic', name: '클래식 도우', border: '#B87A42', bg: '#E3A869' },
+            { id: 'thin', name: '씬 크러스트', border: '#A66A38', bg: '#D89C5B' },
+            { id: 'cheesecrust', name: '치즈크러스트', border: '#F2A900', bg: '#E3A869' },
+            { id: 'sweetpotato', name: '고구마무스 크러스트', border: '#D97706', bg: '#E3A869' }
         ];
 
-        // Initialization
-        window.addEventListener('DOMContentLoaded', () => {
-            const input = document.getElementById('items-input');
-            input.addEventListener('input', parseInputItems);
+        const SAUCES = [
+            { id: 'tomato', name: '토마토 소스', color: '#B91C1C' },
+            { id: 'cream', name: '크림 알프레도', color: '#FEF08A' },
+            { id: 'bbq', name: '바베큐 소스', color: '#451A03' },
+            { id: 'rose', name: '로제 소스', color: '#F87171' }
+        ];
+
+        const CHEESES = [
+            { id: 'mozzarella', name: '모짜렐라', color: '#FACC15' },
+            { id: 'cheddar', name: '체다 치즈', color: '#FB923C' },
+            { id: 'gorgonzola', name: '고르곤졸라', color: '#EAB308' },
+            { id: 'vegan', name: '비건 치즈', color: '#FEF9C3' }
+        ];
+
+        const TOPPINGS = [
+            { id: 'pepperoni', name: '페퍼로니', svg: `<svg viewBox="0 0 40 40"><circle cx="20" cy="20" r="18" fill="#991B1B" stroke="#7F1D1D" stroke-width="2"/><circle cx="13" cy="13" r="2.5" fill="#7F1D1D"/><circle cx="26" cy="22" r="3" fill="#7F1D1D"/><circle cx="18" cy="28" r="2" fill="#7F1D1D"/></svg>` },
+            { id: 'bacon', name: '훈제 베이컨', svg: `<svg viewBox="0 0 40 40"><path d="M5 14 Q 12 5, 20 14 T 35 14 L 35 26 Q 27 35, 20 26 T 5 26 Z" fill="#881337" stroke="#9F1239"/><path d="M7 18 Q 13 10, 20 18 T 33 18" fill="none" stroke="#FECDD3" stroke-width="2.5"/></svg>` },
+            { id: 'bulgogi', name: '직화 불고기', svg: `<svg viewBox="0 0 40 40"><path d="M10 20 Q 15 8, 28 12 Q 35 22, 24 32 Q 12 34, 10 20 Z" fill="#3B1202" stroke="#1C0901" stroke-width="2"/><circle cx="20" cy="18" r="1.5" fill="#FEF08A"/></svg>` },
+            { id: 'shrimp', name: '통새우', svg: `<svg viewBox="0 0 40 40"><path d="M10 25 C 10 10, 30 10, 30 22 C 30 28, 22 30, 18 25 C 15 20, 22 18, 24 20" fill="none" stroke="#EA580C" stroke-width="6.5" stroke-linecap="round"/><path d="M8 27 L 3 32 M 8 27 L 5 23" stroke="#C2410C" stroke-width="2.5"/></svg>` },
+            { id: 'mushroom', name: '양송이버섯', svg: `<svg viewBox="0 0 40 40"><path d="M10 22 C 10 10, 30 10, 30 22 Z" fill="#E7E5E4" stroke="#A8A29E" stroke-width="2"/><rect x="16" y="21" width="8" height="12" rx="2" fill="#F5F5F4" stroke="#A8A29E" stroke-width="1.5"/></svg>` },
+            { id: 'pepper', name: '피망', svg: `<svg viewBox="0 0 40 40"><path d="M10 20 A 10 10 0 0 1 30 20 A 10 10 0 0 1 10 20 Z" fill="none" stroke="#15803D" stroke-width="5"/><path d="M14 20 A 6 6 0 0 1 26 20 A 6 6 0 0 1 14 20 Z" fill="none" stroke="#166534" stroke-width="2"/></svg>` },
+            { id: 'corn', name: '스위트콘', svg: `<svg viewBox="0 0 40 40"><ellipse cx="20" cy="20" rx="8" ry="12" fill="#EAB308" stroke="#CA8A04" stroke-width="2"/><line x1="12" y1="20" x2="28" y2="20" stroke="#CA8A04" stroke-width="1.5"/></svg>` },
+            { id: 'olive', name: '블랙 올리브', svg: `<svg viewBox="0 0 40 40"><circle cx="20" cy="20" r="14" fill="#18181B" stroke="#09090B" stroke-width="2"/><circle cx="20" cy="20" r="6" fill="#3F3F46"/></svg>` },
+            { id: 'pineapple', name: '파인애플', svg: `<svg viewBox="0 0 40 40"><polygon points="10,12 30,8 26,30 8,26" fill="#FACC15" stroke="#EAB308" stroke-width="2"/><line x1="15" y1="10" x2="21" y2="28" stroke="#CA8A04" stroke-width="1.5"/></svg>` },
+            { id: 'jalapeno', name: '할라피뇨', svg: `<svg viewBox="0 0 40 40"><circle cx="20" cy="20" r="15" fill="#3F6212" stroke="#1E293B" stroke-width="2.5"/><circle cx="20" cy="20" r="5" fill="#84CC16"/></svg>` },
+            { id: 'tomato', name: '방울토마토', svg: `<svg viewBox="0 0 40 40"><circle cx="20" cy="20" r="15" fill="#DC2626" stroke="#991B1B" stroke-width="2"/><path d="M12 20 Q 20 10, 28 20 Q 20 30, 12 20 Z" fill="#FCA5A5"/></svg>` },
+            { id: 'basil', name: '생 바질 잎', svg: `<svg viewBox="0 0 40 40"><path d="M8 20 C 8 5, 35 8, 32 20 C 35 32, 8 35, 8 20 Z" fill="#16A34A" stroke="#15803D" stroke-width="2"/><path d="M12 20 Q 20 18, 28 20" fill="none" stroke="#86EFAC" stroke-width="1.5"/></svg>` },
+            { id: 'mousse', name: '고구마무스', svg: `<svg viewBox="0 0 40 40"><path d="M5 20 Q 15 5, 25 20 T 35 20" fill="none" stroke="#D97706" stroke-width="8" stroke-linecap="round"/></svg>` },
+            { id: 'garlic', name: '마늘 편 슬라이스', svg: `<svg viewBox="0 0 40 40"><ellipse cx="20" cy="20" rx="14" ry="10" fill="#FEF3C7" stroke="#FDE68A" stroke-width="2"/></svg>` },
+            { id: 'onion', name: '적양파 링', svg: `<svg viewBox="0 0 40 40"><circle cx="20" cy="20" r="15" fill="none" stroke="#86198F" stroke-width="4"/><circle cx="20" cy="20" r="9" fill="none" stroke="#C084FC" stroke-width="1.5"/></svg>` },
+            { id: 'truffle', name: '트러플 오일 오일드롭', svg: `<svg viewBox="0 0 40 40"><circle cx="20" cy="20" r="8" fill="#F59E0B" opacity="0.85"/><circle cx="18" cy="18" r="2.5" fill="#FEF3C7"/></svg>` }
+        ];
+
+        const RECIPES = [
+            { id: 'supreme', name: '슈프림 콤비네이션', dough: 'classic', sauce: 'tomato', cheese: 'mozzarella', toppings: ['pepperoni', 'mushroom', 'pepper', 'corn', 'olive'], cuts: 8, price: 18000, isHalf: false },
+            { id: 'bulgogi', name: '직화 불고기 피자', dough: 'sweetpotato', sauce: 'bbq', cheese: 'cheddar', toppings: ['bulgogi', 'mushroom', 'pepper', 'mousse', 'onion'], cuts: 8, price: 20000, isHalf: false },
+            { id: 'shrimp', name: '프리미엄 통새우 피자', dough: 'cheesecrust', sauce: 'rose', cheese: 'mozzarella', toppings: ['shrimp', 'bacon', 'pineapple', 'jalapeno', 'garlic'], cuts: 8, price: 23000, isHalf: false },
+            { id: 'half_half', name: 'Half & Half (불고기 & 페퍼로니)', dough: 'classic', sauce: 'tomato', cheese: 'mozzarella', leftToppings: ['bulgogi', 'mushroom'], rightToppings: ['pepperoni', 'basil'], cuts: 8, price: 22000, isHalf: true }
+        ];
+
+        const CUSTOMERS = [
+            { name: '김민준 손님', avatar: '🧑‍💼' },
+            { name: '이지은 손님', avatar: '👩‍💼' },
+            { name: '박철수 손님', avatar: '👨‍🍳' },
+            { name: '최유리 손님', avatar: '👩‍🎨' }
+        ];
+
+        // --- GAME STATE ---
+        let state = {
+            money: 15000,
+            rating: 4.9,
+            lives: 5,
+            customers: [],
+            activeOrder: null,
+            prepPizza: { dough: 'classic', sauce: null, cheese: null, toppings: [] }, // [{id, x, y, rot}]
+            ovenPizza: null,
+            upgrades: { oven: 1, patience: 1, tip: 1 },
+            selectedToolTopping: null,
+            nextCustId: 1,
+            isGameOver: false,
+            lastSpawnTime: Date.now()
+        };
+
+        // --- DOM REFERENCES ---
+        const elements = {
+            statMoney: document.getElementById('stat-money'),
+            statRating: document.getElementById('stat-rating'),
+            statLives: document.getElementById('stat-lives'),
+            customersLine: document.getElementById('customers-line'),
             
-            // Slider binding
-            const range = document.getElementById('winner-count-range');
-            range.addEventListener('input', (e) => {
-                document.getElementById('winner-count-display').innerText = `${e.target.value}명`;
-            });
+            ticketCount: document.getElementById('ticket-count'),
+            activeOrderSlip: document.getElementById('active-order-slip'),
+            noTicketMsg: document.getElementById('no-ticket-msg'),
 
-            // Set default sample data
-            loadSampleData();
-            
-            // Set initial tab state
-            switchTab('wheel');
-        });
+            doughSelector: document.getElementById('dough-selector'),
+            sauceSelector: document.getElementById('sauce-selector'),
+            cheeseSelector: document.getElementById('cheese-selector'),
+            toppingDeck: document.getElementById('topping-deck'),
 
-        // Tab Switcher Logic
-        function switchTab(tabName) {
-            currentTab = tabName;
+            prepPizza: document.getElementById('prep-pizza'),
+            prepSauce: document.getElementById('prep-sauce'),
+            prepCheese: document.getElementById('prep-cheese'),
+            prepToppings: document.getElementById('prep-toppings'),
+            prepDoughStatus: document.getElementById('prep-dough-status'),
+            halfDivider: document.getElementById('half-divider'),
 
-            // Update Tab Buttons UI
-            const tabs = ['wheel', 'cards', 'slot', 'raffle'];
-            tabs.forEach(tab => {
-                const btn = document.getElementById(`tab-${tab}`);
-                const container = document.getElementById(`mode-${tab}`);
+            btnToOven: document.getElementById('btn-to-oven'),
+            btnTrash: document.getElementById('btn-trash'),
 
-                if (tab === tabName) {
-                    btn.className = 'tab-btn flex-1 sm:flex-none px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all duration-200 bg-indigo-600 text-white shadow-md';
-                    if (container) container.classList.remove('hidden');
-                } else {
-                    btn.className = 'tab-btn flex-1 sm:flex-none px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold text-slate-400 hover:text-white transition-all duration-200';
-                    if (container) container.classList.add('hidden');
-                }
-            });
+            woodOvenBox: document.getElementById('wood-oven-box'),
+            ovenFireBg: document.getElementById('oven-fire-bg'),
+            ovenPizzaPreview: document.getElementById('oven-pizza-preview'),
+            ovenTimerText: document.getElementById('oven-timer-text'),
+            ovenProgress: document.getElementById('oven-progress'),
+            ovenStatusBadge: document.getElementById('oven-status-badge'),
 
-            // Winner Count Option visibility (only show for raffle)
-            const winnerCountContainer = document.getElementById('winner-count-container');
-            if (winnerCountContainer) {
-                if (tabName === 'raffle') {
-                    winnerCountContainer.classList.remove('hidden');
-                } else {
-                    winnerCountContainer.classList.add('hidden');
-                }
-            }
+            btnServeFinal: document.getElementById('btn-serve-final'),
+            btnSoundToggle: document.getElementById('btn-sound-toggle'),
+            soundIcon: document.getElementById('sound-icon'),
+            soundText: document.getElementById('sound-text'),
 
-            // Tab specific initializations
-            if (tabName === 'wheel') drawWheel();
-            if (tabName === 'cards') setupCards();
+            reviewModal: document.getElementById('review-modal'),
+            gameoverModal: document.getElementById('gameover-modal'),
+            finalMoney: document.getElementById('final-money'),
+            btnRestart: document.getElementById('btn-restart')
+        };
+
+        // --- INITIALIZATION ---
+        function init() {
+            renderIngredientDeck();
+            setupEventListeners();
+            resetGame();
+            requestAnimationFrame(gameLoop);
         }
 
-        // 입력 문자열 파싱 (이름:점수) - 역가중치(1 / 점수) 계산
-        function parseInputItems() {
-            const rawText = document.getElementById('items-input').value;
-            const lines = rawText.split(/[\n,]+/).map(s => s.trim()).filter(s => s.length > 0);
-            
-            items = [];
-            totalInverseWeight = 0;
+        function resetGame() {
+            state.money = 15000;
+            state.rating = 4.9;
+            state.lives = 5;
+            state.customers = [];
+            state.activeOrder = null;
+            state.ovenPizza = null;
+            state.selectedToolTopping = null;
+            state.upgrades = { oven: 1, patience: 1, tip: 1 };
+            resetPrepPizza();
+            state.isGameOver = false;
 
-            lines.forEach(line => {
-                const parts = line.split(':');
-                const name = parts[0].trim();
-                let score = 1;
+            elements.gameoverModal.classList.add('opacity-0', 'pointer-events-none');
+            elements.reviewModal.classList.add('opacity-0', 'pointer-events-none');
+            updateUIStats();
+            updateUpgradeUI();
 
-                if (parts.length > 1) {
-                    const parsedScore = parseFloat(parts[1].trim());
-                    if (!isNaN(parsedScore) && parsedScore > 0) {
-                        score = parsedScore;
-                    }
-                }
-
-                if (name.length > 0) {
-                    // 점수가 높을수록 확률이 낮아지도록 역수(1 / score)를 가중치로 사용
-                    const weight = 1 / score;
-                    items.push({ name, score, weight });
-                    totalInverseWeight += weight;
-                }
-            });
-
-            document.getElementById('item-count').innerText = `${items.length}개`;
-            document.getElementById('total-score-badge').innerText = `역가중치 합계: ${totalInverseWeight.toFixed(2)}`;
-
-            // Max slider dynamic update
-            const range = document.getElementById('winner-count-range');
-            range.max = Math.max(1, items.length);
-
-            renderProbabilities();
-
-            // Re-render components depending on current view
-            if (currentTab === 'wheel') drawWheel();
-            if (currentTab === 'cards') setupCards();
+            spawnCustomer();
+            spawnCustomer();
         }
 
-        // 참가자 확률 목록 렌더링
-        function renderProbabilities() {
-            const container = document.getElementById('probabilities-list');
-            if (items.length === 0) {
-                container.innerHTML = `<p class="text-slate-500 italic text-center py-2 text-[11px]">참가자를 입력하면 확률이 표시됩니다.</p>`;
-                return;
-            }
-
-            container.innerHTML = items.map((item, idx) => {
-                const prob = totalInverseWeight > 0 ? ((item.weight / totalInverseWeight) * 100).toFixed(1) : 0;
-                return `
-                    <div class="flex justify-between items-center bg-slate-900/80 px-2.5 py-1 rounded border border-slate-800">
-                        <span class="font-medium text-slate-200 truncate max-w-[120px] flex items-center gap-1.5">
-                            <span class="w-2 h-2 rounded-full inline-block" style="background-color: ${palette[idx % palette.length]}"></span>
-                            ${item.name}
-                        </span>
-                        <div class="flex items-center gap-2 font-mono text-[11px]">
-                            <span class="text-amber-400 font-bold">${item.score}점</span>
-                            <span class="text-indigo-400 font-bold">(${prob}%)</span>
-                        </div>
-                    </div>
-                `;
-            }).join('');
+        function resetPrepPizza() {
+            state.prepPizza = { dough: 'classic', sauce: null, cheese: null, toppings: [] };
+            renderPrepPizza();
         }
 
-        function loadSampleData() {
-            const sample = ['김철수:5', '이영희:1', '박민수:2', '최수진:10', '정다은:1', '강동원:3'];
-            document.getElementById('items-input').value = sample.join('\n');
-            parseInputItems();
-        }
-
-        function clearItems() {
-            document.getElementById('items-input').value = '';
-            parseInputItems();
-        }
-
-        // 역가중치(weight) 기반 랜덤 참가자 뽑기 유틸리티 함수
-        function getRandomWeightedItem(itemList = items) {
-            if (itemList.length === 0) return null;
-            const currentTotalWeight = itemList.reduce((sum, item) => sum + item.weight, 0);
-            let rand = Math.random() * currentTotalWeight;
-
-            for (let i = 0; i < itemList.length; i++) {
-                if (rand < itemList[i].weight) {
-                    return itemList[i];
-                }
-                rand -= itemList[i].weight;
-            }
-            return itemList[itemList.length - 1];
-        }
-
-        // ==========================================
-        // Mode 1: 룰렛 (Wheel) Implementation
-        // ==========================================
-        let wheelAngle = 0;
-
-        function drawWheel() {
-            const canvas = document.getElementById('wheel-canvas');
-            const ctx = canvas.getContext('2d');
-            const width = canvas.width;
-            const height = canvas.height;
-            const centerX = width / 2;
-            const centerY = height / 2;
-            const radius = width / 2 - 15;
-
-            ctx.clearRect(0, 0, width, height);
-
-            if (items.length === 0 || totalInverseWeight === 0) {
-                // Empty state wheel
-                ctx.beginPath();
-                ctx.arc(centerX, centerY, radius, 0, 2 * Math.PI);
-                ctx.fillStyle = '#1e293b';
-                ctx.fill();
-                ctx.strokeStyle = '#334155';
-                ctx.lineWidth = 4;
-                ctx.stroke();
-
-                ctx.fillStyle = '#64748b';
-                ctx.font = '16px Pretendard';
-                ctx.textAlign = 'center';
-                ctx.textBaseline = 'middle';
-                ctx.fillText('참가자를 입력하세요', centerX, centerY);
-                return;
-            }
-
-            ctx.save();
-            ctx.translate(centerX, centerY);
-            ctx.rotate(wheelAngle);
-
-            let currentAngle = 0;
-
-            for (let i = 0; i < items.length; i++) {
-                const sliceAngle = itemWeightToRatio(items[i].weight) * (2 * Math.PI);
-                ctx.beginPath();
-                ctx.moveTo(0, 0);
-                ctx.arc(0, 0, radius, currentAngle, currentAngle + sliceAngle);
-                ctx.closePath();
-
-                ctx.fillStyle = palette[i % palette.length];
-                ctx.fill();
-                ctx.strokeStyle = 'rgba(15, 23, 42, 0.4)';
-                ctx.lineWidth = 2;
-                ctx.stroke();
-
-                // Text
-                ctx.save();
-                ctx.rotate(currentAngle + sliceAngle / 2);
-                ctx.textAlign = 'right';
-                ctx.fillStyle = '#ffffff';
-                ctx.font = 'bold 14px Pretendard';
-                
-                let text = items[i].score > 1 ? `${items[i].name} (${items[i].score}점)` : items[i].name;
-                if (text.length > 10) text = text.substring(0, 9) + '..';
-                ctx.fillText(text, radius - 20, 5);
-                ctx.restore();
-
-                currentAngle += sliceAngle;
-            }
-
-            // Center Pin Circle
-            ctx.beginPath();
-            ctx.arc(0, 0, 25, 0, 2 * Math.PI);
-            ctx.fillStyle = '#0f172a';
-            ctx.fill();
-            ctx.strokeStyle = '#6366f1';
-            ctx.lineWidth = 3;
-            ctx.stroke();
-
-            ctx.restore();
-        }
-
-        function itemWeightToRatio(weight) {
-            return totalInverseWeight > 0 ? weight / totalInverseWeight : 1 / items.length;
-        }
-
-        function startWheel() {
-            if (isSpinning || items.length === 0) return;
-            isSpinning = true;
-
-            const selectedItem = getRandomWeightedItem();
-            const targetIndex = items.findIndex(item => item === selectedItem);
-
-            // 각도 계산 (역가중치 부채꼴 각도 기반)
-            let startAngleOfTarget = 0;
-            for (let i = 0; i < targetIndex; i++) {
-                startAngleOfTarget += itemWeightToRatio(items[i].weight) * (2 * Math.PI);
-            }
-            const targetSliceAngle = itemWeightToRatio(items[targetIndex].weight) * (2 * Math.PI);
-
-            const duration = 4500; // ms
-            const startRadian = wheelAngle;
-            const extraRounds = 5 + Math.floor(Math.random() * 5); // 5~9 회전
-            
-            // Pointer is at top (-PI/2)
-            const targetCenterAngle = startAngleOfTarget + targetSliceAngle / 2;
-            const targetAngleOffset = (2 * Math.PI) - targetCenterAngle - (Math.PI / 2);
-            const totalTargetAngle = startRadian + (extraRounds * 2 * Math.PI) + (targetAngleOffset - (startRadian % (2 * Math.PI)));
-
-            const startTime = performance.now();
-            let lastSoundSegment = -1;
-
-            function animate(now) {
-                const elapsed = now - startTime;
-                const progress = Math.min(elapsed / duration, 1);
-                
-                // Ease out cubic
-                const easeOut = 1 - Math.pow(1 - progress, 3);
-                wheelAngle = startRadian + (totalTargetAngle - startRadian) * easeOut;
-
-                // Sound tick on segment crossing
-                const currentSegment = Math.floor((wheelAngle % (2 * Math.PI)) / (Math.PI / 6));
-                if (currentSegment !== lastSoundSegment) {
-                    playSound('tick');
-                    lastSoundSegment = currentSegment;
-                }
-
-                drawWheel();
-
-                if (progress < 1) {
-                    requestAnimationFrame(animate);
-                } else {
-                    isSpinning = false;
-                    showWinner(selectedItem.name);
-                }
-            }
-
-            requestAnimationFrame(animate);
-        }
-
-        // ==========================================
-        // Mode 2: 카드 뽑기 (Cards) Implementation
-        // ==========================================
-        function setupCards() {
-            const container = document.getElementById('cards-grid');
-            container.innerHTML = '';
-
-            if (items.length === 0) {
-                container.innerHTML = `<p class="text-slate-500 italic text-sm">참가자를 목록에 입력하세요.</p>`;
-                return;
-            }
-
-            // Shuffle display items
-            const shuffled = [...items].sort(() => Math.random() - 0.5);
-
-            shuffled.forEach((item, index) => {
-                const cardEl = document.createElement('div');
-                cardEl.className = 'w-24 h-32 sm:w-28 sm:h-36 perspective-1000 cursor-pointer';
-                cardEl.innerHTML = `
-                    <div class="card-inner relative w-full h-full transform-style-3d transition-transform duration-500 rounded-xl shadow-lg">
-                        <div class="card-front absolute inset-0 bg-gradient-to-tr from-slate-800 to-indigo-950 border-2 border-indigo-500/50 rounded-xl flex items-center justify-center backface-hidden">
-                            <i class="fa-solid fa-question text-2xl text-indigo-400/80"></i>
-                        </div>
-                        <div class="card-back absolute inset-0 bg-gradient-to-br from-indigo-600 to-pink-600 border-2 border-white rounded-xl flex flex-col items-center justify-center p-2 text-center text-white font-bold text-sm sm:text-base rotate-y-180 backface-hidden shadow-2xl break-words">
-                            <span>${item.name}</span>
-                            <span class="text-[10px] bg-black/30 px-2 py-0.5 rounded mt-1 font-mono">${item.score}점</span>
-                        </div>
-                    </div>
-                `;
-
-                cardEl.addEventListener('click', () => {
-                    const inner = cardEl.querySelector('.card-inner');
-                    if (!inner.classList.contains('rotate-y-180') && !isSpinning) {
-                        playSound('flip');
-                        inner.classList.add('rotate-y-180');
-                        setTimeout(() => showWinner(item.name), 600);
-                    }
-                });
-
-                container.appendChild(cardEl);
-            });
-        }
-
-        // ==========================================
-        // Mode 3: 슬롯 머신 (Slot Machine) Implementation
-        // ==========================================
-        function startSlot() {
-            if (isSpinning || items.length === 0) return;
-            isSpinning = true;
-
-            const display = document.getElementById('slot-display');
-            const duration = 3000;
-            const startTime = performance.now();
-            const winnerItem = getRandomWeightedItem();
-
-            function roll(now) {
-                const elapsed = now - startTime;
-                const progress = elapsed / duration;
-
-                if (progress < 1) {
-                    const randomIndex = Math.floor(Math.random() * items.length);
-                    display.innerText = items[randomIndex].name;
-                    playSound('tick');
-                    setTimeout(() => requestAnimationFrame(roll), 60);
-                } else {
-                    isSpinning = false;
-                    display.innerText = winnerItem.name;
-                    showWinner(winnerItem.name);
-                }
-            }
-
-            requestAnimationFrame(roll);
-        }
-
-        // ==========================================
-        // Mode 4: 빠른 래플 (Quick Raffle) Implementation
-        // ==========================================
-        function startRaffle() {
-            if (isSpinning || items.length === 0) return;
-            isSpinning = true;
-
-            const box = document.getElementById('raffle-box');
-            const winnerCount = parseInt(document.getElementById('winner-count-range').value);
-
-            box.innerHTML = `<div class="text-indigo-400 font-bold text-lg animate-pulse"><i class="fa-solid fa-spinner fa-spin mr-2"></i>추첨 중...</div>`;
-
-            setTimeout(() => {
-                isSpinning = false;
-                let pool = [...items];
-                let selected = [];
-
-                const countToPick = Math.min(winnerCount, pool.length);
-
-                for (let i = 0; i < countToPick; i++) {
-                    const picked = getRandomWeightedItem(pool);
-                    selected.push(picked.name);
-                    // 중복 당첨 방지 처리
-                    pool = pool.filter(item => item !== picked);
-                }
-
-                box.innerHTML = `
-                    <div class="text-xs text-slate-400 mb-2">당첨 결과 (${selected.length}명)</div>
-                    <div class="flex flex-wrap gap-2 justify-center">
-                        ${selected.map(name => `<span class="bg-indigo-600/80 text-white font-bold px-3 py-1.5 rounded-lg border border-indigo-400/30 text-sm shadow">${name}</span>`).join('')}
-                    </div>
-                `;
-
-                showWinner(selected.join(', '));
-            }, 1200);
-        }
-
-        // ==========================================
-        // Winner & Modal Handling
-        // ==========================================
-        function showWinner(winnerName) {
-            if (isGameOver) return;
-            lastWinner = winnerName;
-
-            // 승리자 및 점수 계산
-            let winnerAchievingVictory = null;
-            let highestScore = 0;
-            const winnerItems = winnerName.split(', ');
-
-            winnerItems.forEach(name => {
-                const matchedItem = items.find(i => i.name === name);
-                const scoreAdd = matchedItem ? matchedItem.score : 0;
-                
-                // 누적 점수 및 당첨 횟수 업데이트
-                cumulativeScores[name] = (cumulativeScores[name] || 0) + scoreAdd;
-                winCounts[name] = (winCounts[name] || 0) + 1;
-
-                // 100점 도달 감지
-                if (scoreAdd >= 100 || cumulativeScores[name] >= 100) {
-                    if (cumulativeScores[name] > highestScore) {
-                        highestScore = cumulativeScores[name];
-                        winnerAchievingVictory = name;
-                    }
-                }
-            });
-
-            // Save to History
-            addHistory(winnerName);
-
-            // 최종 승리 조건 달성 시
-            if (winnerAchievingVictory) {
-                isGameOver = true;
-                triggerVictory(winnerAchievingVictory, highestScore, winCounts[winnerAchievingVictory] || 1);
-                return;
-            }
-
-            // 일반 당첨 처리
-            playSound('win');
-            try {
-                confetti({
-                    particleCount: 100,
-                    spread: 70,
-                    origin: { y: 0.6 }
-                });
-            } catch(e) {}
-
-            document.getElementById('score-100-badge').classList.add('hidden');
-
-            // 일반 당첨 모달 열기
-            const modal = document.getElementById('winner-modal');
-            const modalContent = document.getElementById('modal-content');
-            document.getElementById('modal-winner-name').innerText = winnerName;
-
-            modal.classList.remove('opacity-0', 'pointer-events-none');
-            modalContent.classList.remove('scale-90');
-            modalContent.classList.add('scale-100');
-        }
-
-        // 최종 승리 연출
-        function triggerVictory(winnerName, score, winCount) {
-            playSound('victory');
-            trigger100PointsFireworks();
-
-            document.getElementById('victory-winner-name').innerText = winnerName;
-            document.getElementById('victory-score-display').innerText = `${score}점`;
-            document.getElementById('victory-wins-display').innerText = `${winCount}회`;
-
-            const victoryModal = document.getElementById('victory-modal');
-            const victoryContent = document.getElementById('victory-content');
-
-            victoryModal.classList.remove('opacity-0', 'pointer-events-none');
-            victoryContent.classList.remove('scale-90');
-            victoryContent.classList.add('scale-100');
-        }
-
-        // 100점 달성 시 터지는 화려한 스페셜 3단 폭죽 이펙트
-        function trigger100PointsFireworks() {
-            if (typeof confetti !== 'function') return;
-
-            const duration = 4.5 * 1000;
-            const animationEnd = Date.now() + duration;
-            const defaults = { startVelocity: 35, spread: 360, ticks: 70, zIndex: 999 };
-
-            function randomInRange(min, max) {
-                return Math.random() * (max - min) + min;
-            }
-
-            const interval = setInterval(function() {
-                const timeLeft = animationEnd - Date.now();
-
-                if (timeLeft <= 0) {
-                    return clearInterval(interval);
-                }
-
-                const particleCount = 60 * (timeLeft / duration);
-                
-                confetti(Object.assign({}, defaults, { 
-                    particleCount, 
-                    origin: { x: randomInRange(0.1, 0.3), y: Math.random() - 0.2 },
-                    colors: ['#f59e0b', '#ec4899', '#6366f1', '#10b981', '#ffffff', '#eab308']
-                }));
-                confetti(Object.assign({}, defaults, { 
-                    particleCount, 
-                    origin: { x: randomInRange(0.7, 0.9), y: Math.random() - 0.2 },
-                    colors: ['#f59e0b', '#ec4899', '#6366f1', '#10b981', '#ffffff', '#eab308']
-                }));
-            }, 250);
-        }
-
-        function closeModal() {
-            const modal = document.getElementById('winner-modal');
-            const modalContent = document.getElementById('modal-content');
-            
-            modal.classList.add('opacity-0', 'pointer-events-none');
-            modalContent.classList.remove('scale-100');
-            modalContent.classList.add('scale-90');
-        }
-
-        function resetGameAndCloseVictory() {
-            const victoryModal = document.getElementById('victory-modal');
-            const victoryContent = document.getElementById('victory-content');
-            
-            victoryModal.classList.add('opacity-0', 'pointer-events-none');
-            victoryContent.classList.remove('scale-100');
-            victoryContent.classList.add('scale-90');
-
-            // 점수 및 상태 리셋
-            cumulativeScores = {};
-            winCounts = {};
-            isGameOver = false;
-            clearHistory();
-        }
-
-        function removeWinnerAndClose() {
-            if (!lastWinner) return;
-
-            // Multiple winners in raffle case split
-            const winnersArr = lastWinner.split(', ');
-            let inputArr = document.getElementById('items-input').value.split(/[\n,]+/).map(s => s.trim()).filter(s => s.length > 0);
-
-            inputArr = inputArr.filter(item => !winnersArr.includes(item));
-            document.getElementById('items-input').value = inputArr.join('\n');
-            parseInputItems();
-
-            closeModal();
-        }
-
-        // ==========================================
-        // History Management
-        // ==========================================
-        function addHistory(winner) {
-            const timeStr = new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-            winnersHistory.unshift({ winner, time: timeStr });
-            renderHistory();
-        }
-
-        function renderHistory() {
-            const list = document.getElementById('history-list');
-            if (winnersHistory.length === 0) {
-                list.innerHTML = `<p class="text-slate-500 italic text-center py-3">아직 당첨 기록이 없습니다.</p>`;
-                return;
-            }
-
-            list.innerHTML = winnersHistory.map(item => `
-                <div class="flex justify-between items-center bg-slate-900/60 p-2 rounded-lg border border-slate-800">
-                    <span class="font-semibold text-slate-200 truncate max-w-[150px]"><i class="fa-solid fa-award text-amber-400 mr-1.5"></i>${item.winner}</span>
-                    <span class="text-[10px] text-slate-500 font-mono">${item.time}</span>
-                </div>
+        function renderIngredientDeck() {
+            elements.doughSelector.innerHTML = DOUGHS.map(d => `
+                <button onclick="selectDough('${d.id}')" class="p-1 rounded-lg bg-slate-950 border border-slate-700 hover:border-amber-400 text-[10px] font-jua text-amber-200 transition-all text-center">
+                    ${d.name}
+                </button>
+            `).join('');
+
+            elements.sauceSelector.innerHTML = SAUCES.map(s => `
+                <button onclick="selectSauce('${s.id}')" class="p-1 rounded-lg bg-slate-950 border border-slate-700 hover:border-amber-400 text-[10px] font-jua text-red-300 transition-all text-center">
+                    ${s.name}
+                </button>
+            `).join('');
+
+            elements.cheeseSelector.innerHTML = CHEESES.map(c => `
+                <button onclick="selectCheese('${c.id}')" class="p-1 rounded-lg bg-slate-950 border border-slate-700 hover:border-amber-400 text-[10px] font-jua text-yellow-300 transition-all text-center">
+                    ${c.name}
+                </button>
+            `).join('');
+
+            elements.toppingDeck.innerHTML = TOPPINGS.map(t => `
+                <button id="top-btn-${t.id}" onclick="selectToppingTool('${t.id}')" class="flex flex-col items-center justify-center p-1 rounded-xl bg-slate-950 border border-slate-700 hover:border-amber-400 active:scale-95 transition-all shadow">
+                    <div class="w-5 h-5 mb-0.5">${t.svg}</div>
+                    <span class="text-[8px] font-jua text-slate-300">${t.name}</span>
+                </button>
             `).join('');
         }
 
-        function clearHistory() {
-            winnersHistory = [];
-            renderHistory();
+        function setupEventListeners() {
+            elements.btnSoundToggle.addEventListener('click', () => {
+                const muted = sound.toggleMute();
+                elements.soundIcon.className = muted ? "fa-solid fa-volume-xmark" : "fa-solid fa-volume-high";
+                elements.soundText.textContent = muted ? "재즈 BGM OFF" : "재즈 BGM ON";
+            });
+
+            window.addEventListener('click', () => sound.startJazzBGM(), { once: true });
+
+            elements.prepPizza.addEventListener('click', (e) => {
+                if (!state.selectedToolTopping) return;
+                const rect = elements.prepPizza.getBoundingClientRect();
+                const x = ((e.clientX - rect.left) / rect.width) * 100;
+                const y = ((e.clientY - rect.top) / rect.height) * 100;
+
+                sound.playToppingDrop();
+                const rot = (Math.random() * 60 - 30);
+                state.prepPizza.toppings.push({ id: state.selectedToolTopping, x, y, rot });
+                renderPrepPizza();
+            });
+
+            elements.btnTrash.addEventListener('click', () => {
+                sound.playDoughSlap();
+                resetPrepPizza();
+            });
+
+            elements.btnToOven.addEventListener('click', putPizzaInOven);
+            elements.btnServeFinal.addEventListener('click', serveOvenPizza);
+
+            elements.btnRestart.addEventListener('click', () => {
+                sound.playCashRegister();
+                resetGame();
+            });
         }
 
-        function downloadHistory() {
-            if (winnersHistory.length === 0) {
-                alert('다운로드할 히스토리가 없습니다.');
+        // --- PREP TABLE ACTIONS ---
+        window.selectDough = function(doughId) {
+            sound.playDoughSlap();
+            state.prepPizza.dough = doughId;
+            renderPrepPizza();
+        };
+
+        window.selectSauce = function(sauceId) {
+            sound.playSauceSpread();
+            state.prepPizza.sauce = sauceId;
+            renderPrepPizza();
+        };
+
+        window.selectCheese = function(cheeseId) {
+            sound.playToppingDrop();
+            state.prepPizza.cheese = cheeseId;
+            renderPrepPizza();
+        };
+
+        window.selectToppingTool = function(toppingId) {
+            sound.playToppingDrop();
+            state.selectedToolTopping = toppingId;
+            TOPPINGS.forEach(t => {
+                const btn = document.getElementById(`top-btn-${t.id}`);
+                if (btn) {
+                    if (t.id === toppingId) btn.classList.add('border-amber-400', 'bg-amber-950/50');
+                    else btn.classList.remove('border-amber-400', 'bg-amber-950/50');
+                }
+            });
+        };
+
+        function renderPrepPizza() {
+            const p = state.prepPizza;
+            const doughObj = DOUGHS.find(d => d.id === p.dough) || DOUGHS[0];
+
+            elements.prepPizza.style.backgroundColor = doughObj.bg;
+            elements.prepPizza.style.borderColor = doughObj.border;
+
+            if (p.sauce) {
+                const sObj = SAUCES.find(s => s.id === p.sauce);
+                elements.prepSauce.style.backgroundColor = sObj.color;
+                elements.prepSauce.style.opacity = '0.9';
+            } else {
+                elements.prepSauce.style.opacity = '0';
+            }
+
+            if (p.cheese) {
+                const cObj = CHEESES.find(c => c.id === p.cheese);
+                elements.prepCheese.style.backgroundColor = cObj.color;
+                elements.prepCheese.style.opacity = '0.85';
+            } else {
+                elements.prepCheese.style.opacity = '0';
+            }
+
+            elements.halfDivider.style.display = (state.activeOrder && state.activeOrder.recipe.isHalf) ? 'block' : 'none';
+
+            elements.prepToppings.innerHTML = '';
+            p.toppings.forEach(top => {
+                const info = TOPPINGS.find(t => t.id === top.id);
+                const item = document.createElement('div');
+                item.className = 'absolute w-7 h-7 topping-item transform -translate-x-1/2 -translate-y-1/2';
+                item.style.left = `${top.x}%`;
+                item.style.top = `${top.y}%`;
+                item.style.setProperty('--rot', `${top.rot}deg`);
+                item.innerHTML = info.svg;
+                elements.prepToppings.appendChild(item);
+            });
+
+            const hasStuff = p.sauce || p.cheese || p.toppings.length > 0;
+            elements.prepDoughStatus.style.display = hasStuff ? 'none' : 'block';
+        }
+
+        // --- BAKE & OVEN ---
+        function putPizzaInOven() {
+            if (state.ovenPizza) {
+                showFloatingText('화덕 오븐에서 이미 피자가 구워지는 중입니다.', window.innerWidth * 0.5, window.innerHeight * 0.5, 'text-red-400 text-xs');
                 return;
             }
 
-            let csvContent = "data:text/csv;charset=utf-8,시간,당첨자\n";
-            winnersHistory.forEach(row => {
-                csvContent += `"${row.time}","${row.winner}"\n`;
-            });
+            const p = state.prepPizza;
+            if (!p.sauce && !p.cheese && p.toppings.length === 0) {
+                showFloatingText('도우에 재료를 먼저 올리세요!', window.innerWidth * 0.5, window.innerHeight * 0.5, 'text-amber-300 text-xs');
+                return;
+            }
 
-            const encodedUri = encodeURI(csvContent);
-            const link = document.createElement("a");
-            link.setAttribute("href", encodedUri);
-            link.setAttribute("download", `random_picker_history_${new Date().toISOString().slice(0,10)}.csv`);
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
+            sound.playToppingDrop();
+
+            const speedMult = 1 + (state.upgrades.oven - 1) * 0.25;
+            state.ovenPizza = {
+                data: JSON.parse(JSON.stringify(state.prepPizza)),
+                bakeTime: 6.0 / speedMult,
+                bakedProgress: 0,
+                cuts: 0,
+                isDone: false
+            };
+
+            resetPrepPizza();
+            renderOvenState();
         }
+
+        window.cutPizza = function(slices) {
+            if (!state.ovenPizza) return;
+            sound.playCutterSlice();
+            state.ovenPizza.cuts = slices;
+            showFloatingText(`✂️ ${slices}조각 커팅 완료`, window.innerWidth * 0.5, window.innerHeight * 0.5, 'text-amber-300 text-xs');
+        };
+
+        function renderOvenState() {
+            if (!state.ovenPizza) {
+                elements.woodOvenBox.classList.remove('oven-active');
+                elements.ovenFireBg.style.opacity = '0';
+                elements.ovenPizzaPreview.classList.add('hidden');
+                elements.ovenTimerText.textContent = '피자를 화덕 오븐에 넣으세요';
+                elements.ovenProgress.style.width = '0%';
+                elements.ovenStatusBadge.textContent = '비어있음';
+                elements.ovenStatusBadge.className = 'text-[10px] bg-slate-800 text-slate-400 px-2 py-0.5 rounded-full';
+                return;
+            }
+
+            elements.ovenPizzaPreview.classList.remove('hidden');
+            const op = state.ovenPizza;
+
+            if (!op.isDone) {
+                elements.woodOvenBox.classList.add('oven-active');
+                elements.ovenFireBg.style.opacity = '1';
+                elements.ovenTimerText.textContent = '🔥 참나무 화덕에서 노릇노릇 구워지는 중...';
+                elements.ovenStatusBadge.textContent = '굽는 중';
+                elements.ovenStatusBadge.className = 'text-[10px] bg-orange-600 text-white px-2 py-0.5 rounded-full font-jua animate-pulse';
+            } else {
+                elements.woodOvenBox.classList.remove('oven-active');
+                elements.ovenFireBg.style.opacity = '0.2';
+                elements.ovenTimerText.textContent = op.cuts > 0 ? `📦 ${op.cuts}조각 포장 준비 완료!` : '🔔 완성! 커팅 조각을 선택하세요.';
+                elements.ovenStatusBadge.textContent = '완성됨';
+                elements.ovenStatusBadge.className = 'text-[10px] bg-emerald-600 text-white px-2 py-0.5 rounded-full font-jua';
+            }
+        }
+
+        // --- SERVING & REVIEW EVALUATION ---
+        function serveOvenPizza() {
+            if (!state.ovenPizza) {
+                showFloatingText('서빙할 피자가 없습니다!', window.innerWidth * 0.5, window.innerHeight * 0.5, 'text-red-400 text-xs');
+                return;
+            }
+
+            if (!state.activeOrder) {
+                showFloatingText('진행 중인 영수증 주문이 없습니다!', window.innerWidth * 0.5, window.innerHeight * 0.5, 'text-red-400 text-xs');
+                return;
+            }
+
+            sound.playBoxClose();
+
+            const recipe = state.activeOrder.recipe;
+            const actual = state.ovenPizza.data;
+            const progressRatio = state.ovenPizza.bakedProgress / state.ovenPizza.bakeTime;
+
+            // Bake Status
+            let bakeQuality = 'Golden Perfection';
+            let bakeScore = 1.0;
+            if (progressRatio < 0.7) { bakeQuality = 'Undercooked (생도우)'; bakeScore = 0.5; }
+            else if (progressRatio > 1.3) { bakeQuality = 'Charred (탄 피자)'; bakeScore = 0.4; }
+
+            // Accuracy Match
+            const isAccurate = checkRecipeMatch(actual, recipe);
+            const accScore = isAccurate ? 1.0 : 0.4;
+
+            // Final Earnings
+            const tipBonus = 1 + (state.upgrades.tip - 1) * 0.2;
+            const finalScore = (bakeScore + accScore) / 2;
+            const earnedMoney = Math.round(recipe.price * finalScore * tipBonus);
+
+            state.money += earnedMoney;
+            state.rating = Math.min(5.0, Math.max(1.0, state.rating + (finalScore > 0.8 ? 0.1 : -0.2)));
+            updateUIStats();
+
+            // Display Detailed Review Modal
+            const cust = state.customers.find(c => c.id === state.activeOrder.customerId);
+            document.getElementById('review-avatar').textContent = cust ? cust.avatar : '🧑‍💼';
+            document.getElementById('review-cust-name').textContent = `${cust ? cust.name : '손님'}의 상세 리포트`;
+            document.getElementById('rev-bake-status').textContent = bakeQuality;
+            document.getElementById('rev-acc-status').textContent = isAccurate ? '100% 일치' : '재료 불일치';
+            document.getElementById('rev-speed-status').textContent = 'Fast & Excellent';
+            document.getElementById('rev-earned-money').textContent = `₩${earnedMoney.toLocaleString()}`;
+
+            const starRating = Math.round(finalScore * 5);
+            document.getElementById('review-stars').textContent = '⭐'.repeat(starRating) + '☆'.repeat(5 - starRating);
+
+            if (finalScore >= 0.8) {
+                sound.playCashRegister();
+                confetti({ particleCount: 50, spread: 60, origin: { y: 0.4 } });
+            }
+
+            elements.reviewModal.classList.remove('opacity-0', 'pointer-events-none');
+
+            // Remove customer
+            const custIdx = state.customers.findIndex(c => c.id === state.activeOrder.customerId);
+            if (custIdx !== -1) state.customers.splice(custIdx, 1);
+
+            state.activeOrder = null;
+            renderActiveOrderTicket();
+            renderCustomers();
+            state.ovenPizza = null;
+            renderOvenState();
+        }
+
+        function checkRecipeMatch(actual, recipe) {
+            if (actual.dough !== recipe.dough) return false;
+            if (actual.sauce !== recipe.sauce) return false;
+            if (actual.cheese !== recipe.cheese) return false;
+
+            const actualTopIds = actual.toppings.map(t => t.id);
+
+            if (!recipe.isHalf) {
+                for (let reqTop of recipe.toppings) {
+                    if (!actualTopIds.includes(reqTop)) return false;
+                }
+            } else {
+                // Half and Half Check
+                for (let reqTop of recipe.leftToppings) {
+                    const hasLeft = actual.toppings.some(t => t.id === reqTop && t.x <= 50);
+                    if (!hasLeft) return false;
+                }
+                for (let reqTop of recipe.rightToppings) {
+                    const hasRight = actual.toppings.some(t => t.id === reqTop && t.x > 50);
+                    if (!hasRight) return false;
+                }
+            }
+            return true;
+        }
+
+        window.closeReviewModal = function() {
+            elements.reviewModal.classList.add('opacity-0', 'pointer-events-none');
+        };
+
+        // --- GAME LOOP ---
+        let lastTime = performance.now();
+        function gameLoop(now) {
+            const dt = (now - lastTime) / 1000;
+            lastTime = now;
+
+            if (!state.isGameOver) {
+                updateBakingProcess(dt);
+                updateCustomersTimer(dt);
+                checkCustomerSpawns();
+            }
+            requestAnimationFrame(gameLoop);
+        }
+
+        function updateBakingProcess(dt) {
+            if (state.ovenPizza && !state.ovenPizza.isDone) {
+                state.ovenPizza.bakedProgress += dt;
+                const pct = Math.min(100, (state.ovenPizza.bakedProgress / state.ovenPizza.bakeTime) * 100);
+                elements.ovenProgress.style.width = `${pct}%`;
+
+                if (pct >= 100) {
+                    state.ovenPizza.isDone = true;
+                    sound.playOvenBell();
+                    renderOvenState();
+                }
+            }
+        }
+
+        function updateCustomersTimer(dt) {
+            for (let i = state.customers.length - 1; i >= 0; i--) {
+                const c = state.customers[i];
+                c.patience -= dt;
+
+                const bar = document.getElementById(`patience-bar-${c.id}`);
+                if (bar) {
+                    const pct = Math.max(0, (c.patience / c.maxPatience) * 100);
+                    bar.style.width = `${pct}%`;
+                    if (pct < 30) bar.className = "h-full bg-red-500 transition-all";
+                }
+
+                if (c.patience <= 0) {
+                    state.lives--;
+                    if (state.activeOrder && state.activeOrder.customerId === c.id) {
+                        state.activeOrder = null;
+                        renderActiveOrderTicket();
+                    }
+                    state.customers.splice(i, 1);
+                    renderCustomers();
+                    updateUIStats();
+
+                    if (state.lives <= 0) triggerGameOver();
+                }
+            }
+        }
+
+        function checkCustomerSpawns() {
+            const now = Date.now();
+            if (state.customers.length < 3 && now - state.lastSpawnTime > 5500) {
+                spawnCustomer();
+                state.lastSpawnTime = now;
+            }
+        }
+
+        function spawnCustomer() {
+            const recipe = RECIPES[Math.floor(Math.random() * RECIPES.length)];
+            const info = CUSTOMERS[Math.floor(Math.random() * CUSTOMERS.length)];
+            const patienceBoost = (state.upgrades.patience - 1) * 8;
+
+            const cust = {
+                id: state.nextCustId++,
+                name: info.name,
+                avatar: info.avatar,
+                recipe,
+                maxPatience: 38 + patienceBoost,
+                patience: 38 + patienceBoost,
+                status: 'waiting'
+            };
+
+            state.customers.push(cust);
+            renderCustomers();
+        }
+
+        window.takeOrder = function(custId) {
+            if (state.activeOrder) {
+                showFloatingText('이미 진행 중인 영수증 주문이 있습니다.', window.innerWidth * 0.5, window.innerHeight * 0.5, 'text-amber-300 text-xs');
+                return;
+            }
+
+            const cust = state.customers.find(c => c.id === custId);
+            if (!cust) return;
+
+            sound.playReceiptPrinter();
+            cust.status = 'ordered';
+
+            state.activeOrder = {
+                customerId: cust.id,
+                recipe: cust.recipe
+            };
+
+            renderCustomers();
+            renderActiveOrderTicket();
+            renderPrepPizza();
+        };
+
+        function renderCustomers() {
+            elements.customersLine.innerHTML = state.customers.map(c => {
+                const dObj = DOUGHS.find(d => d.id === c.recipe.dough);
+                const sObj = SAUCES.find(s => s.id === c.recipe.sauce);
+                const cObj = CHEESES.find(ch => ch.id === c.recipe.cheese);
+
+                return `
+                <div class="bg-amber-100 text-slate-900 rounded-2xl p-3 shadow-2xl flex flex-col justify-between border-2 border-amber-300 relative font-mono">
+                    <div class="border-b border-dashed border-slate-400 pb-1 mb-1 flex justify-between items-center text-[10px]">
+                        <span class="font-bold text-slate-800">${c.avatar} ${c.name}</span>
+                        <span class="text-amber-800 font-bold">₩${c.recipe.price.toLocaleString()}</span>
+                    </div>
+
+                    <div class="text-xs font-bold text-slate-900 mb-1">
+                        [ ${c.recipe.name} ]
+                    </div>
+
+                    <div class="text-[9px] text-slate-700 space-y-0.5 mb-2 bg-amber-50 p-1.5 rounded border border-amber-200">
+                        <div>• 도우: ${dObj.name}</div>
+                        <div>• 소스: ${sObj.name}</div>
+                        <div>• 치즈: ${cObj.name}</div>
+                        ${!c.recipe.isHalf ? `
+                            <div>• 필수토핑: ${c.recipe.toppings.map(t => TOPPINGS.find(top => top.id === t).name).join(', ')}</div>
+                        ` : `
+                            <div>• Left(좌): ${c.recipe.leftToppings.map(t => TOPPINGS.find(top => top.id === t).name).join(', ')}</div>
+                            <div>• Right(우): ${c.recipe.rightToppings.map(t => TOPPINGS.find(top => top.id === t).name).join(', ')}</div>
+                        `}
+                    </div>
+
+                    ${c.status === 'waiting' ? `
+                        <button onclick="takeOrder(${c.id})" class="w-full py-1 bg-amber-600 hover:bg-amber-700 active:scale-95 text-white font-jua text-xs rounded-xl shadow transition-all">
+                            <i class="fa-solid fa-receipt"></i> POS 영수증 주문 접수
+                        </button>
+                    ` : `
+                        <span class="text-[10px] font-jua text-emerald-800 bg-emerald-200 px-2 py-0.5 rounded-full text-center">
+                            ✓ 영수증 발행 완료
+                        </span>
+                    `}
+
+                    <div class="w-full bg-slate-300 h-1.5 rounded-full overflow-hidden mt-2 border border-slate-400">
+                        <div id="patience-bar-${c.id}" class="h-full bg-amber-500 transition-all" style="width: 100%;"></div>
+                    </div>
+                </div>
+            `}).join('');
+        }
+
+        function renderActiveOrderTicket() {
+            if (!state.activeOrder) {
+                elements.ticketCount.textContent = `0건`;
+                elements.activeOrderSlip.classList.add('hidden');
+                elements.noTicketMsg.classList.remove('hidden');
+                return;
+            }
+
+            elements.ticketCount.textContent = `1건`;
+            elements.noTicketMsg.classList.add('hidden');
+            elements.activeOrderSlip.classList.remove('hidden');
+
+            const r = state.activeOrder.recipe;
+            elements.activeOrderSlip.innerHTML = `
+                <div class="text-center border-b border-dashed border-slate-400 pb-1 mb-2">
+                    <div class="font-bold text-sm text-slate-900">PIZZERIA ORDER TICKET</div>
+                    <div class="text-[9px] text-slate-500">테이블 영수증 #${state.activeOrder.customerId}</div>
+                </div>
+                <div class="text-xs font-bold text-amber-900 mb-1">메뉴: ${r.name}</div>
+                <div class="text-[10px] space-y-0.5 text-slate-700 border-b border-dashed border-slate-400 pb-2 mb-2">
+                    <div>1. 도우: ${DOUGHS.find(d => d.id === r.dough).name}</div>
+                    <div>2. 소스: ${SAUCES.find(s => s.id === r.sauce).name}</div>
+                    <div>3. 치즈: ${CHEESES.find(c => c.id === r.cheese).name}</div>
+                    ${!r.isHalf ? `
+                        <div>4. 필수 토핑: ${r.toppings.map(t => TOPPINGS.find(top => top.id === t).name).join(', ')}</div>
+                    ` : `
+                        <div>4. Left(왼쪽반): ${r.leftToppings.map(t => TOPPINGS.find(top => top.id === t).name).join(', ')}</div>
+                        <div>5. Right(오른쪽반): ${r.rightToppings.map(t => TOPPINGS.find(top => top.id === t).name).join(', ')}</div>
+                    `}
+                </div>
+                <div class="flex justify-between items-center text-xs font-bold">
+                    <span>결제 금액:</span>
+                    <span class="text-emerald-700">₩${r.price.toLocaleString()}</span>
+                </div>
+            `;
+        }
+
+        // --- UPGRADES ---
+        window.buyUpgrade = function(type) {
+            const costs = {
+                oven: state.upgrades.oven * 5000,
+                patience: state.upgrades.patience * 6000,
+                tip: state.upgrades.tip * 8000
+            };
+
+            if (state.money >= costs[type]) {
+                sound.playCashRegister();
+                state.money -= costs[type];
+                state.upgrades[type]++;
+                updateUIStats();
+                updateUpgradeUI();
+                showFloatingText('✨ 장비 업그레이드 완료!', window.innerWidth * 0.5, window.innerHeight * 0.5, 'text-amber-300 text-sm');
+            } else {
+                sound.playToppingDrop();
+                showFloatingText('소지금이 부족합니다!', window.innerWidth * 0.5, window.innerHeight * 0.5, 'text-red-400 text-xs');
+            }
+        };
+
+        function updateUpgradeUI() {
+            document.getElementById('lvl-oven').textContent = state.upgrades.oven;
+            document.getElementById('cost-oven').textContent = `₩${(state.upgrades.oven * 5000).toLocaleString()}`;
+
+            document.getElementById('lvl-patience').textContent = state.upgrades.patience;
+            document.getElementById('cost-patience').textContent = `₩${(state.upgrades.patience * 6000).toLocaleString()}`;
+
+            document.getElementById('lvl-tip').textContent = state.upgrades.tip;
+            document.getElementById('cost-tip').textContent = `₩${(state.upgrades.tip * 8000).toLocaleString()}`;
+        }
+
+        function updateUIStats() {
+            elements.statMoney.textContent = `₩${state.money.toLocaleString()}`;
+            elements.statRating.textContent = `${state.rating.toFixed(1)} / 5.0`;
+            elements.statLives.textContent = state.lives;
+        }
+
+        function triggerGameOver() {
+            state.isGameOver = true;
+            elements.finalMoney.textContent = `₩${state.money.toLocaleString()}`;
+            elements.gameoverModal.classList.remove('opacity-0', 'pointer-events-none');
+        }
+
+        function showFloatingText(text, x, y, extraClass = 'text-amber-300 text-sm') {
+            const el = document.createElement('div');
+            el.className = `float-text font-bold ${extraClass}`;
+            el.style.left = `${x}px`;
+            el.style.top = `${y}px`;
+            el.textContent = text;
+            document.body.appendChild(el);
+            setTimeout(() => el.remove(), 1200);
+        }
+
+        window.onload = init;
     </script>
 </body>
 </html>
