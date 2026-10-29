@@ -1,995 +1,617 @@
-
 <!DOCTYPE html>
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>3D Sci-Fi FPS Survival</title>
+    <title>피자 토핑 러쉬 - Pizza Topping Rush</title>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- FontAwesome -->
+    <!-- FontAwesome Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <!-- Three.js (3D Engine) -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    <!-- Tone.js (Procedural Sound Effects) -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
     <!-- Google Fonts -->
-    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Noto+Sans+KR:wght@400;700&display=swap" rel="stylesheet">
-
+    <link href="https://fonts.googleapis.com/css2?family=Pretendard:wght@400;600;800;900&family=Orbitron:wght@700;900&family=Jua&display=swap" rel="stylesheet">
+    <!-- Canvas Confetti -->
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Pretendard', 'sans-serif'],
+                        jua: ['Jua', 'sans-serif'],
+                        orbitron: ['Orbitron', 'sans-serif']
+                    }
+                }
+            }
+        }
+    </script>
     <style>
         body {
-            font-family: 'Noto Sans KR', sans-serif;
-            background-color: #030712;
-            color: #f3f4f6;
-            overflow: hidden;
             user-select: none;
             -webkit-user-select: none;
+            touch-action: manipulation;
+            background: #0f0a1c;
         }
 
-        .font-orbitron {
-            font-family: 'Orbitron', sans-serif;
+        /* Conveyor belt animation */
+        @keyframes conveyorMove {
+            0% { background-position: 0 0; }
+            100% { background-position: 40px 0; }
+        }
+        .conveyor-belt {
+            background: repeating-linear-gradient(90deg, #1e293b, #1e293b 20px, #334155 20px, #334155 40px);
+            animation: conveyorMove 0.4s linear infinite;
+        }
+        .conveyor-belt.paused {
+            animation-play-state: paused;
         }
 
-        /* HUD Glassmorphism */
-        .hud-card {
-            background: rgba(15, 23, 42, 0.65);
-            backdrop-filter: blur(8px);
-            -webkit-backdrop-filter: blur(8px);
-            border: 1px solid rgba(56, 189, 248, 0.3);
-            box-shadow: 0 0 15px rgba(14, 165, 233, 0.15);
+        @keyframes boxPop {
+            0% { transform: scale(0.3) rotate(-10deg); opacity: 0; }
+            70% { transform: scale(1.1) rotate(3deg); opacity: 1; }
+            100% { transform: scale(1) rotate(0deg); opacity: 1; }
+        }
+        .box-pop {
+            animation: boxPop 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
         }
 
-        /* Crosshair */
-        .crosshair {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            pointer-events: none;
+        @keyframes dropTopping {
+            0% { transform: translateY(-80px) scale(1.3); opacity: 0.8; }
+            100% { transform: translateY(0) scale(1); opacity: 1; }
+        }
+        .dropping {
+            animation: dropTopping 0.15s ease-in forwards;
         }
 
-        .crosshair-line {
-            position: absolute;
-            background-color: rgba(56, 189, 248, 0.9);
-            box-shadow: 0 0 4px #38bdf8;
+        @keyframes splat {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.4, 0.6); }
+            100% { transform: scale(1); }
+        }
+        .splatter {
+            animation: splat 0.3s ease-out;
         }
 
-        .ch-top { width: 2px; height: 10px; top: -14px; left: -1px; }
-        .ch-bottom { width: 2px; height: 10px; bottom: -14px; left: -1px; }
-        .ch-left { width: 10px; height: 2px; left: -14px; top: -1px; }
-        .ch-right { width: 10px; height: 2px; right: -14px; top: -1px; }
-        .ch-dot { width: 4px; height: 4px; top: -2px; left: -2px; border-radius: 50%; background-color: #f43f5e; }
-
-        /* Hit marker animation */
-        @keyframes hit-pulse {
-            0% { opacity: 1; transform: translate(-50%, -50%) scale(1.2); }
-            100% { opacity: 0; transform: translate(-50%, -50%) scale(0.8); }
-        }
-
-        .hit-marker {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            width: 20px;
-            height: 20px;
-            pointer-events: none;
-            display: none;
-        }
-        .hit-marker.active {
-            display: block;
-            animation: hit-pulse 0.15s ease-out forwards;
-        }
-
-        /* Damage Vignette Screen Effect */
-        #damageFlash {
-            position: absolute;
-            inset: 0;
-            pointer-events: none;
-            box-shadow: inset 0 0 100px rgba(244, 63, 94, 0.8);
-            opacity: 0;
-            transition: opacity 0.1s ease-out;
-        }
-
-        /* Canvas fit */
-        #gameCanvas {
-            width: 100vw;
-            height: 100vh;
-            display: block;
-        }
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: rgba(15, 23, 42, 0.6); }
+        ::-webkit-scrollbar-thumb { background: rgba(245, 158, 11, 0.5); border-radius: 9999px; }
     </style>
 </head>
-<body class="relative w-screen h-screen">
+<body class="text-slate-100 font-sans min-h-screen flex flex-col justify-between overflow-x-hidden relative selection:bg-amber-500 selection:text-slate-950">
 
-    <!-- 3D WebGL Canvas -->
-    <canvas id="gameCanvas"></canvas>
-
-    <!-- Crosshair HUD -->
-    <div class="crosshair">
-        <div class="ch-dot"></div>
-        <div class="crosshair-line ch-top"></div>
-        <div class="crosshair-line ch-bottom"></div>
-        <div class="crosshair-line ch-left"></div>
-        <div class="crosshair-line ch-right"></div>
-    </div>
-
-    <!-- Hit Marker Overlay -->
-    <div id="hitMarker" class="hit-marker">
-        <svg viewBox="0 0 100 100" class="w-full h-full stroke-rose-500 stroke-[8] fill-none">
-            <line x1="20" y1="20" x2="40" y2="40" />
-            <line x1="80" y1="20" x2="60" y2="40" />
-            <line x1="20" y1="80" x2="40" y2="60" />
-            <line x1="80" y1="80" x2="60" y2="60" />
-        </svg>
-    </div>
-
-    <!-- Red Screen Damage Overlay -->
-    <div id="damageFlash"></div>
-
-    <!-- HUD Overlay UI -->
-    <div id="hudUI" class="absolute inset-0 pointer-events-none p-4 sm:p-6 flex flex-col justify-between hidden">
-        <!-- Top Header Info -->
-        <div class="flex justify-between items-start w-full">
-            <!-- Health & Shield -->
-            <div class="hud-card p-4 rounded-xl min-w-[200px] border-l-4 border-l-sky-400">
-                <div class="text-xs uppercase font-orbitron text-sky-400 font-semibold mb-1 flex items-center justify-between">
-                    <span><i class="fa-solid fa-heart-pulse mr-1.5"></i>HEALTH</span>
-                    <span id="hpText" class="text-white font-bold">100 HP</span>
-                </div>
-                <div class="w-full bg-slate-800 h-3 rounded-full overflow-hidden border border-slate-700">
-                    <div id="hpBar" class="bg-gradient-to-r from-emerald-500 to-sky-400 h-full w-full transition-all duration-200"></div>
-                </div>
+    <!-- Header Section -->
+    <header class="w-full max-w-2xl mx-auto p-4 flex justify-between items-center z-20">
+        <div class="flex items-center space-x-3">
+            <div class="w-12 h-12 rounded-2xl bg-gradient-to-tr from-amber-500 via-orange-500 to-red-500 flex items-center justify-center text-2xl shadow-lg shadow-amber-500/30 ring-2 ring-amber-400/30">
+                🍕
             </div>
-
-            <!-- Wave & Score Info -->
-            <div class="hud-card px-6 py-3 rounded-xl text-center border-t-2 border-amber-400">
-                <div class="text-xs text-amber-400 font-orbitron font-bold tracking-widest uppercase">CURRENT WAVE</div>
-                <div id="waveNum" class="text-3xl font-black font-orbitron text-amber-300">1</div>
-                <div class="text-[10px] text-slate-400 mt-0.5">남은 적: <span id="enemiesLeft" class="text-rose-400 font-bold">0</span></div>
-            </div>
-
-            <!-- MiniMap HUD -->
-            <div class="hud-card p-2 rounded-xl border border-sky-500/40 relative">
-                <canvas id="minimapCanvas" width="110" height="110" class="rounded-lg bg-slate-950/80"></canvas>
-                <div class="absolute bottom-1 right-2 text-[9px] font-orbitron text-sky-400">RADAR</div>
+            <div>
+                <h1 class="font-jua text-2xl tracking-wide bg-gradient-to-r from-amber-300 via-orange-300 to-yellow-200 bg-clip-text text-transparent leading-none">
+                    피자 토핑 러쉬!
+                </h1>
+                <p class="text-[11px] text-amber-300/70 font-semibold tracking-wider mt-1">타이밍 맞춰 토핑을 얹어 황금 피자 완성하기!</p>
             </div>
         </div>
 
-        <!-- Center Notification Banner -->
-        <div id="centerBanner" class="self-center text-center opacity-0 transition-opacity duration-300">
-            <h2 id="bannerTitle" class="text-4xl sm:text-5xl font-black font-orbitron tracking-wider text-amber-400 drop-shadow-[0_0_15px_rgba(251,191,36,0.6)]">
-                WAVE 1
-            </h2>
-            <p id="bannerSub" class="text-sm font-semibold text-sky-200 mt-1">적 군단이 몰려옵니다!</p>
+        <!-- Score & Money Indicator -->
+        <div class="flex items-center space-x-2">
+            <div class="bg-slate-900/90 border border-amber-500/40 rounded-2xl px-3.5 py-1.5 flex items-center space-x-2 shadow-lg backdrop-blur-md">
+                <span class="text-amber-400 text-sm">🪙</span>
+                <span id="moneyDisplay" class="font-orbitron font-extrabold text-amber-300 text-sm">0</span>
+            </div>
+            <button id="soundToggleBtn" class="w-10 h-10 rounded-2xl bg-slate-900/80 hover:bg-slate-800 border border-slate-700/60 flex items-center justify-center text-slate-300 transition-all active:scale-95 shadow-md">
+                <i class="fa-solid fa-volume-high" id="soundIcon"></i>
+            </button>
+        </div>
+    </header>
+
+    <!-- Stage Progress Indicator Bar -->
+    <div class="w-full max-w-md mx-auto px-4 mb-2 z-20">
+        <div class="bg-slate-900/90 border border-amber-500/30 rounded-2xl p-2.5 shadow-lg backdrop-blur-md flex flex-col gap-1.5">
+            <div class="flex justify-between items-center px-1">
+                <span id="stageLabel" class="font-orbitron font-black text-xs text-amber-400 tracking-wider">STAGE 1 / 10</span>
+                <span id="stageTargetText" class="text-[11px] font-jua text-slate-300">목표: 피자 완성하기</span>
+            </div>
+            <div class="w-full bg-slate-800 rounded-full h-2.5 overflow-hidden border border-slate-700">
+                <div id="stageProgressBar" class="bg-gradient-to-r from-amber-500 via-orange-500 to-emerald-400 h-full w-[10%] transition-all duration-300"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Game Section -->
+    <main class="flex-1 flex flex-col items-center justify-center px-4 py-1 max-w-md mx-auto w-full text-center relative z-10">
+
+        <!-- Customer Order Bubble -->
+        <div class="w-full bg-slate-900/90 backdrop-blur-xl border border-amber-500/30 p-3.5 rounded-2xl mb-3 flex items-center justify-between shadow-xl relative overflow-hidden">
+            <div class="flex items-center space-x-3">
+                <div id="customerAvatar" class="text-3xl bg-slate-800/80 p-2 rounded-xl border border-slate-700">👦</div>
+                <div class="text-left">
+                    <div id="customerName" class="text-xs font-bold text-amber-300">단골 손님 민수</div>
+                    <div id="customerMsg" class="text-xs font-jua text-slate-200">"페퍼로니 3개를 중앙에 딱 올려주세요!"</div>
+                </div>
+            </div>
+            <div class="text-right">
+                <span class="text-[10px] text-slate-400 block font-semibold">남은 필요 토핑</span>
+                <span id="remainingToppings" class="text-sm font-orbitron font-extrabold text-amber-400">3 / 3</span>
+            </div>
         </div>
 
-        <!-- Bottom Ammo & Gun HUD -->
-        <div class="flex justify-between items-end w-full">
-            <div class="text-xs text-slate-400 space-y-1">
-                <div class="flex items-center space-x-2"><span class="px-1.5 py-0.5 bg-slate-800 rounded border border-slate-700 text-sky-400 font-bold">WASD</span><span>이동</span></div>
-                <div class="flex items-center space-x-2"><span class="px-1.5 py-0.5 bg-slate-800 rounded border border-slate-700 text-sky-400 font-bold">Space</span><span>점프</span></div>
-                <div class="flex items-center space-x-2"><span class="px-1.5 py-0.5 bg-slate-800 rounded border border-slate-700 text-sky-400 font-bold">E / 우클릭</span><span>조준(확대)</span></div>
-                <div class="flex items-center space-x-2"><span class="px-1.5 py-0.5 bg-slate-800 rounded border border-slate-700 text-sky-400 font-bold">L-Click</span><span>사격</span></div>
-                <div class="flex items-center space-x-2"><span class="px-1.5 py-0.5 bg-slate-800 rounded border border-slate-700 text-sky-400 font-bold">R</span><span>재장전</span></div>
+        <!-- Pizza Factory Area -->
+        <div id="factoryArea" class="w-full aspect-square max-w-[320px] mx-auto bg-slate-950 border-4 border-amber-600/40 rounded-3xl p-4 flex flex-col items-center justify-between relative shadow-2xl overflow-hidden select-none cursor-pointer">
+            
+            <!-- Target Alignment Line Zone (Dynamic Width by Stage) -->
+            <div id="targetZone" class="absolute inset-y-0 left-1/2 -translate-x-1/2 w-16 border-x-2 border-emerald-500/50 bg-emerald-500/10 pointer-events-none z-10 flex flex-col justify-between py-2 items-center transition-all duration-300">
+                <span id="targetZoneLabel" class="text-[9px] font-orbitron font-bold text-emerald-400/90 bg-slate-900/90 px-1.5 py-0.5 rounded animate-pulse">EASY TARGET</span>
+                <i class="fa-solid fa-chevron-down text-emerald-400 text-xs animate-bounce"></i>
             </div>
 
-            <div class="hud-card p-4 rounded-xl flex items-center space-x-4 border-r-4 border-r-amber-400">
-                <div class="text-right">
-                    <div class="text-xs font-orbitron text-amber-400 font-semibold uppercase">PLASMA RIFLE</div>
-                    <div class="font-orbitron font-black text-3xl tracking-tight text-white">
-                        <span id="currentAmmo" class="text-amber-400">30</span> <span class="text-slate-500 text-xl">/ <span id="maxAmmo">30</span></span>
+            <!-- Top Dropper Dispenser -->
+            <div class="relative z-20 w-full flex justify-center mt-1">
+                <div class="bg-gradient-to-b from-stone-800 to-slate-900 border-2 border-amber-500/50 rounded-2xl px-6 py-2 shadow-xl flex items-center gap-2">
+                    <span class="text-xs text-amber-300 font-bold font-jua">투하 준비:</span>
+                    <span id="currentTopperIcon" class="text-3xl animate-pulse">🍕</span>
+                </div>
+            </div>
+
+            <!-- Moving Conveyor Area -->
+            <div class="relative w-full h-36 my-auto flex items-center overflow-hidden rounded-2xl border-y-4 border-slate-700 bg-slate-900">
+                <!-- Conveyor Background -->
+                <div id="conveyorBelt" class="absolute inset-0 conveyor-belt paused opacity-40"></div>
+
+                <!-- Moving Pizza Dough -->
+                <div id="pizzaDough" class="absolute left-[-100px] w-28 h-28 rounded-full bg-gradient-to-tr from-amber-700 via-amber-500 to-amber-300 border-4 border-amber-200 flex items-center justify-center shadow-2xl z-20">
+                    <!-- Pizza Cheese Base -->
+                    <div class="w-22 h-22 rounded-full bg-yellow-200/90 border-2 border-amber-400 flex items-center justify-center relative overflow-hidden">
+                        <!-- Placed Toppings Slot -->
+                        <div id="placedToppings" class="absolute inset-0 flex items-center justify-center flex-wrap p-2 gap-1"></div>
                     </div>
                 </div>
-                <div class="w-10 h-10 rounded-lg bg-amber-500/20 border border-amber-400/50 flex items-center justify-center text-amber-400 text-xl">
-                    <i class="fa-solid fa-gun"></i>
+
+                <!-- Result Overlays (Boxed Success / Burnt Ruined) -->
+                <div id="boxGraphic" class="hidden absolute inset-0 bg-slate-950/80 z-30 flex flex-col items-center justify-center box-pop p-4">
+                    <div id="boxEmoji" class="text-[80px] filter drop-shadow-[0_15px_25px_rgba(245,158,11,0.6)]">🎁</div>
+                    <div id="victoryText" class="hidden flex-col items-center justify-center mt-1">
+                        <span class="text-4xl font-jua font-black text-amber-300 drop-shadow-[0_4px_12px_rgba(245,158,11,0.8)] animate-bounce text-center leading-tight">
+                            🍕 피자먹고<br>얼굴피자! 😊
+                        </span>
+                        <span class="text-xs font-bold text-amber-200/90 mt-2 bg-amber-500/20 px-3 py-1 rounded-full border border-amber-400/40">
+                            10단계 ALL CLEAR! 🎉
+                        </span>
+                    </div>
                 </div>
+
+                <div id="burntGraphic" class="hidden absolute inset-0 bg-rose-950/90 z-30 flex flex-col items-center justify-center text-center p-2">
+                    <span class="text-6xl mb-1">💥</span>
+                    <span class="font-jua text-rose-300 text-lg">망한 피자! 토핑을 놓쳤습니다!</span>
+                </div>
+            </div>
+
+            <!-- Judgment Floating Badge -->
+            <div id="judgeBadge" class="hidden text-xl font-black font-orbitron px-4 py-1 rounded-full shadow-2xl border z-30 mb-2">
+                PERFECT!
+            </div>
+            
+            <p id="tapPrompt" class="text-xs font-jua text-amber-300/80 z-20">화면을 클릭하면 토핑을 바로 떨어뜨립니다!</p>
+        </div>
+
+        <!-- Combo & Score Bar -->
+        <div class="w-full flex justify-between items-center my-3 px-2">
+            <div class="flex items-center space-x-2">
+                <span class="text-xs font-bold text-slate-400">연속 콤보:</span>
+                <span id="comboDisplay" class="font-orbitron font-black text-lg text-amber-400">0 x</span>
+            </div>
+            <div class="flex items-center space-x-2">
+                <span class="text-xs font-bold text-slate-400">성공 피자:</span>
+                <span id="completedPizzas" class="font-orbitron font-black text-lg text-emerald-400">0</span>
             </div>
         </div>
-    </div>
 
-    <!-- Start / Pause Overlay Screen -->
-    <div id="startMenu" class="absolute inset-0 bg-slate-950/85 backdrop-blur-md flex flex-col items-center justify-center z-50 p-6">
-        <div class="max-w-md w-full hud-card p-8 rounded-2xl border-2 border-sky-400/60 text-center space-y-6 shadow-2xl shadow-sky-500/20">
-            <div>
-                <div class="inline-block px-3 py-1 bg-sky-500/20 text-sky-400 border border-sky-400/40 rounded-full text-xs font-orbitron tracking-widest font-bold mb-2">
-                    3D SCI-FI FPS
-                </div>
-                <h1 class="text-3xl sm:text-4xl font-black font-orbitron tracking-wider text-transparent bg-clip-text bg-gradient-to-r from-sky-400 via-amber-300 to-rose-400">
-                    CYBER SURVIVOR
-                </h1>
-                <p class="text-xs text-slate-400 mt-2">사이버 에일리언 드론의 공습에서 살아남으세요!</p>
-            </div>
+        <!-- Action Control Buttons -->
+        <div class="w-full grid grid-cols-2 gap-3 mt-1">
+            <!-- Drop Topping Button -->
+            <button id="dropBtn" disabled class="py-3.5 rounded-2xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 active:scale-95 text-slate-950 font-extrabold text-base shadow-lg shadow-amber-500/30 border border-amber-300/40 transition-all duration-150 flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed">
+                <i class="fa-solid fa-bullseye text-base"></i>
+                <span>토핑 투하! (Space)</span>
+            </button>
 
-            <div class="bg-slate-900/80 p-4 rounded-xl border border-slate-800 text-left space-y-2 text-xs text-slate-300">
-                <div class="font-semibold text-amber-400 mb-1 border-b border-slate-700 pb-1 font-orbitron">조작 방법</div>
-                <div class="flex justify-between"><span>이동:</span> <span class="text-sky-300 font-mono">W, A, S, D</span></div>
-                <div class="flex justify-between"><span>점프:</span> <span class="text-sky-300 font-mono">Space</span></div>
-                <div class="flex justify-between"><span>총기 확대(조준):</span> <span class="text-sky-300 font-mono">E 키 또는 우클릭</span></div>
-                <div class="flex justify-between"><span>시점 조종 / 사격:</span> <span class="text-sky-300 font-mono">마우스 이동 / 좌클릭</span></div>
-                <div class="flex justify-between"><span>무기 재장전:</span> <span class="text-sky-300 font-mono">R 키</span></div>
-                <div class="flex justify-between"><span>마우스 포인터 해제:</span> <span class="text-sky-300 font-mono">ESC 키</span></div>
-            </div>
-
-            <button id="startBtn" class="w-full py-4 rounded-xl bg-gradient-to-r from-sky-400 via-sky-500 to-amber-400 hover:from-sky-500 hover:to-amber-500 text-slate-950 font-orbitron font-black text-xl tracking-wider shadow-lg shadow-sky-500/30 transition-transform active:scale-95 cursor-pointer">
-                GAME START
+            <!-- Start / Next Order Button -->
+            <button id="startBtn" class="py-3.5 rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 active:scale-95 text-white font-extrabold text-base shadow-lg shadow-emerald-600/30 border border-emerald-400/30 transition-all duration-150 flex items-center justify-center gap-2">
+                <i class="fa-solid fa-play text-base"></i>
+                <span id="startBtnText">새 피자 만들기</span>
             </button>
         </div>
-    </div>
 
-    <!-- Game Over Screen -->
-    <div id="gameOverMenu" class="absolute inset-0 bg-slate-950/90 backdrop-blur-md flex flex-col items-center justify-center z-50 p-6 hidden">
-        <div class="max-w-md w-full hud-card p-8 rounded-2xl border-2 border-rose-500/60 text-center space-y-6 shadow-2xl shadow-rose-500/20">
-            <div>
-                <h1 class="text-4xl font-black font-orbitron tracking-wider text-rose-500 mb-2">
-                    MISSION FAILED
-                </h1>
-                <p class="text-xs text-slate-400">생존 임무에 실패하였습니다.</p>
-            </div>
+    </main>
 
-            <div class="grid grid-cols-2 gap-3">
-                <div class="bg-slate-900/80 p-3 rounded-xl border border-slate-800">
-                    <div class="text-[10px] font-orbitron text-slate-400">도달한 웨이브</div>
-                    <div id="finalWave" class="text-2xl font-black font-orbitron text-amber-400">1</div>
-                </div>
-                <div class="bg-slate-900/80 p-3 rounded-xl border border-slate-800">
-                    <div class="text-[10px] font-orbitron text-slate-400">처치한 적 수</div>
-                    <div id="finalKills" class="text-2xl font-black font-orbitron text-sky-400">0</div>
-                </div>
-            </div>
+    <!-- Footer -->
+    <footer class="w-full max-w-2xl mx-auto p-4 text-center text-xs text-slate-500">
+        <p class="font-jua text-slate-400">🍕 도우가 중앙에 도착했을 때 딱 맞춰 토핑을 투하하세요!</p>
+    </footer>
 
-            <button id="restartBtn" class="w-full py-4 rounded-xl bg-gradient-to-r from-rose-500 to-amber-400 hover:from-rose-600 hover:to-amber-500 text-slate-950 font-orbitron font-black text-xl tracking-wider shadow-lg shadow-rose-500/30 transition-transform active:scale-95 cursor-pointer">
-                RETRY MISSION
-            </button>
-        </div>
-    </div>
-
-    <!-- JavaScript Game Logic -->
+    <!-- Web Audio Sound Synthesizer Engine -->
     <script>
-        // --- Global Game Variables & Engine States ---
-        let scene, camera, renderer, clock;
-        let player = {
-            hp: 100,
-            maxHp: 100,
-            ammo: 30,
-            maxAmmo: 30,
-            isReloading: false,
-            isAiming: false,
-            isGrounded: true,
-            velocityY: 0,
-            speed: 12,
-            sprintSpeed: 20,
-            height: 1.8,
-            kills: 0
-        };
-
-        let keys = { w: false, a: false, s: false, d: false, shift: false };
-        let isMouseDown = false;
-        let isGameRunning = false;
-        let wave = 1;
-        let enemiesToSpawn = 0;
-        let lastSpawnTime = 0;
-        let lastShotTime = 0;
-
-        let enemies = [];
-        let particles = [];
-        let gunMesh;
-        let minimapCanvas, minimapCtx;
-
-        // UI Element References
-        let hpBar, hpText, waveNumEl, enemiesLeftEl, currentAmmoEl, maxAmmoEl;
-        let centerBanner, bannerTitle, bannerSub, damageFlash, hitMarker;
-        let finalWaveEl, finalKillsEl;
-
-        // --- Initialize Engine & 3D Scene ---
-        function initEngine() {
-            // DOM References
-            hpBar = document.getElementById('hpBar');
-            hpText = document.getElementById('hpText');
-            waveNumEl = document.getElementById('waveNum');
-            enemiesLeftEl = document.getElementById('enemiesLeft');
-            currentAmmoEl = document.getElementById('currentAmmo');
-            maxAmmoEl = document.getElementById('maxAmmo');
-            centerBanner = document.getElementById('centerBanner');
-            bannerTitle = document.getElementById('bannerTitle');
-            bannerSub = document.getElementById('bannerSub');
-            damageFlash = document.getElementById('damageFlash');
-            hitMarker = document.getElementById('hitMarker');
-            finalWaveEl = document.getElementById('finalWave');
-            finalKillsEl = document.getElementById('finalKills');
-
-            minimapCanvas = document.getElementById('minimapCanvas');
-            minimapCtx = minimapCanvas.getContext('2d');
-
-            // Three.js Scene Setup
-            scene = new THREE.Scene();
-            scene.background = new THREE.Color(0x030712);
-            scene.fog = new THREE.FogExp2(0x030712, 0.025);
-
-            clock = new THREE.Clock();
-
-            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-            camera.rotation.order = 'YXZ';
-
-            renderer = new THREE.WebGLRenderer({ canvas: document.getElementById('gameCanvas'), antialias: true });
-            renderer.setSize(window.innerWidth, window.innerHeight);
-            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-            renderer.shadowMap.enabled = true;
-
-            // Lights
-            const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
-            scene.add(ambientLight);
-
-            const dirLight = new THREE.DirectionalLight(0x38bdf8, 1.2);
-            dirLight.position.set(20, 40, 20);
-            dirLight.castShadow = true;
-            scene.add(dirLight);
-
-            const pointLight = new THREE.PointLight(0xf472b6, 1, 50);
-            pointLight.position.set(0, 10, 0);
-            scene.add(pointLight);
-
-            // Arena Environment (Floor & Walls)
-            const floorGeo = new THREE.PlaneGeometry(80, 80, 32, 32);
-            const floorMat = new THREE.MeshStandardMaterial({
-                color: 0x0f172a,
-                roughness: 0.4,
-                metalness: 0.6
-            });
-            const floor = new THREE.Mesh(floorGeo, floorMat);
-            floor.rotation.x = -Math.PI / 2;
-            floor.receiveShadow = true;
-            scene.add(floor);
-
-            const gridHelper = new THREE.GridHelper(80, 40, 0x38bdf8, 0x1e293b);
-            gridHelper.position.y = 0.01;
-            scene.add(gridHelper);
-
-            // Arena Outer Pillars
-            const pillarGeo = new THREE.BoxGeometry(2, 10, 2);
-            const pillarMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, metalness: 0.8 });
-            for (let x = -35; x <= 35; x += 35) {
-                for (let z = -35; z <= 35; z += 35) {
-                    if (x === 0 && z === 0) continue;
-                    const pillar = new THREE.Mesh(pillarGeo, pillarMat);
-                    pillar.position.set(x, 5, z);
-                    pillar.castShadow = true;
-                    scene.add(pillar);
-                }
+        class SoundEngine {
+            constructor() {
+                this.ctx = null;
+                this.enabled = true;
             }
 
-            // Create Player Gun Model
-            createGunModel();
-
-            // Resize Event
-            window.addEventListener('resize', onWindowResize);
-        }
-
-        function createGunModel() {
-            gunMesh = new THREE.Group();
-
-            const bodyGeo = new THREE.BoxGeometry(0.12, 0.15, 0.6);
-            const bodyMat = new THREE.MeshStandardMaterial({ color: 0x334155, metalness: 0.9, roughness: 0.2 });
-            const body = new THREE.Mesh(bodyGeo, bodyMat);
-            gunMesh.add(body);
-
-            const barrelGeo = new THREE.CylinderGeometry(0.03, 0.03, 0.4);
-            const barrelMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, metalness: 0.9 });
-            const barrel = new THREE.Mesh(barrelGeo, barrelMat);
-            barrel.rotation.x = Math.PI / 2;
-            barrel.position.set(0, 0.03, -0.4);
-            gunMesh.add(barrel);
-
-            const glowGeo = new THREE.BoxGeometry(0.08, 0.04, 0.3);
-            const glowMat = new THREE.MeshBasicMaterial({ color: 0x38bdf8 });
-            const glow = new THREE.Mesh(glowGeo, glowMat);
-            glow.position.set(0, 0.08, -0.1);
-            gunMesh.add(glow);
-
-            gunMesh.position.set(0.25, -0.22, -0.45);
-            camera.add(gunMesh);
-            scene.add(camera);
-        }
-
-        // --- Wave & Enemy Logic ---
-        function startWave(nextWave) {
-            wave = nextWave;
-            enemiesToSpawn = wave * 8 + 5; // 적 수 증가
-            updateWaveInfoUI();
-
-            bannerTitle.textContent = `WAVE ${wave}`;
-            bannerSub.textContent = `총 ${enemiesToSpawn}마리의 사이버 드론 스폰!`;
-            centerBanner.style.opacity = '1';
-
-            setTimeout(() => {
-                centerBanner.style.opacity = '0';
-            }, 2500);
-
-            // 시작 시 즉시 5마리 생성
-            for (let i = 0; i < Math.min(5, enemiesToSpawn); i++) {
-                spawnEnemy();
-            }
-        }
-
-        function spawnEnemy() {
-            if (enemiesToSpawn <= 0) return;
-
-            // 적 종류 선택 (일반: 핑크, 스피더: 파랑, 탱커: 노랑)
-            const typeRoll = Math.random();
-            let type = 'normal';
-            let color = 0xf472b6; // 핑크
-            let size = 0.9;
-            let speed = 6;
-            let hp = 40;
-            let damage = 10;
-
-            if (typeRoll < 0.3) {
-                type = 'speeder';
-                color = 0x38bdf8; // 파랑
-                size = 0.65;
-                speed = 10;
-                hp = 25;
-                damage = 6;
-            } else if (typeRoll > 0.75) {
-                type = 'tanker';
-                color = 0xeab308; // 노랑
-                size = 1.4;
-                speed = 3.8;
-                hp = 110;
-                damage = 22;
-            }
-
-            // Create Drone Mesh
-            const enemyGroup = new THREE.Group();
-
-            const coreGeo = new THREE.OctahedronGeometry(size);
-            const coreMat = new THREE.MeshStandardMaterial({
-                color: color,
-                emissive: color,
-                emissiveIntensity: 0.6,
-                roughness: 0.3,
-                metalness: 0.8
-            });
-            const core = new THREE.Mesh(coreGeo, coreMat);
-            core.castShadow = true;
-            enemyGroup.add(core);
-
-            const ringGeo = new THREE.TorusGeometry(size * 1.3, 0.05, 8, 24);
-            const ringMat = new THREE.MeshBasicMaterial({ color: color });
-            const ring = new THREE.Mesh(ringGeo, ringMat);
-            ring.rotation.x = Math.PI / 2;
-            enemyGroup.add(ring);
-
-            // Spawn inside distance range around player
-            const angle = Math.random() * Math.PI * 2;
-            const dist = THREE.MathUtils.randFloat(14, 28);
-            enemyGroup.position.set(
-                camera.position.x + Math.cos(angle) * dist,
-                1.5,
-                camera.position.z + Math.sin(angle) * dist
-            );
-
-            // Clamp inside arena bounds
-            enemyGroup.position.x = Math.max(-36, Math.min(36, enemyGroup.position.x));
-            enemyGroup.position.z = Math.max(-36, Math.min(36, enemyGroup.position.z));
-
-            scene.add(enemyGroup);
-
-            enemies.push({
-                mesh: enemyGroup,
-                type: type,
-                hp: hp,
-                maxHp: hp,
-                speed: speed,
-                damage: damage,
-                lastAttackTime: 0
-            });
-
-            enemiesToSpawn--;
-            lastSpawnTime = clock.getElapsedTime();
-            updateWaveInfoUI();
-        }
-
-        // --- Shooting & Damage Systems ---
-        function shootWeapon() {
-            const now = clock.getElapsedTime();
-            if (now - lastShotTime < 0.12) return; // 연사 속도
-            if (player.isReloading) return;
-
-            if (player.ammo <= 0) {
-                reloadWeapon();
-                return;
-            }
-
-            player.ammo--;
-            updateAmmoUI();
-            lastShotTime = now;
-            playSound('gun');
-
-            // Gun Recoil Effect
-            gunMesh.position.z += 0.08;
-            gunMesh.rotation.x += 0.08;
-
-            // Raycasting Shot
-            const raycaster = new THREE.Raycaster();
-            raycaster.setFromCamera(new THREE.Vector2(0, 0), camera);
-
-            const enemyMeshes = enemies.map(e => e.mesh.children[0]);
-            const intersects = raycaster.intersectObjects(enemyMeshes, true);
-
-            if (intersects.length > 0) {
-                const hitObj = intersects[0].object;
-                const enemyIndex = enemies.findIndex(e => e.mesh.children[0] === hitObj || e.mesh.contains(hitObj));
-
-                if (enemyIndex !== -1) {
-                    const enemy = enemies[enemyIndex];
-                    const damage = player.isAiming ? 35 : 25;
-                    enemy.hp -= damage;
-
-                    // Hit particle effect
-                    createHitParticles(intersects[0].point);
-
-                    // Show Hitmarker
-                    hitMarker.classList.remove('active');
-                    void hitMarker.offsetWidth; // Trigger reflow
-                    hitMarker.classList.add('active');
-
-                    if (enemy.hp <= 0) {
-                        playSound('kill');
-                        scene.remove(enemy.mesh);
-                        enemies.splice(enemyIndex, 1);
-                        player.kills++;
-                    } else {
-                        playSound('hit');
+            init() {
+                if (!this.ctx) {
+                    const AudioContext = window.AudioContext || window.webkitAudioContext;
+                    if (AudioContext) {
+                        this.ctx = new AudioContext();
                     }
-
-                    updateWaveInfoUI();
+                }
+                if (this.ctx && this.ctx.state === 'suspended') {
+                    this.ctx.resume();
                 }
             }
-        }
 
-        function reloadWeapon() {
-            if (player.isReloading || player.ammo === player.maxAmmo) return;
-            player.isReloading = true;
+            playTone(freq, type = 'sine', duration = 0.1, gainVal = 0.1) {
+                if (!this.enabled) return;
+                this.init();
+                if (!this.ctx) return;
 
-            setTimeout(() => {
-                player.ammo = player.maxAmmo;
-                player.isReloading = false;
-                updateAmmoUI();
-            }, 1200);
-        }
-
-        function takeDamage(amount) {
-            player.hp -= amount;
-            playSound('hurt');
-            updateHpUI();
-
-            damageFlash.style.opacity = '0.8';
-            setTimeout(() => {
-                damageFlash.style.opacity = '0';
-            }, 150);
-
-            if (player.hp <= 0) {
-                gameOver();
-            }
-        }
-
-        function createHitParticles(pos) {
-            for (let i = 0; i < 6; i++) {
-                const pGeo = new THREE.BoxGeometry(0.08, 0.08, 0.08);
-                const pMat = new THREE.MeshBasicMaterial({ color: 0xfbbf24 });
-                const pMesh = new THREE.Mesh(pGeo, pMat);
-                pMesh.position.copy(pos);
-
-                const vel = new THREE.Vector3(
-                    (Math.random() - 0.5) * 8,
-                    Math.random() * 6,
-                    (Math.random() - 0.5) * 8
-                );
-
-                scene.add(pMesh);
-                particles.push({ mesh: pMesh, vel: vel, life: 0.25 });
-            }
-        }
-
-        // --- Game Main Loop ---
-        function animate() {
-            requestAnimationFrame(animate);
-
-            const delta = Math.min(clock.getDelta(), 0.1);
-
-            if (isGameRunning) {
-                updatePlayerMovement(delta);
-                updateEnemies(delta);
-                updateGunSway(delta);
-                updateParticles(delta);
-
-                // Continuous Auto-Fire when holding down mouse
-                if (isMouseDown) {
-                    shootWeapon();
-                }
-
-                // Spawn enemies periodically if needed
-                const now = clock.getElapsedTime();
-                if (enemiesToSpawn > 0 && enemies.length < 12 && now - lastSpawnTime > 1.2) {
-                    spawnEnemy();
-                }
-
-                // Next Wave condition
-                if (enemies.length === 0 && enemiesToSpawn <= 0) {
-                    startWave(wave + 1);
-                }
-
-                renderMiniMap();
-            }
-
-            renderer.render(scene, camera);
-        }
-
-        // --- Game Audio Synthesizer (Tone.js) ---
-        let soundEnabled = false;
-        let gunSynth, explosionSynth, hitSynth, playerHurtSynth;
-
-        function initAudio() {
-            if (soundEnabled) return;
-            try {
-                Tone.start();
-                gunSynth = new Tone.NoiseSynth({
-                    noise: { type: 'white' },
-                    envelope: { attack: 0.005, decay: 0.1, sustain: 0 }
-                }).toDestination();
-
-                hitSynth = new Tone.Synth({
-                    oscillator: { type: 'triangle' },
-                    envelope: { attack: 0.001, decay: 0.05, sustain: 0 }
-                }).toDestination();
-
-                explosionSynth = new Tone.MembraneSynth().toDestination();
-                playerHurtSynth = new Tone.Synth({
-                    oscillator: { type: 'sawtooth' },
-                    envelope: { attack: 0.01, decay: 0.2, sustain: 0 }
-                }).toDestination();
-
-                soundEnabled = true;
-            } catch (e) {
-                console.log("Audio init error:", e);
-            }
-        }
-
-        function playSound(type) {
-            if (!soundEnabled) return;
-            try {
-                if (type === 'gun') gunSynth.triggerAttackRelease('8n');
-                if (type === 'hit') hitSynth.triggerAttackRelease('C6', '16n');
-                if (type === 'kill') hitSynth.triggerAttackRelease('E6', '8n');
-                if (type === 'explosion') explosionSynth.triggerAttackRelease('C1', '8n');
-                if (type === 'hurt') playerHurtSynth.triggerAttackRelease('A2', '8n');
-            } catch(e) {}
-        }
-
-        function setupControls() {
-            const startBtn = document.getElementById('startBtn');
-            const restartBtn = document.getElementById('restartBtn');
-            const startMenu = document.getElementById('startMenu');
-            const gameOverMenu = document.getElementById('gameOverMenu');
-            const hudUI = document.getElementById('hudUI');
-
-            const enterGame = (e) => {
-                if (e) {
-                    e.stopPropagation();
-                    e.preventDefault();
-                }
-                initAudio();
-                startMenu.classList.add('hidden');
-                gameOverMenu.classList.add('hidden');
-                hudUI.classList.remove('hidden');
-                
-                isGameRunning = true;
-                
-                // Request Pointer Lock safely
                 try {
-                    document.body.requestPointerLock();
-                } catch(e) {
-                    console.log("Pointer lock error:", e);
-                }
-                
-                resetGame();
-            };
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.type = type;
+                    osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
+                    gain.gain.setValueAtTime(gainVal, this.ctx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.0001, this.ctx.currentTime + duration);
 
-            startBtn.addEventListener('click', enterGame);
-            restartBtn.addEventListener('click', enterGame);
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
 
-            // Re-click screen to lock pointer if unlocked during game
-            window.addEventListener('click', (e) => {
-                if (isGameRunning && document.pointerLockElement !== document.body) {
-                    if (e.target.tagName !== 'BUTTON' && !startMenu.contains(e.target) && !gameOverMenu.contains(e.target)) {
-                        try {
-                            document.body.requestPointerLock();
-                        } catch(err) {}
-                    }
-                }
-            });
-
-            // Pointer Lock Event Handler
-            document.addEventListener('pointerlockchange', () => {
-                if (document.pointerLockElement !== document.body && isGameRunning) {
-                    // Keep running or show menu on ESC
-                }
-            });
-
-            // Mouse Look Controls
-            window.addEventListener('mousemove', (e) => {
-                if (document.pointerLockElement === document.body && isGameRunning) {
-                    const movementX = e.movementX || 0;
-                    const movementY = e.movementY || 0;
-
-                    const sensitivity = player.isAiming ? 0.0012 : 0.0025;
-
-                    camera.rotation.y -= movementX * sensitivity;
-
-                    // Pitch limit
-                    const pitch = camera.rotation.x - movementY * sensitivity;
-                    camera.rotation.x = Math.max(-Math.PI / 2.5, Math.min(Math.PI / 2.5, pitch));
-                }
-            });
-
-            // Mouse Shooting & Aiming
-            window.addEventListener('mousedown', (e) => {
-                if (!isGameRunning) return;
-                if (e.button === 0) { // Left Click - Fire
-                    isMouseDown = true;
-                    shootWeapon();
-                } else if (e.button === 2) { // Right Click - Aim Zoom
-                    e.preventDefault();
-                    player.isAiming = true;
-                }
-            });
-
-            window.addEventListener('mouseup', (e) => {
-                if (e.button === 0) {
-                    isMouseDown = false;
-                } else if (e.button === 2) {
-                    player.isAiming = false;
-                }
-            });
-
-            // Disable Context Menu on Right Click
-            window.addEventListener('contextmenu', e => e.preventDefault());
-
-            // Keyboard Movement & Actions
-            window.addEventListener('keydown', (e) => {
-                switch (e.code) {
-                    case 'KeyW': keys.w = true; break;
-                    case 'KeyA': keys.a = true; break;
-                    case 'KeyS': keys.s = true; break;
-                    case 'KeyD': keys.d = true; break;
-                    case 'ShiftLeft':
-                    case 'ShiftRight': keys.shift = true; break;
-                    case 'KeyE': player.isAiming = !player.isAiming; break; // E Key Zoom Toggle
-                    case 'Space': 
-                        if (player.isGrounded) {
-                            player.velocityY = 8.5; // Jump strength
-                            player.isGrounded = false;
-                        }
-                        break;
-                    case 'KeyR': reloadWeapon(); break;
-                }
-            });
-
-            window.addEventListener('keyup', (e) => {
-                switch (e.code) {
-                    case 'KeyW': keys.w = false; break;
-                    case 'KeyA': keys.a = false; break;
-                    case 'KeyS': keys.s = false; break;
-                    case 'KeyD': keys.d = false; break;
-                    case 'ShiftLeft':
-                    case 'ShiftRight': keys.shift = false; break;
-                }
-            });
-        }
-<!-- ... existing code -->
-        function updatePlayerMovement(delta) {
-            // Apply Gravity & Jumping Physics
-            const gravity = 22.0;
-            if (!player.isGrounded) {
-                player.velocityY -= gravity * delta;
-                camera.position.y += player.velocityY * delta;
-
-                if (camera.position.y <= player.height) {
-                    camera.position.y = player.height;
-                    player.velocityY = 0;
-                    player.isGrounded = true;
+                    osc.start();
+                    osc.stop(this.ctx.currentTime + duration);
+                } catch (e) {
+                    console.error(e);
                 }
             }
 
-            // Zoom In / Aiming FOV & Gun Position Smooth Interpolation
-            const targetFOV = player.isAiming ? 40 : (keys.shift ? 80 : 75);
-            camera.fov = THREE.MathUtils.lerp(camera.fov, targetFOV, delta * 12);
-            camera.updateProjectionMatrix();
-
-            // Calculate movement directional vectors relative to camera orientation
-            const forward = new THREE.Vector3(0, 0, -1).applyAxisAngle(new THREE.Vector3(0, 1, 0), camera.rotation.y);
-            const side = new THREE.Vector3(1, 0, 0).applyAxisAngle(new THREE.Vector3(0, 1, 0), camera.rotation.y);
-
-            const moveDir = new THREE.Vector3();
-
-            if (keys.w) moveDir.add(forward);
-            if (keys.s) moveDir.sub(forward);
-            if (keys.d) moveDir.add(side);
-            if (keys.a) moveDir.sub(side);
-
-            moveDir.normalize();
-
-            // Apply Speed & Move Player Position
-            let moveSpeed = player.speed;
-            if (keys.shift && !player.isAiming) {
-                moveSpeed = player.sprintSpeed; // Shift 키 누르는 동안 빠른 질주
-            } else if (player.isAiming) {
-                moveSpeed = player.speed * 0.6; // 조준 중 이동 감속
+            playDrop() {
+                this.playTone(523.25, 'triangle', 0.1, 0.2); // C5
             }
 
-            camera.position.x += moveDir.x * moveSpeed * delta;
-            camera.position.z += moveDir.z * moveSpeed * delta;
+            playPerfect() {
+                if (!this.enabled) return;
+                this.init();
+                const notes = [523.25, 659.25, 783.99, 1046.50]; // C, E, G, C
+                notes.forEach((freq, idx) => {
+                    setTimeout(() => this.playTone(freq, 'sine', 0.2, 0.15), idx * 80);
+                });
+            }
 
-            // Clamp Position within Arena Bounds (-38 to 38)
-            camera.position.x = Math.max(-38, Math.min(38, camera.position.x));
-            camera.position.z = Math.max(-38, Math.min(38, camera.position.z));
-        }
-
-        function updateEnemies(delta) {
-            const now = clock.getElapsedTime();
-
-            enemies.forEach(enemy => {
-                // Enemy Hover Movement & Face Player
-                enemy.mesh.rotation.y += delta * 2;
-                enemy.mesh.children[0].rotation.x += delta;
-
-                // Move Towards Player
-                const dir = new THREE.Vector3().subVectors(camera.position, enemy.mesh.position);
-                dir.y = 0; // maintain floor hover height
-                const dist = dir.length();
-                dir.normalize();
-
-                if (dist > 1.2) {
-                    enemy.mesh.position.addScaledVector(dir, enemy.speed * delta);
-                } else {
-                    // Attack Player inside range
-                    if (now - enemy.lastAttackTime > 1.0) {
-                        takeDamage(enemy.damage);
-                        enemy.lastAttackTime = now;
-                    }
-                }
-            });
-        }
-
-        function updateGunSway(delta) {
-            // Aiming position offset vs normal stance
-            const targetX = player.isAiming ? 0 : 0.25;
-            const targetY = player.isAiming ? -0.15 : -0.22;
-            const targetZ = player.isAiming ? -0.32 : -0.45;
-
-            gunMesh.position.x = THREE.MathUtils.lerp(gunMesh.position.x, targetX, delta * 12);
-            gunMesh.position.y = THREE.MathUtils.lerp(gunMesh.position.y, targetY, delta * 12);
-            gunMesh.position.z = THREE.MathUtils.lerp(gunMesh.position.z, targetZ, delta * 10);
-            gunMesh.rotation.x = THREE.MathUtils.lerp(gunMesh.rotation.x, 0, delta * 10);
-        }
-
-        function updateParticles(delta) {
-            for (let i = particles.length - 1; i >= 0; i--) {
-                const p = particles[i];
-                p.life -= delta;
-                p.mesh.position.addScaledVector(p.vel, delta);
-
-                if (p.life <= 0) {
-                    scene.remove(p.mesh);
-                    particles.splice(i, 1);
-                }
+            playFail() {
+                if (!this.enabled) return;
+                this.init();
+                this.playTone(180, 'sawtooth', 0.3, 0.2);
+                setTimeout(() => this.playTone(130, 'sawtooth', 0.4, 0.25), 150);
             }
         }
 
-        // --- Render Radar MiniMap ---
-        function renderMiniMap() {
-            minimapCtx.clearRect(0, 0, 110, 110);
+        const sound = new SoundEngine();
 
-            const mapScale = 110 / 80; // 80m arena mapped to 110px canvas
-            const centerX = 55;
-            const centerY = 55;
+        // Game State Engine
+        let gameState = 'IDLE'; // 'IDLE', 'RUNNING', 'RESULT'
+        let currentStage = 1; // 1 to 10 Stages
+        const maxStage = 10;
 
-            // Draw Radar Grid Circle
-            minimapCtx.strokeStyle = 'rgba(56, 189, 248, 0.2)';
-            minimapCtx.lineWidth = 1;
-            minimapCtx.beginPath();
-            minimapCtx.arc(centerX, centerY, 50, 0, Math.PI * 2);
-            minimapCtx.stroke();
+        let doughX = -100;
+        let baseDoughSpeed = 2.8; 
+        let doughSpeed = 2.8;
+        let doughDirection = 1;
+        let animFrameId = null;
 
-            // Draw Player Marker Center (Green Dot & Direction Line)
-            const playerPx = centerX + camera.position.x * mapScale;
-            const playerPy = centerY + camera.position.z * mapScale;
+        let requiredToppings = 3;
+        let currentToppingsCount = 0;
+        let currentToppingIcon = '🍕';
 
-            minimapCtx.fillStyle = '#38bdf8';
-            minimapCtx.beginPath();
-            minimapCtx.arc(playerPx, playerPy, 3, 0, Math.PI * 2);
-            minimapCtx.fill();
+        let money = 0;
+        let combo = 0;
+        let successCount = 0;
 
-            // Draw Enemies (Red Dots)
-            minimapCtx.fillStyle = '#f43f5e';
-            enemies.forEach(e => {
-                const ex = centerX + e.mesh.position.x * mapScale;
-                const ey = centerY + e.mesh.position.z * mapScale;
+        // Customer Data (Variations)
+        const customers = [
+            { name: "단골 손님 민수", avatar: "👦", topping: "🍕", msg: "페퍼로니 피자가 제일 좋아요!" },
+            { name: "미소천사 수진", avatar: "👧", topping: "🍄", msg: "버섯을 듬뿍 올려주세요!" },
+            { name: "피자 매니아 동현", avatar: "👨", topping: "🧀", msg: "치즈 토핑으로 가득 채워줘요!" },
+            { name: "친절한 할머니", avatar: "👵", topping: "🍍", msg: "상큼한 파인애플 피자 부탁하네~" },
+            { name: "미식가 셰프", avatar: "👨‍🍳", topping: "🫒", msg: "올리브 토핑 정밀 투하 부탁합니다!" }
+        ];
+        let currentCustomer = customers[0];
 
-                minimapCtx.beginPath();
-                minimapCtx.arc(ex, ey, 2.5, 0, Math.PI * 2);
-                minimapCtx.fill();
-            });
-        }
+        // DOM Cache
+        const stageLabel = document.getElementById('stageLabel');
+        const stageTargetText = document.getElementById('stageTargetText');
+        const stageProgressBar = document.getElementById('stageProgressBar');
+        const targetZone = document.getElementById('targetZone');
+        const targetZoneLabel = document.getElementById('targetZoneLabel');
 
-        // --- UI Update Helpers ---
-        function updateHpUI() {
-            const pct = (player.hp / player.maxHp) * 100;
-            hpBar.style.width = `${pct}%`;
-            hpText.textContent = `${Math.ceil(player.hp)} HP`;
+        const moneyDisplay = document.getElementById('moneyDisplay');
+        const customerAvatar = document.getElementById('customerAvatar');
+        const customerName = document.getElementById('customerName');
+        const customerMsg = document.getElementById('customerMsg');
+        const remainingToppings = document.getElementById('remainingToppings');
 
-            if (pct < 30) {
-                hpBar.className = "bg-rose-500 h-full w-full transition-all duration-200 animate-pulse";
+        const factoryArea = document.getElementById('factoryArea');
+        const conveyorBelt = document.getElementById('conveyorBelt');
+        const pizzaDough = document.getElementById('pizzaDough');
+        const placedToppings = document.getElementById('placedToppings');
+        const currentTopperIcon = document.getElementById('currentTopperIcon');
+        
+        const boxGraphic = document.getElementById('boxGraphic');
+        const burntGraphic = document.getElementById('burntGraphic');
+        const judgeBadge = document.getElementById('judgeBadge');
+        
+        const comboDisplay = document.getElementById('comboDisplay');
+        const completedPizzas = document.getElementById('completedPizzas');
+        
+        const dropBtn = document.getElementById('dropBtn');
+        const startBtn = document.getElementById('startBtn');
+        const startBtnText = document.getElementById('startBtnText');
+        const soundToggleBtn = document.getElementById('soundToggleBtn');
+        const soundIcon = document.getElementById('soundIcon');
+
+        // Update Stage difficulty parameters
+        function setupStageDifficulty() {
+            stageLabel.textContent = `STAGE ${currentStage} / ${maxStage}`;
+            stageProgressBar.style.width = `${(currentStage / maxStage) * 100}%`;
+
+            // Stage difficulty scaling
+            baseDoughSpeed = 2.4 + (currentStage * 0.55); // Speed increases per stage
+            
+            // Required toppings (starts at 3, increases up to 6)
+            requiredToppings = Math.min(6, 2 + Math.floor(currentStage / 2));
+
+            // Target zone width & precision decreases at higher stages
+            if (currentStage <= 3) {
+                targetZone.style.width = '4rem'; // 64px - Easy
+                targetZoneLabel.textContent = 'EASY TARGET';
+                targetZoneLabel.className = 'text-[9px] font-orbitron font-bold text-emerald-400/90 bg-slate-900/90 px-1.5 py-0.5 rounded animate-pulse';
+            } else if (currentStage <= 7) {
+                targetZone.style.width = '3rem'; // 48px - Medium
+                targetZoneLabel.textContent = 'MEDIUM TARGET';
+                targetZoneLabel.className = 'text-[9px] font-orbitron font-bold text-amber-400/90 bg-slate-900/90 px-1.5 py-0.5 rounded animate-pulse';
             } else {
-                hpBar.className = "bg-gradient-to-r from-emerald-500 to-sky-400 h-full w-full transition-all duration-200";
+                targetZone.style.width = '2.25rem'; // 36px - Hard Master
+                targetZoneLabel.textContent = 'MASTER ZONE';
+                targetZoneLabel.className = 'text-[9px] font-orbitron font-bold text-rose-400/90 bg-slate-900/90 px-1.5 py-0.5 rounded animate-pulse';
+            }
+
+            stageTargetText.textContent = `속도 Level ${currentStage} | 토핑 ${requiredToppings}개 필요`;
+        }
+
+        // Customer Selection
+        function pickNextCustomer() {
+            setupStageDifficulty();
+
+            currentCustomer = customers[(currentStage - 1) % customers.length];
+            customerAvatar.textContent = currentCustomer.avatar;
+            customerName.textContent = `${currentCustomer.name} (St.${currentStage})`;
+            customerMsg.textContent = `"${currentCustomer.msg}"`;
+            
+            currentToppingsCount = 0;
+            currentToppingIcon = currentCustomer.topping;
+
+            currentTopperIcon.textContent = currentToppingIcon;
+            remainingToppings.textContent = `${currentToppingsCount} / ${requiredToppings}`;
+        }
+
+        // Animation Conveyor Loop
+        function animateConveyor() {
+            if (gameState !== 'RUNNING') return;
+
+            const containerWidth = factoryArea.clientWidth;
+            doughX += doughSpeed * doughDirection;
+
+            if (doughX >= containerWidth - 110) {
+                doughDirection = -1;
+            } else if (doughX <= -10) {
+                doughDirection = 1;
+            }
+
+            pizzaDough.style.left = `${doughX}px`;
+            animFrameId = requestAnimationFrame(animateConveyor);
+        }
+
+        // Start Pizza Dough Motion
+        function startNewPizza() {
+            sound.init();
+            gameState = 'RUNNING';
+
+            pickNextCustomer();
+            placedToppings.innerHTML = '';
+            
+            boxGraphic.classList.add('hidden');
+            burntGraphic.classList.add('hidden');
+            judgeBadge.classList.add('hidden');
+
+            conveyorBelt.classList.remove('paused');
+            
+            doughX = -10;
+            doughDirection = 1;
+            doughSpeed = baseDoughSpeed;
+
+            startBtn.disabled = true;
+            dropBtn.disabled = false;
+
+            animFrameId = requestAnimationFrame(animateConveyor);
+        }
+
+        // Drop Topping Action & Precision Calculation
+        function dropTopping() {
+            if (gameState !== 'RUNNING') return;
+            sound.playDrop();
+
+            const containerWidth = factoryArea.clientWidth;
+            const targetCenterX = containerWidth / 2;
+            const currentDoughCenterX = doughX + 56;
+            
+            const distance = Math.abs(targetCenterX - currentDoughCenterX);
+
+            let judgment = '';
+            let badgeStyle = '';
+            let isHit = false;
+            let toppingValue = 0;
+
+            // Target tolerance shrinks as stage progresses
+            const perfectRange = Math.max(14, 30 - currentStage * 1.5);
+            const greatRange = Math.max(30, 56 - currentStage * 2);
+
+            if (distance <= perfectRange) {
+                judgment = 'PERFECT! 🎯 (+1)';
+                badgeStyle = 'bg-emerald-400 text-slate-950 border-emerald-300';
+                isHit = true;
+                toppingValue = 1;
+                combo++;
+            } else if (distance <= greatRange) {
+                judgment = 'GREAT! 👍 (+0.5)';
+                badgeStyle = 'bg-amber-400 text-slate-950 border-amber-300';
+                isHit = true;
+                toppingValue = 0.5;
+            } else {
+                judgment = 'MISS! ❌';
+                badgeStyle = 'bg-rose-600 text-white border-rose-400';
+                isHit = false;
+                toppingValue = 0;
+                combo = 0;
+            }
+
+            comboDisplay.textContent = `${combo} x`;
+
+            judgeBadge.textContent = judgment;
+            judgeBadge.className = `text-xl font-black font-orbitron px-4 py-1 rounded-full shadow-2xl border z-30 mb-2 ${badgeStyle}`;
+            judgeBadge.classList.remove('hidden');
+
+            if (isHit) {
+                currentToppingsCount += toppingValue;
+                remainingToppings.textContent = `${currentToppingsCount} / ${requiredToppings}`;
+
+                const toppingEl = document.createElement('span');
+                toppingEl.className = 'text-xl dropping';
+                // Display half-topping visual cue if +0.5
+                toppingEl.textContent = toppingValue === 0.5 ? `${currentToppingIcon}½` : currentToppingIcon;
+                placedToppings.appendChild(toppingEl);
+
+                // Slight increment inside stage
+                doughSpeed += 0.25;
+
+                if (currentToppingsCount >= requiredToppings) {
+                    completePizzaSuccess();
+                }
+            } else {
+                failPizza();
             }
         }
 
-        function updateAmmoUI() {
-            currentAmmoEl.textContent = player.ammo;
-            maxAmmoEl.textContent = player.maxAmmo;
+        // Pizza Success Handling (Stage Progression)
+        function completePizzaSuccess() {
+            gameState = 'RESULT';
+            cancelAnimationFrame(animFrameId);
+            conveyorBelt.classList.add('paused');
+
+            dropBtn.disabled = true;
+            startBtn.disabled = false;
+
+            successCount++;
+            completedPizzas.textContent = successCount;
+
+            const stageReward = 150 + (currentStage * 100) + (combo * 30);
+            money += stageReward;
+            moneyDisplay.textContent = money.toLocaleString();
+
+            const boxEmoji = document.getElementById('boxEmoji');
+            const victoryText = document.getElementById('victoryText');
+
+            if (currentStage >= maxStage) {
+                // Game Clear Victory!
+                startBtnText.textContent = "🏆 게임 다시하기 🍕";
+                boxEmoji.textContent = "🍕";
+                victoryText.classList.remove('hidden');
+                victoryText.classList.add('flex');
+
+                setTimeout(() => {
+                    boxGraphic.classList.remove('hidden');
+                    sound.playPerfect();
+                    confetti({ particleCount: 250, spread: 120, origin: { y: 0.5 } });
+                }, 300);
+                currentStage = 1; // Reset to level 1 for repeat
+            } else {
+                // Advance to next stage
+                currentStage++;
+                startBtnText.textContent = `다음 ${currentStage}단계 도전 🚀`;
+                boxEmoji.textContent = "🎁";
+                victoryText.classList.add('hidden');
+                victoryText.classList.remove('flex');
+
+                setTimeout(() => {
+                    boxGraphic.classList.remove('hidden');
+                    sound.playPerfect();
+                    confetti({ particleCount: 80, spread: 70, origin: { y: 0.6 } });
+                }, 300);
+            }
         }
 
-        function updateWaveInfoUI() {
-            waveNumEl.textContent = wave;
-            enemiesLeftEl.textContent = enemies.length + enemiesToSpawn;
+        // Pizza Failure Handling
+        function failPizza() {
+            gameState = 'RESULT';
+            cancelAnimationFrame(animFrameId);
+            conveyorBelt.classList.add('paused');
+
+            dropBtn.disabled = true;
+            startBtn.disabled = false;
+            startBtnText.textContent = `${currentStage}단계 다시 도전하기 🔄`;
+
+            sound.playFail();
+
+            setTimeout(() => {
+                burntGraphic.classList.remove('hidden');
+            }, 200);
         }
 
-        function gameOver() {
-            isGameRunning = false;
-            document.exitPointerLock();
+        // Event Listener Registration
+        function setupEventListeners() {
+            startBtn.addEventListener('click', startNewPizza);
+            dropBtn.addEventListener('click', dropTopping);
 
-            finalWaveEl.textContent = wave;
-            finalKillsEl.textContent = player.kills;
+            factoryArea.addEventListener('click', (e) => {
+                if (gameState === 'RUNNING') {
+                    dropTopping();
+                }
+            });
 
-            hudUI.classList.add('hidden');
-            gameOverMenu.classList.remove('hidden');
+            window.addEventListener('keydown', (e) => {
+                if (e.code === 'Space' || e.code === 'Enter') {
+                    e.preventDefault();
+                    if (gameState === 'RUNNING') {
+                        dropTopping();
+                    } else if (gameState === 'IDLE' || gameState === 'RESULT') {
+                        startNewPizza();
+                    }
+                }
+            });
+
+            soundToggleBtn.addEventListener('click', () => {
+                sound.enabled = !sound.enabled;
+                if (sound.enabled) {
+                    soundIcon.className = "fa-solid fa-volume-high";
+                    soundToggleBtn.classList.remove('opacity-50');
+                    sound.playTone(600, 'sine', 0.05);
+                } else {
+                    soundIcon.className = "fa-solid fa-volume-xmark";
+                    soundToggleBtn.classList.add('opacity-50');
+                }
+            });
         }
 
-        function resetGame() {
-            // Reset States
-            player.hp = 100;
-            player.ammo = player.maxAmmo;
-            player.isReloading = false;
-            player.kills = 0;
-            camera.position.set(0, player.height, 0);
-
-            // Clear Scene Enemies & Particles
-            enemies.forEach(e => scene.remove(e.mesh));
-            enemies = [];
-            particles.forEach(p => scene.remove(p.mesh));
-            particles = [];
-
-            updateHpUI();
-            updateAmmoUI();
-
-            // Restart Wave 1
-            startWave(1);
-        }
-
-        function onWindowResize() {
-            camera.aspect = window.innerWidth / window.innerHeight;
-            camera.updateProjectionMatrix();
-            renderer.setSize(window.innerWidth, window.innerHeight);
-        }
-
-        // --- Initialize Engine On Window Load ---
+        // Window Init
         window.onload = function() {
-            initEngine();
-            setupControls();
-            // Ready game state and wave
-            resetGame();
-            animate();
+            setupEventListeners();
+            pickNextCustomer();
         };
     </script>
 </body>
