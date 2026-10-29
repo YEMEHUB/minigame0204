@@ -1,819 +1,1251 @@
-
 <!DOCTYPE html>
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI 체스 챌린지 (5단계 난이도)</title>
-    <!-- Tailwind CSS -->
+    <title>체스 게임 (Chess Game)</title>
+    <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- FontAwesome Icons -->
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
-    <!-- Chess.js 라이브러리 (체스 규칙 및 이동 검증 엔진) -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>
+    <!-- FontAwesome for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&display=swap" rel="stylesheet">
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;600;700;900&display=swap');
-        
         body {
             font-family: 'Noto Sans KR', sans-serif;
-            background-color: #0f172a;
-            color: #f8fafc;
             user-select: none;
-            -webkit-tap-highlight-color: transparent;
+            -webkit-user-select: none;
         }
 
-        /* 체스판 스타일링 */
+        /* Chess Board Aspect Ratio & Grid */
         .board-grid {
             display: grid;
             grid-template-columns: repeat(8, 1fr);
             grid-template-rows: repeat(8, 1fr);
             aspect-ratio: 1 / 1;
-            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 8px 10px -6px rgba(0, 0, 0, 0.5);
         }
 
-        .square {
-            position: relative;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: clamp(1.8rem, 4.5vw, 3.2rem);
+        /* Board Themes */
+        .theme-classic .square-light { background-color: #f0d9b5; color: #b58863; }
+        .theme-classic .square-dark { background-color: #b58863; color: #f0d9b5; }
+        
+        .theme-glass .square-light { background-color: #e2e8f0; color: #475569; }
+        .theme-glass .square-dark { background-color: #64748b; color: #cbd5e1; }
+
+        .theme-emerald .square-light { background-color: #e2e8f0; color: #059669; }
+        .theme-emerald .square-dark { background-color: #059669; color: #ecfdf5; }
+
+        /* Highlights */
+        .square-selected {
+            background-color: #f59e0b !important;
+        }
+        .square-last-move {
+            background-color: rgba(250, 204, 21, 0.5) !important;
+        }
+        .square-check {
+            background-color: #ef4444 !important;
+            animation: pulse 1.5s infinite;
+        }
+
+        /* Piece Styling */
+        .chess-piece {
+            transition: transform 0.15s ease-in-out;
             cursor: pointer;
-            transition: background-color 0.15s ease;
+            filter: drop-shadow(0 2px 4px rgba(0,0,0,0.25));
         }
-
-        .square.light {
-            background-color: #e2e8f0;
-            color: #1e293b;
-        }
-
-        .square.dark {
-            background-color: #475569;
-            color: #f8fafc;
-        }
-
-        .square.selected {
-            background-color: #f59e0b !important; /* Amber */
-        }
-
-        .square.last-move {
-            background-color: rgba(245, 158, 11, 0.4) !important;
-        }
-
-        /* 이동 가능 하이라이트 핀 */
-        .move-hint::after {
-            content: '';
-            width: 28%;
-            height: 28%;
-            background-color: rgba(16, 185, 129, 0.7); /* Emerald */
-            border-radius: 50%;
-            position: absolute;
-            pointer-events: none;
-        }
-
-        .capture-hint {
-            box-shadow: inset 0 0 0 4px rgba(239, 68, 68, 0.8) !important; /* Red */
-        }
-
-        /* 체스 기물 텍스트/이모지 스타일링 */
-        .piece {
-            line-height: 1;
-            z-index: 10;
-            filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));
-            transition: transform 0.1s ease;
-        }
-
-        .square:hover .piece {
+        .chess-piece:hover {
             transform: scale(1.08);
         }
 
-        /* 스크롤바 미학 */
+        /* Custom Scrollbar */
         ::-webkit-scrollbar {
             width: 6px;
         }
         ::-webkit-scrollbar-track {
-            background: #1e293b;
+            background: rgba(0,0,0,0.05);
+            border-radius: 4px;
         }
         ::-webkit-scrollbar-thumb {
-            background: #475569;
-            border-radius: 3px;
+            background: rgba(0,0,0,0.2);
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(0,0,0,0.3);
+        }
+
+        /* Responsive board container */
+        .board-container {
+            width: 100%;
+            max-width: 580px;
         }
     </style>
 </head>
-<body class="min-h-screen flex flex-col justify-between p-3 md:p-6">
+<body class="bg-slate-900 text-slate-100 min-h-screen flex flex-col justify-between">
 
     <!-- Header Navigation -->
-    <header class="max-w-5xl w-full mx-auto flex justify-between items-center pb-4 border-b border-slate-800">
-        <div class="flex items-center space-x-3">
-            <div class="w-10 h-10 rounded-xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-400 text-xl font-bold shadow-inner">
-                <i class="fa-solid fa-chess-king"></i>
-            </div>
-            <div>
-                <h1 class="text-lg md:text-xl font-bold text-slate-100 flex items-center gap-2">
-                    AI CHESS MASTER
+    <header class="bg-slate-800 border-b border-slate-700 px-4 py-3 shadow-md">
+        <div class="max-w-6xl mx-auto flex justify-between items-center">
+            <div class="flex items-center space-x-3">
+                <i class="fa-solid fa-chess-king text-amber-500 text-2xl"></i>
+                <h1 class="text-xl font-bold tracking-wide bg-gradient-to-r from-amber-400 to-orange-500 bg-clip-text text-transparent">
+                    마스터 체스 (Master Chess)
                 </h1>
-                <p class="text-xs text-slate-400">인공지능과 펼치는 5단계 정밀 체스 대국</p>
             </div>
-        </div>
-
-        <div class="flex items-center gap-2">
-            <button id="resetBtn" class="px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs md:text-sm font-semibold transition border border-slate-700 flex items-center gap-2">
-                <i class="fa-solid fa-rotate-right text-amber-400"></i> 새 게임
-            </button>
-            <button id="undoBtn" class="px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs md:text-sm font-semibold transition border border-slate-700 flex items-center gap-2">
-                <i class="fa-solid fa-rotate-left text-cyan-400"></i> 무르기
-            </button>
+            <div class="flex items-center space-x-2">
+                <button id="themeToggleBtn" class="px-3 py-1.5 bg-slate-700 hover:bg-slate-600 rounded-lg text-xs font-medium transition flex items-center gap-1.5">
+                    <i class="fa-solid fa-palette text-amber-400"></i> 테마 변경
+                </button>
+            </div>
         </div>
     </header>
 
-    <!-- Main Content Grid -->
-    <main class="max-w-5xl w-full mx-auto my-auto py-4 grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+    <!-- Main Game Section -->
+    <main class="max-w-6xl mx-auto w-full p-2 sm:p-4 md:p-6 flex-grow flex flex-col lg:flex-row gap-6 justify-center items-center lg:items-start">
 
-        <!-- Left / Top: Controls & Status (3 cols on lg) -->
-        <div class="lg:col-span-4 flex flex-col gap-4 order-2 lg:order-1">
-            
-            <!-- Difficulty Selection Panel -->
-            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 shadow-xl">
-                <h2 class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3 flex items-center gap-2">
-                    <i class="fa-solid fa-sliders text-amber-400"></i> AI 난이도 설정
-                </h2>
-                <div class="grid grid-cols-1 gap-1.5" id="difficultyGroup">
-                    <button data-level="1" class="diff-btn py-2 px-3 rounded-xl text-left text-xs md:text-sm font-semibold transition flex justify-between items-center bg-slate-800 text-slate-300 border border-slate-700 hover:bg-slate-700">
-                        <span>🌱 1단계: 이지 (Easy)</span>
-                        <span class="text-[10px] text-slate-400 font-mono">초보자용</span>
-                    </button>
-                    <button data-level="2" class="diff-btn py-2 px-3 rounded-xl text-left text-xs md:text-sm font-semibold transition flex justify-between items-center bg-amber-500/20 text-amber-300 border border-amber-500/40">
-                        <span>⚔️ 2단계: 노말 (Normal)</span>
-                        <span class="text-[10px] text-amber-400 font-mono">기본 지능</span>
-                    </button>
-                    <button data-level="3" class="diff-btn py-2 px-3 rounded-xl text-left text-xs md:text-sm font-semibold transition flex justify-between items-center bg-slate-800 text-slate-300 border border-slate-700 hover:bg-slate-700">
-                        <span>🔥 3단계: 프로 (Pro)</span>
-                        <span class="text-[10px] text-slate-400 font-mono">수읽기 AI</span>
-                    </button>
-                    <button data-level="4" class="diff-btn py-2 px-3 rounded-xl text-left text-xs md:text-sm font-semibold transition flex justify-between items-center bg-slate-800 text-slate-300 border border-slate-700 hover:bg-slate-700">
-                        <span>💀 4단계: 지옥 (Hell)</span>
-                        <span class="text-[10px] text-slate-400 font-mono">강력한 위치 계산</span>
-                    </button>
-                    <button data-level="5" class="diff-btn py-2 px-3 rounded-xl text-left text-xs md:text-sm font-semibold transition flex justify-between items-center bg-slate-800 text-slate-300 border border-slate-700 hover:bg-slate-700">
-                        <span>👑 5단계: 불가능 (Impossible)</span>
-                        <span class="text-[10px] text-slate-400 font-mono">최고 정밀 전략</span>
-                    </button>
+        <!-- Left Column: Board & Player Info -->
+        <div class="flex flex-col items-center w-full max-w-[580px]">
+
+            <!-- Opponent (Black) Info Header -->
+            <div id="blackPlayerCard" class="w-full bg-slate-800/80 rounded-t-xl p-3 border-x border-t border-slate-700 flex justify-between items-center transition-all">
+                <div class="flex items-center gap-3">
+                    <div class="w-9 h-9 rounded-full bg-slate-900 border border-slate-600 flex items-center justify-center text-white font-bold text-lg">
+                        <i class="fa-solid fa-user-ninja"></i>
+                    </div>
+                    <div>
+                        <div class="flex items-center gap-2">
+                            <span id="blackName" class="font-bold text-sm text-slate-200">흑색 (AI)</span>
+                            <span id="blackBadge" class="text-[10px] bg-slate-700 text-slate-300 px-1.5 py-0.5 rounded border border-slate-600">봇</span>
+                        </div>
+                        <!-- Captured Pieces by Black -->
+                        <div id="blackCaptures" class="flex flex-wrap gap-0.5 text-xs text-slate-400 min-h-[16px] mt-0.5"></div>
+                    </div>
+                </div>
+                <!-- Black Timer -->
+                <div id="blackTimer" class="font-mono text-lg font-bold bg-slate-900 px-3 py-1 rounded-lg border border-slate-700 text-slate-300">
+                    --:--
                 </div>
             </div>
 
-            <!-- Player Status & Captured Pieces Panel -->
-            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 shadow-xl space-y-4">
-                <!-- AI (Black) Info -->
-                <div class="flex justify-between items-center border-b border-slate-800 pb-2">
-                    <div class="flex items-center gap-2.5">
-                        <div class="w-8 h-8 rounded-lg bg-slate-800 border border-slate-700 flex items-center justify-center text-rose-400 font-bold">
-                            <i class="fa-solid fa-robot"></i>
-                        </div>
-                        <div>
-                            <div class="text-xs font-bold text-slate-200">AI (흑)</div>
-                            <div id="aiStatusText" class="text-[11px] text-slate-400">대기 중...</div>
-                        </div>
-                    </div>
-                    <!-- Captured White Pieces -->
-                    <div id="capturedWhite" class="text-base flex gap-1 font-mono text-slate-300 min-h-[24px]"></div>
+            <!-- Chess Board Box -->
+            <div class="relative w-full shadow-2xl rounded-b-none rounded-t-none border-x border-slate-700 bg-slate-800">
+                <div id="board" class="board-grid theme-classic w-full relative">
+                    <!-- 64 Squares generated dynamically via JavaScript -->
                 </div>
 
-                <!-- Human Player (White) Info -->
-                <div class="flex justify-between items-center">
-                    <div class="flex items-center gap-2.5">
-                        <div class="w-8 h-8 rounded-lg bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-400 font-bold">
-                            <i class="fa-solid fa-user"></i>
-                        </div>
-                        <div>
-                            <div class="text-xs font-bold text-slate-200">플레이어 (백)</div>
-                            <div id="playerStatusText" class="text-[11px] text-emerald-400 font-medium">당신의 차례입니다</div>
-                        </div>
+                <!-- Overlay Game Result Message -->
+                <div id="gameOverlay" class="absolute inset-0 bg-slate-950/85 backdrop-blur-sm flex flex-col justify-center items-center z-30 hidden transition-all">
+                    <div class="text-center p-6 bg-slate-800 border border-slate-700 rounded-2xl shadow-2xl max-w-xs sm:max-w-sm mx-4 transform scale-100">
+                        <i id="overlayIcon" class="fa-solid fa-trophy text-4xl text-amber-400 mb-3"></i>
+                        <h2 id="overlayTitle" class="text-2xl font-bold text-white mb-2">체크메이트!</h2>
+                        <p id="overlayDesc" class="text-sm text-slate-300 mb-6">백색 플레이어의 승리입니다.</p>
+                        <button onclick="resetGame()" class="w-full py-2.5 px-4 bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-slate-900 font-bold rounded-xl shadow-lg transition">
+                            새 게임 시작
+                        </button>
                     </div>
-                    <!-- Captured Black Pieces -->
-                    <div id="capturedBlack" class="text-base flex gap-1 font-mono text-slate-300 min-h-[24px]"></div>
                 </div>
             </div>
 
-            <!-- Move History Log Panel -->
-            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 shadow-xl">
-                <h2 class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2 flex items-center gap-2">
-                    <i class="fa-solid fa-list-ol text-cyan-400"></i> 기보 기록 (Move History)
-                </h2>
-                <div id="moveLog" class="h-32 overflow-y-auto bg-slate-950 p-2.5 rounded-xl border border-slate-800/80 font-mono text-xs text-slate-300 grid grid-cols-2 gap-x-4 gap-y-1">
-                    <!-- Moves populated by JS -->
+            <!-- Player (White) Info Footer -->
+            <div id="whitePlayerCard" class="w-full bg-slate-800/80 rounded-b-xl p-3 border-x border-b border-slate-700 flex justify-between items-center transition-all">
+                <div class="flex items-center gap-3">
+                    <div class="w-9 h-9 rounded-full bg-slate-100 text-slate-900 flex items-center justify-center font-bold text-lg shadow">
+                        <i class="fa-solid fa-user"></i>
+                    </div>
+                    <div>
+                        <div class="flex items-center gap-2">
+                            <span id="whiteName" class="font-bold text-sm text-slate-200">백색 (당신)</span>
+                            <span class="text-[10px] bg-amber-500/20 text-amber-400 px-1.5 py-0.5 rounded border border-amber-500/30">선공</span>
+                        </div>
+                        <!-- Captured Pieces by White -->
+                        <div id="whiteCaptures" class="flex flex-wrap gap-0.5 text-xs text-slate-400 min-h-[16px] mt-0.5"></div>
+                    </div>
+                </div>
+                <!-- White Timer -->
+                <div id="whiteTimer" class="font-mono text-lg font-bold bg-slate-900 px-3 py-1 rounded-lg border border-slate-700 text-slate-300">
+                    --:--
                 </div>
             </div>
 
         </div>
 
-        <!-- Right / Center: Interactive Chess Board (8 cols on lg) -->
-        <div class="lg:col-span-8 flex flex-col items-center justify-center order-1 lg:order-2">
-            
-            <!-- Turn & Game Alert Banner -->
-            <div id="gameAlertBanner" class="w-full max-w-lg mb-3 py-2 px-4 rounded-xl bg-slate-900/90 border border-slate-800 text-center text-xs md:text-sm font-semibold text-slate-200 shadow-md transition-all flex items-center justify-center gap-2">
-                <span id="turnIndicatorBadge" class="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></span>
-                <span id="gameAlertText">백(플레이어)의 차례입니다. 기물을 마우스로 클릭하여 이동하세요.</span>
-            </div>
+        <!-- Right Column: Settings, Control Buttons & Move Log -->
+        <div class="w-full lg:w-80 flex flex-col gap-4">
 
-            <!-- The Main Chess Board Container -->
-            <div class="relative w-full max-w-lg rounded-2xl overflow-hidden border-4 border-slate-800 shadow-2xl bg-slate-900">
-                <div id="chessboard" class="board-grid w-full">
-                    <!-- Squares generated via JS -->
+            <!-- Game Control Panel Card -->
+            <div class="bg-slate-800 border border-slate-700 rounded-xl p-4 shadow-lg space-y-4">
+                <h2 class="text-sm font-semibold uppercase tracking-wider text-slate-400 flex items-center gap-2">
+                    <i class="fa-solid fa-sliders text-amber-500"></i> 게임 설정
+                </h2>
+
+                <!-- Mode Selection -->
+                <div>
+                    <label class="text-xs text-slate-400 mb-1 block">대전 모드</label>
+                    <select id="gameModeSelect" class="w-full bg-slate-900 border border-slate-700 text-slate-200 text-sm rounded-lg p-2 focus:ring-2 focus:ring-amber-500 focus:outline-none">
+                        <option value="pve" selected>컴퓨터 대전 (vs AI)</option>
+                        <option value="pvp">2인용 (Pass & Play)</option>
+                    </select>
                 </div>
 
-                <!-- Thinking Overlay for AI -->
-                <div id="aiThinkingOverlay" class="absolute inset-0 bg-slate-950/60 backdrop-blur-sm flex flex-col items-center justify-center hidden z-30">
-                    <div class="w-12 h-12 border-4 border-amber-400 border-t-transparent rounded-full animate-spin mb-3"></div>
-                    <p class="text-sm font-bold text-amber-300 tracking-wider font-mono">AI가 최적의 수를 계산 중...</p>
+                <!-- Difficulty Select (AI Mode) -->
+                <div id="difficultyContainer">
+                    <label class="text-xs text-slate-400 mb-1 block">AI 난이도</label>
+                    <select id="difficultySelect" class="w-full bg-slate-900 border border-slate-700 text-slate-200 text-sm rounded-lg p-2 focus:ring-2 focus:ring-amber-500 focus:outline-none">
+                        <option value="easy">쉬움 (Easy)</option>
+                        <option value="medium" selected>보통 (Medium)</option>
+                        <option value="hard">어려움 (Hard)</option>
+                    </select>
+                </div>
+
+                <!-- Timer Settings -->
+                <div>
+                    <label class="text-xs text-slate-400 mb-1 block">시간 제한</label>
+                    <select id="timeControlSelect" class="w-full bg-slate-900 border border-slate-700 text-slate-200 text-sm rounded-lg p-2 focus:ring-2 focus:ring-amber-500 focus:outline-none">
+                        <option value="0">제한 없음</option>
+                        <option value="300">5분</option>
+                        <option value="600">10분</option>
+                        <option value="900">15분</option>
+                        <option value="1800" selected>30분 (기본)</option>
+                    </select>
+                </div>
+
+                <!-- Action Buttons Grid -->
+                <div class="grid grid-cols-2 gap-2 pt-2">
+                    <button onclick="resetGame()" class="py-2 px-3 bg-slate-700 hover:bg-slate-600 text-white text-xs font-semibold rounded-lg transition flex items-center justify-center gap-1.5">
+                        <i class="fa-solid fa-rotate-right"></i> 새 게임
+                    </button>
+                    <button id="undoBtn" onclick="undoMove()" class="py-2 px-3 bg-slate-700 hover:bg-slate-600 text-white text-xs font-semibold rounded-lg transition flex items-center justify-center gap-1.5">
+                        <i class="fa-solid fa-rotate-left"></i> 무르기
+                    </button>
+                    <button id="flipBoardBtn" onclick="toggleFlipBoard()" class="py-2 px-3 bg-slate-700 hover:bg-slate-600 text-white text-xs font-semibold rounded-lg transition flex items-center justify-center gap-1.5">
+                        <i class="fa-solid fa-repeat"></i> 보드 반전
+                    </button>
+                    <button onclick="resignGame()" class="py-2 px-3 bg-rose-900/60 hover:bg-rose-900 text-rose-200 border border-rose-700/50 text-xs font-semibold rounded-lg transition flex items-center justify-center gap-1.5">
+                        <i class="fa-solid fa-flag"></i> 기권 (기권)
+                    </button>
                 </div>
             </div>
 
-            <!-- Board File/Rank Label Helpers -->
-            <div class="w-full max-w-lg flex justify-between px-2 pt-2 text-[10px] font-mono text-slate-500 uppercase">
-                <span>a</span><span>b</span><span>c</span><span>d</span><span>e</span><span>f</span><span>g</span><span>h</span>
+            <!-- Move History Log Card -->
+            <div class="bg-slate-800 border border-slate-700 rounded-xl p-4 shadow-lg flex-grow flex flex-col min-h-[220px] max-h-[320px]">
+                <h2 class="text-sm font-semibold uppercase tracking-wider text-slate-400 mb-2 flex items-center gap-2">
+                    <i class="fa-solid fa-list-ol text-amber-500"></i> 기보 기록 (History)
+                </h2>
+                
+                <!-- History Table Container -->
+                <div class="flex-grow overflow-y-auto pr-1 bg-slate-900 rounded-lg p-2 border border-slate-700/60 text-sm">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="text-slate-500 border-b border-slate-800 text-xs">
+                                <th class="py-1 w-10">#</th>
+                                <th class="py-1">백 (White)</th>
+                                <th class="py-1">흑 (Black)</th>
+                            </tr>
+                        </thead>
+                        <tbody id="moveHistoryList" class="font-mono text-slate-300 divide-y divide-slate-800/40">
+                            <!-- Dynamically populated moves -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Status Indicator Bar -->
+            <div id="statusAlert" class="bg-slate-800 border border-amber-500/30 text-amber-400 px-4 py-2.5 rounded-xl text-xs font-medium flex items-center justify-between shadow">
+                <span id="statusText">게임 준비 완료. 백의 차례입니다.</span>
+                <i class="fa-solid fa-circle-info text-amber-500"></i>
             </div>
 
         </div>
 
     </main>
 
-    <!-- Footer -->
-    <footer class="max-w-5xl w-full mx-auto pt-3 border-t border-slate-800/80 flex flex-col sm:flex-row justify-between items-center text-xs text-slate-500 gap-2">
-        <div>Chess Engine powered by Chess.js & Minimax Evaluation</div>
-        <div class="flex gap-4">
-            <span>내 턴: <strong class="text-amber-400">백(White)</strong></span>
-            <span>AI: <strong class="text-rose-400">흑(Black)</strong></span>
-        </div>
-    </footer>
-
-    <!-- Game Over Modal -->
-    <div id="gameOverModal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 hidden">
-        <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-sm w-full p-6 text-center shadow-2xl relative">
-            <div id="modalIcon" class="w-16 h-16 rounded-full bg-amber-500/20 text-amber-400 text-3xl flex items-center justify-center mx-auto mb-4 border border-amber-500/40">
-                <i class="fa-solid fa-trophy"></i>
+    <!-- Pawn Promotion Modal -->
+    <div id="promotionModal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-xs flex items-center justify-center z-50 hidden">
+        <div class="bg-slate-800 border border-slate-700 rounded-2xl p-5 shadow-2xl text-center max-w-xs w-full">
+            <h3 class="text-lg font-bold text-white mb-1">승급 (Promotion)</h3>
+            <p class="text-xs text-slate-400 mb-4">폰이 변신할 기물을 선택하세요.</p>
+            <div class="grid grid-cols-4 gap-2" id="promotionOptions">
+                <!-- Buttons added dynamically based on color -->
             </div>
-            <h3 id="modalTitle" class="text-xl font-black text-slate-100 mb-2">승리했습니다!</h3>
-            <p id="modalDescription" class="text-xs text-slate-300 mb-6 leading-relaxed">멋진 전략으로 AI를 제압했습니다.</p>
-            <button id="modalResetBtn" class="w-full py-3 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold rounded-xl text-sm transition shadow-lg">
-                다시 게임하기
-            </button>
         </div>
     </div>
 
-    <!-- JavaScript Logic -->
+    <!-- Web Audio API Sound Effects Script -->
     <script>
-        document.addEventListener('DOMContentLoaded', () => {
-            // 1. Game State & Initialization
-            const game = new Chess();
-            let selectedSquare = null;
-            let possibleMoves = [];
-            let currentDifficulty = 2; // Default: Normal (Level 2)
-            let isAiThinking = false;
+        class SoundEffects {
+            constructor() {
+                this.ctx = null;
+            }
 
-            // Unicode Chess Pieces
-            const PIECE_SYMBOLS = {
-                'p': '♟', 'r': '♜', 'n': '♞', 'b': '♝', 'q': '♛', 'k': '♚',
-                'P': '♙', 'R': '♖', 'N': '♘', 'B': '♗', 'Q': '♕', 'K': '♔'
-            };
+            init() {
+                if (!this.ctx) {
+                    this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+                }
+            }
 
-            // DOM Elements
-            const boardElement = document.getElementById('chessboard');
-            const gameAlertText = document.getElementById('gameAlertText');
-            const turnIndicatorBadge = document.getElementById('turnIndicatorBadge');
-            const aiThinkingOverlay = document.getElementById('aiThinkingOverlay');
-            const moveLogElement = document.getElementById('moveLog');
-            const capturedWhiteElement = document.getElementById('capturedWhite');
-            const capturedBlackElement = document.getElementById('capturedBlack');
-            const playerStatusText = document.getElementById('playerStatusText');
-            const aiStatusText = document.getElementById('aiStatusText');
+            playMove() {
+                this.init();
+                if (!this.ctx) return;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(320, this.ctx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(120, this.ctx.currentTime + 0.08);
+                gain.gain.setValueAtTime(0.3, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.08);
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start();
+                osc.stop(this.ctx.currentTime + 0.08);
+            }
 
-            const resetBtn = document.getElementById('resetBtn');
-            const undoBtn = document.getElementById('undoBtn');
-            const difficultyButtons = document.querySelectorAll('.diff-btn');
+            playCapture() {
+                this.init();
+                if (!this.ctx) return;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(180, this.ctx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(60, this.ctx.currentTime + 0.12);
+                gain.gain.setValueAtTime(0.5, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.12);
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start();
+                osc.stop(this.ctx.currentTime + 0.12);
+            }
 
-            const gameOverModal = document.getElementById('gameOverModal');
-            const modalTitle = document.getElementById('modalTitle');
-            modalIcon = document.getElementById('modalIcon');
-            const modalDescription = document.getElementById('modalDescription');
-            const modalResetBtn = document.getElementById('modalResetBtn');
+            playCheck() {
+                this.init();
+                if (!this.ctx) return;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'square';
+                osc.frequency.setValueAtTime(520, this.ctx.currentTime);
+                osc.frequency.setValueAtTime(650, this.ctx.currentTime + 0.08);
+                gain.gain.setValueAtTime(0.2, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.2);
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start();
+                osc.stop(this.ctx.currentTime + 0.2);
+            }
 
-            // Sound Effects using Web Audio API
-            const AudioContext = window.AudioContext || window.webkitAudioContext;
-            let audioCtx = null;
-
-            function playSound(type) {
-                try {
-                    if (!audioCtx) audioCtx = new AudioContext();
-                    const osc = audioCtx.createOscillator();
-                    const gain = audioCtx.createGain();
-                    const now = audioCtx.currentTime;
-
+            playGameEnd() {
+                this.init();
+                if (!this.ctx) return;
+                const notes = [440, 554.37, 659.25, 880];
+                notes.forEach((freq, idx) => {
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.frequency.setValueAtTime(freq, this.ctx.currentTime + idx * 0.1);
+                    gain.gain.setValueAtTime(0.2, this.ctx.currentTime + idx * 0.1);
+                    gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + idx * 0.1 + 0.25);
                     osc.connect(gain);
-                    gain.connect(audioCtx.destination);
-
-                    if (type === 'move') {
-                        osc.type = 'sine';
-                        osc.frequency.setValueAtTime(300, now);
-                        osc.frequency.exponentialRampToValueAtTime(150, now + 0.08);
-                        gain.gain.setValueAtTime(0.15, now);
-                        gain.gain.linearRampToValueAtTime(0.01, now + 0.08);
-                        osc.start(now);
-                        osc.stop(now + 0.08);
-                    } else if (type === 'capture') {
-                        osc.type = 'triangle';
-                        osc.frequency.setValueAtTime(600, now);
-                        osc.frequency.exponentialRampToValueAtTime(200, now + 0.12);
-                        gain.gain.setValueAtTime(0.25, now);
-                        gain.gain.linearRampToValueAtTime(0.01, now + 0.12);
-                        osc.start(now);
-                        osc.stop(now + 0.12);
-                    } else if (type === 'check') {
-                        osc.type = 'sawtooth';
-                        osc.frequency.setValueAtTime(440, now);
-                        osc.frequency.setValueAtTime(880, now + 0.1);
-                        gain.gain.setValueAtTime(0.2, now);
-                        gain.gain.linearRampToValueAtTime(0.01, now + 0.25);
-                        osc.start(now);
-                        osc.stop(now + 0.25);
-                    }
-                } catch (e) {
-                    // Audio context error fallback
-                }
+                    gain.connect(this.ctx.destination);
+                    osc.start(this.ctx.currentTime + idx * 0.1);
+                    osc.stop(this.ctx.currentTime + idx * 0.1 + 0.25);
+                });
             }
+        }
 
-            // Render Board UI
-            function renderBoard() {
-                boardElement.innerHTML = '';
-                const board = game.board();
-                const history = game.history({ verbose: true });
-                const lastMove = history.length > 0 ? history[history.length - 1] : null;
+        const sounds = new SoundEffects();
+    </script>
 
-                for (let r = 0; r < 8; r++) {
-                    for (let c = 0; c < 8; c++) {
-                        const squareName = String.fromCharCode(97 + c) + (8 - r);
-                        const squareData = board[r][c];
+    <!-- Chess Engine Logic Script -->
+    <script>
+        // --- CONSTANTS & SYMBOLS ---
+        const WHITE = 'w';
+        const BLACK = 'b';
 
-                        const squareDiv = document.createElement('div');
-                        const isLight = (r + c) % 2 === 0;
-                        squareDiv.className = `square ${isLight ? 'light' : 'dark'}`;
-                        squareDiv.dataset.square = squareName;
+        // Unicode Chess Symbols
+        const PIECE_SYMBOLS = {
+            'w': { 'p': '♙', 'r': '♖', 'n': '♘', 'b': '♗', 'q': '♕', 'k': '♔' },
+            'b': { 'p': '♟', 'r': '♜', 'n': '♞', 'b': '♝', 'q': '♛', 'k': '♚' }
+        };
 
-                        // Highlight selected square
-                        if (selectedSquare === squareName) {
-                            squareDiv.classList.add('selected');
-                        }
+        const PIECE_VALUES = {
+            'p': 10, 'n': 30, 'b': 30, 'r': 50, 'q': 90, 'k': 1000
+        };
 
-                        // Highlight last move
-                        if (lastMove && (lastMove.from === squareName || lastMove.to === squareName)) {
-                            squareDiv.classList.add('last-move');
-                        }
+        // Positional value tables for AI evaluation
+        const PAWN_TABLE = [
+            [ 0,  0,  0,  0,  0,  0,  0,  0],
+            [50, 50, 50, 50, 50, 50, 50, 50],
+            [10, 10, 20, 30, 30, 20, 10, 10],
+            [ 5,  5, 10, 25, 25, 10,  5,  5],
+            [ 0,  0,  0, 20, 20,  0,  0,  0],
+            [ 5, -5,-10,  0,  0,-10, -5,  5],
+            [ 5, 10, 10,-20,-20, 10, 10,  5],
+            [ 0,  0,  0,  0,  0,  0,  0,  0]
+        ];
 
-                        // Move hints
-                        const isPossible = possibleMoves.some(m => m.to === squareName);
-                        if (isPossible) {
-                            if (squareData) {
-                                squareDiv.classList.add('capture-hint');
-                            } else {
-                                squareDiv.classList.add('move-hint');
-                            }
-                        }
+        const KNIGHT_TABLE = [
+            [-50,-40,-30,-30,-30,-30,-40,-50],
+            [-40,-20,  0,  0,  0,  0,-20,-40],
+            [-30,  0, 10, 15, 15, 10,  0,-30],
+            [-30,  5, 15, 20, 20, 15,  5,-30],
+            [-30,  0, 15, 20, 20, 15,  0,-30],
+            [-30,  5, 10, 15, 15, 10,  5,-30],
+            [-40,-20,  0,  5,  5,  0,-20,-40],
+            [-50,-40,-30,-30,-30,-30,-40,-50]
+        ];
 
-                        // Piece Render
-                        if (squareData) {
-                            const pieceSpan = document.createElement('span');
-                            pieceSpan.className = 'piece';
-                            
-                            // Visual distinction for black/white pieces
-                            const pieceChar = squareData.color === 'w' 
-                                ? squareData.type.toUpperCase() 
-                                : squareData.type.toLowerCase();
+        // --- GAME STATE VARIABLES ---
+        let board = [];
+        let turn = WHITE;
+        let selectedSquare = null;
+        let validMoves = [];
+        let moveHistory = [];
+        let capturedPieces = { w: [], b: [] };
+        let isFlipped = false;
+        let isGameOver = false;
 
-                            pieceSpan.textContent = PIECE_SYMBOLS[pieceChar];
-                            
-                            if (squareData.color === 'w') {
-                                pieceSpan.classList.add('text-amber-200');
-                            } else {
-                                pieceSpan.classList.add('text-slate-900');
-                            }
+        // Castling rights & En Passant
+        let castlingRights = {
+            w: { kingSide: true, queenSide: true },
+            b: { kingSide: true, queenSide: true }
+        };
+        let enPassantTarget = null; // {r, c} or null
 
-                            squareDiv.appendChild(pieceSpan);
-                        }
+        // Timer State
+        let timerInterval = null;
+        let timeRemaining = { w: 0, b: 0 };
+        let initialTime = 1800; // default 30m
 
-                        // Click Listener
-                        squareDiv.addEventListener('click', () => handleSquareClick(squareName));
+        // Pending promotion move
+        let pendingPromotion = null;
 
-                        boardElement.appendChild(squareDiv);
-                    }
-                }
-
-                updateUIStatus();
-            }
-
-            // Handle Square Interactions
-            function handleSquareClick(square) {
-                if (game.game_over() || isAiThinking) return;
-                if (game.turn() !== 'w') return; // Player is White
-
-                // If clicking on an already selected piece, deselect
-                if (selectedSquare === square) {
-                    selectedSquare = null;
-                    possibleMoves = [];
-                    renderBoard();
-                    return;
-                }
-
-                // If piece selected and clicked valid target move
-                if (selectedSquare) {
-                    const moveObj = possibleMoves.find(m => m.to === square);
-                    if (moveObj) {
-                        executeMove(moveObj);
-                        selectedSquare = null;
-                        possibleMoves = [];
-                        return;
-                    }
-                }
-
-                // Select new piece
-                const piece = game.get(square);
-                if (piece && piece.color === 'w') {
-                    selectedSquare = square;
-                    possibleMoves = game.moves({ square: square, verbose: true });
-                    renderBoard();
-                } else {
-                    selectedSquare = null;
-                    possibleMoves = [];
-                    renderBoard();
-                }
-            }
-
-            // Execute Player or AI Move
-            function executeMove(move) {
-                const isCapture = game.get(move.to) !== null || (move.flags && move.flags.includes('e'));
-                const result = game.move(move);
-
-                if (result) {
-                    if (isCapture) {
-                        playSound('capture');
-                    } else {
-                        playSound('move');
-                    }
-
-                    if (game.in_check()) {
-                        playSound('check');
-                    }
-
-                    renderBoard();
-
-                    // Trigger AI turn if game not over
-                    if (!game.game_over() && game.turn() === 'b') {
-                        triggerAiMove();
-                    }
-                }
-            }
-
-            // Update Status Messages, History Log & Captured Pieces
-            function updateUIStatus() {
-                // Update Move Log
-                const history = game.history();
-                moveLogElement.innerHTML = '';
-                for (let i = 0; i < history.length; i += 2) {
-                    const moveNum = Math.floor(i / 2) + 1;
-                    const whiteMove = history[i] || '';
-                    const blackMove = history[i + 1] || '';
-                    const logRow = document.createElement('div');
-                    logRow.className = 'flex justify-between border-b border-slate-900 pb-0.5';
-                    logRow.innerHTML = `<span class="text-slate-500">${moveNum}.</span><span class="text-amber-300 font-semibold">${whiteMove}</span><span class="text-rose-300 font-semibold">${blackMove}</span>`;
-                    moveLogElement.appendChild(logRow);
-                }
-                moveLogElement.scrollTop = moveLogElement.scrollHeight;
-
-                // Captured Pieces Calculation
-                const board = game.board();
-                const currentPieces = { w: { p: 0, n: 0, b: 0, r: 0, q: 0 }, b: { p: 0, n: 0, b: 0, r: 0, q: 0 } };
-                for (let r = 0; r < 8; r++) {
-                    for (let c = 0; c < 8; c++) {
-                        const p = board[r][c];
-                        if (p && p.type !== 'k') {
-                            currentPieces[p.color][p.type]++;
-                        }
-                    }
-                }
-
-                const initialPieces = { p: 8, n: 2, b: 2, r: 2, q: 1 };
-                let capturedWhiteHTML = '';
-                let capturedBlackHTML = '';
-
-                // White pieces captured by Black
-                for (let type in initialPieces) {
-                    const diff = initialPieces[type] - currentPieces['w'][type];
-                    if (diff > 0) {
-                        capturedWhiteHTML += PIECE_SYMBOLS[type.toUpperCase()].repeat(diff);
-                    }
-                }
-
-                // Black pieces captured by White
-                for (let type in initialPieces) {
-                    const diff = initialPieces[type] - currentPieces['b'][type];
-                    if (diff > 0) {
-                        capturedBlackHTML += PIECE_SYMBOLS[type.toLowerCase()].repeat(diff);
-                    }
-                }
-
-                capturedWhiteElement.textContent = capturedWhiteHTML;
-                capturedBlackElement.textContent = capturedBlackHTML;
-
-                // Turn & State Alerts
-                if (game.in_checkmate()) {
-                    const winner = game.turn() === 'w' ? 'AI (흑)' : '플레이어 (백)';
-                    gameAlertText.textContent = `체크메이트! ${winner}의 승리입니다.`;
-                    turnIndicatorBadge.className = 'w-2.5 h-2.5 rounded-full bg-rose-500';
-                    showGameOverModal(game.turn() === 'b');
-                } else if (game.in_draw()) {
-                    gameAlertText.textContent = '무승부 게임입니다! (스테일메이트/기물 부족)';
-                    turnIndicatorBadge.className = 'w-2.5 h-2.5 rounded-full bg-slate-400';
-                    showGameOverModal(null);
-                } else if (game.in_check()) {
-                    const checkingTurn = game.turn() === 'w' ? '플레이어 (백)' : 'AI (흑)';
-                    gameAlertText.textContent = `⚠️ 체크! ${checkingTurn}의 킹이 위협받고 있습니다!`;
-                    turnIndicatorBadge.className = 'w-2.5 h-2.5 rounded-full bg-amber-400 animate-ping';
-                } else {
-                    if (game.turn() === 'w') {
-                        gameAlertText.textContent = '백(플레이어)의 차례입니다.';
-                        playerStatusText.textContent = '당신의 차례입니다';
-                        playerStatusText.className = 'text-[11px] text-emerald-400 font-medium';
-                        aiStatusText.textContent = '대기 중...';
-                        aiStatusText.className = 'text-[11px] text-slate-400';
-                        turnIndicatorBadge.className = 'w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse';
-                    } else {
-                        gameAlertText.textContent = '흑(AI)이 신중히 수를 계산하고 있습니다...';
-                        playerStatusText.textContent = 'AI 연산 중...';
-                        playerStatusText.className = 'text-[11px] text-slate-400';
-                        aiStatusText.textContent = '수의 깊이 계산 중';
-                        aiStatusText.className = 'text-[11px] text-rose-400 font-medium animate-pulse';
-                        turnIndicatorBadge.className = 'w-2.5 h-2.5 rounded-full bg-rose-500 animate-ping';
-                    }
-                }
-            }
-
-            // =========================================================
-            // 2. AI ENGINES & EVALUATION ALGORITHMS (5 난이도)
-            // =========================================================
-
-            // Piece Values for Evaluation
-            const PIECE_VALUES = { p: 10, n: 30, b: 32, r: 50, q: 90, k: 900 };
-
-            // Positional Evaluation Tables
-            const PAWN_TABLE = [
-                0,  0,  0,  0,  0,  0,  0,  0,
-                50, 50, 50, 50, 50, 50, 50, 50,
-                10, 10, 20, 30, 30, 20, 10, 10,
-                 5,  5, 10, 25, 25, 10,  5,  5,
-                 0,  0,  0, 20, 20,  0,  0,  0,
-                 5, -5,-10,  0,  0,-10, -5,  5,
-                 5, 10, 10,-20,-20, 10, 10,  5,
-                 0,  0,  0,  0,  0,  0,  0,  0
+        // --- BOARD INITIALIZATION ---
+        function createInitialBoard() {
+            return [
+                [ {type:'r',color:'b'}, {type:'n',color:'b'}, {type:'b',color:'b'}, {type:'q',color:'b'}, {type:'k',color:'b'}, {type:'b',color:'b'}, {type:'n',color:'b'}, {type:'r',color:'b'} ],
+                [ {type:'p',color:'b'}, {type:'p',color:'b'}, {type:'p',color:'b'}, {type:'p',color:'b'}, {type:'p',color:'b'}, {type:'p',color:'b'}, {type:'p',color:'b'}, {type:'p',color:'b'} ],
+                [ null, null, null, null, null, null, null, null ],
+                [ null, null, null, null, null, null, null, null ],
+                [ null, null, null, null, null, null, null, null ],
+                [ null, null, null, null, null, null, null, null ],
+                [ {type:'p',color:'w'}, {type:'p',color:'w'}, {type:'p',color:'w'}, {type:'p',color:'w'}, {type:'p',color:'w'}, {type:'p',color:'w'}, {type:'p',color:'w'}, {type:'p',color:'w'} ],
+                [ {type:'r',color:'w'}, {type:'n',color:'w'}, {type:'b',color:'w'}, {type:'q',color:'w'}, {type:'k',color:'w'}, {type:'b',color:'w'}, {type:'n',color:'w'}, {type:'r',color:'w'} ]
             ];
+        }
 
-            const KNIGHT_TABLE = [
-                -50,-40,-30,-30,-30,-30,-40,-50,
-                -40,-20,  0,  0,  0,  0,-20,-40,
-                -30,  0, 10, 15, 15, 10,  0,-30,
-                -30,  5, 15, 20, 20, 15,  5,-30,
-                -30,  0, 15, 20, 20, 15,  0,-30,
-                -30,  5, 10, 15, 15, 10,  5,-30,
-                -40,-20,  0,  5,  5,  0,-20,-40,
-                -50,-40,-30,-30,-30,-30,-40,-50
-            ];
+        function resetGame() {
+            board = createInitialBoard();
+            turn = WHITE;
+            selectedSquare = null;
+            validMoves = [];
+            moveHistory = [];
+            capturedPieces = { w: [], b: [] };
+            isGameOver = false;
+            castlingRights = {
+                w: { kingSide: true, queenSide: true },
+                b: { kingSide: true, queenSide: true }
+            };
+            enPassantTarget = null;
 
-            function evaluateBoard(chessBoard) {
-                let totalEval = 0;
-                const board = chessBoard.board();
+            document.getElementById('gameOverlay').classList.add('hidden');
+            
+            // Mode & Timer Setup
+            const mode = document.getElementById('gameModeSelect').value;
+            const timeVal = parseInt(document.getElementById('timeControlSelect').value, 10);
+            initialTime = timeVal;
+            timeRemaining = { w: initialTime, b: initialTime };
 
-                for (let r = 0; r < 8; r++) {
-                    for (let c = 0; c < 8; c++) {
-                        const piece = board[r][c];
-                        if (piece) {
-                            let val = PIECE_VALUES[piece.type];
-                            let posVal = 0;
+            if (mode === 'pve') {
+                document.getElementById('blackName').innerText = '컴퓨터 (AI)';
+                document.getElementById('blackBadge').innerText = '봇';
+                document.getElementById('difficultyContainer').style.display = 'block';
+            } else {
+                document.getElementById('blackName').innerText = '흑색 (플레이어 2)';
+                document.getElementById('blackBadge').innerText = '2P';
+                document.getElementById('difficultyContainer').style.display = 'none';
+            }
 
-                            const squareIdx = r * 8 + c;
-                            if (piece.type === 'p') posVal = PAWN_TABLE[squareIdx];
-                            else if (piece.type === 'n') posVal = KNIGHT_TABLE[squareIdx];
+            stopTimer();
+            if (initialTime > 0) {
+                startTimer();
+            } else {
+                updateTimerDisplay();
+            }
 
-                            const score = val + posVal * 0.1;
-                            if (piece.color === 'w') {
-                                totalEval -= score; // Player is White
-                            } else {
-                                totalEval += score; // AI is Black
+            updateUI();
+            updateStatus('게임이 시작되었습니다. 백의 차례입니다.');
+        }
+
+        // --- CORE RULES & MOVE GENERATION ---
+        function inBounds(r, c) {
+            return r >= 0 && r < 8 && c >= 0 && c < 8;
+        }
+
+        function getPiece(b, r, c) {
+            return inBounds(r, c) ? b[r][c] : null;
+        }
+
+        // Generate raw pseudo-legal moves
+        function getPseudoLegalMoves(b, r, c, cRights = castlingRights, epTarget = enPassantTarget) {
+            const piece = getPiece(b, r, c);
+            if (!piece) return [];
+
+            const moves = []; // array of {from:{r,c}, to:{r,c}, capture: bool, special: string}
+            const color = piece.color;
+            const enemy = color === WHITE ? BLACK : WHITE;
+            const forward = color === WHITE ? -1 : 1;
+            const startRow = color === WHITE ? 6 : 1;
+
+            switch (piece.type) {
+                case 'p':
+                    // 1 step forward
+                    if (inBounds(r + forward, c) && !b[r + forward][c]) {
+                        moves.push({ from: {r,c}, to: {r: r + forward, c} });
+                        // 2 steps forward
+                        if (r === startRow && !b[r + 2 * forward][c]) {
+                            moves.push({ from: {r,c}, to: {r: r + 2 * forward, c}, special: 'double-step' });
+                        }
+                    }
+                    // Diagonal Captures
+                    [-1, 1].forEach(dc => {
+                        const nr = r + forward, nc = c + dc;
+                        if (inBounds(nr, nc)) {
+                            const target = b[nr][nc];
+                            if (target && target.color === enemy) {
+                                moves.push({ from: {r,c}, to: {r: nr, c: nc}, capture: true });
+                            }
+                            // En Passant
+                            if (epTarget && epTarget.r === nr && epTarget.c === nc) {
+                                moves.push({ from: {r,c}, to: {r: nr, c: nc}, capture: true, special: 'en-passant' });
                             }
                         }
-                    }
-                }
-                return totalEval;
-            }
+                    });
+                    break;
 
-            // Minimax with Alpha-Beta Pruning
-            function minimax(depth, alpha, beta, isMaximizing) {
-                if (depth === 0 || game.game_over()) {
-                    return evaluateBoard(game);
-                }
-
-                const moves = game.moves();
-
-                if (isMaximizing) { // AI's Turn (Black)
-                    let maxEval = -9999;
-                    for (let move of moves) {
-                        game.move(move);
-                        let evaluation = minimax(depth - 1, alpha, beta, false);
-                        game.undo();
-                        maxEval = Math.max(maxEval, evaluation);
-                        alpha = Math.max(alpha, evaluation);
-                        if (beta <= alpha) break;
-                    }
-                    return maxEval;
-                } else { // Player's Turn (White)
-                    let minEval = 9999;
-                    for (let move of moves) {
-                        game.move(move);
-                        let evaluation = minimax(depth - 1, alpha, beta, true);
-                        game.undo();
-                        minEval = Math.min(minEval, evaluation);
-                        beta = Math.min(beta, evaluation);
-                        if (beta <= alpha) break;
-                    }
-                    return minEval;
-                }
-            }
-
-            // AI Decision Engine based on selected level
-            function getBestAiMove() {
-                const possibleMoves = game.moves({ verbose: true });
-                if (possibleMoves.length === 0) return null;
-
-                // Level 1: Easy (Random move with basic capture preference)
-                if (currentDifficulty === 1) {
-                    const captures = possibleMoves.filter(m => m.captured);
-                    if (captures.length > 0 && Math.random() > 0.4) {
-                        return captures[Math.floor(Math.random() * captures.length)];
-                    }
-                    return possibleMoves[Math.floor(Math.random() * possibleMoves.length)];
-                }
-
-                // Level 2: Normal (1-ply greedy check)
-                if (currentDifficulty === 2) {
-                    let bestMove = null;
-                    let bestValue = -9999;
-
-                    for (let move of possibleMoves) {
-                        game.move(move);
-                        let boardValue = evaluateBoard(game);
-                        game.undo();
-                        if (boardValue > bestValue) {
-                            bestValue = boardValue;
-                            bestMove = move;
+                case 'n':
+                    const nOffsets = [
+                        [-2,-1],[-2,1],[-1,-2],[-1,2],
+                        [1,-2],[1,2],[2,-1],[2,1]
+                    ];
+                    nOffsets.forEach(([dr, dc]) => {
+                        const nr = r + dr, nc = c + dc;
+                        if (inBounds(nr, nc)) {
+                            const target = b[nr][nc];
+                            if (!target || target.color === enemy) {
+                                moves.push({ from: {r,c}, to: {r: nr, c: nc}, capture: !!target });
+                            }
                         }
+                    });
+                    break;
+
+                case 'b':
+                case 'r':
+                case 'q':
+                    const dirs = [];
+                    if (piece.type === 'b' || piece.type === 'q') {
+                        dirs.push([-1,-1], [-1,1], [1,-1], [1,1]);
                     }
-                    return bestMove || possibleMoves[Math.floor(Math.random() * possibleMoves.length)];
-                }
-
-                // Level 3: Pro (Minimax Depth 2)
-                if (currentDifficulty === 3) {
-                    let bestMove = null;
-                    let bestValue = -9999;
-
-                    for (let move of possibleMoves) {
-                        game.move(move);
-                        let boardValue = minimax(1, -10000, 10000, false);
-                        game.undo();
-                        if (boardValue > bestValue) {
-                            bestValue = boardValue;
-                            bestMove = move;
+                    if (piece.type === 'r' || piece.type === 'q') {
+                        dirs.push([-1,0], [1,0], [0,-1], [0,1]);
+                    }
+                    dirs.forEach(([dr, dc]) => {
+                        let nr = r + dr, nc = c + dc;
+                        while (inBounds(nr, nc)) {
+                            const target = b[nr][nc];
+                            if (!target) {
+                                moves.push({ from: {r,c}, to: {r: nr, c: nc} });
+                            } else {
+                                if (target.color === enemy) {
+                                    moves.push({ from: {r,c}, to: {r: nr, c: nc}, capture: true });
+                                }
+                                break;
+                            }
+                            nr += dr; nc += dc;
                         }
-                    }
-                    return bestMove;
-                }
+                    });
+                    break;
 
-                // Level 4: Hell (Minimax Depth 3)
-                if (currentDifficulty === 4) {
-                    let bestMove = null;
-                    let bestValue = -9999;
-
-                    for (let move of possibleMoves) {
-                        game.move(move);
-                        let boardValue = minimax(2, -10000, 10000, false);
-                        game.undo();
-                        if (boardValue > bestValue) {
-                            bestValue = boardValue;
-                            bestMove = move;
+                case 'k':
+                    const kOffsets = [
+                        [-1,-1],[-1,0],[-1,1],
+                        [0,-1],        [0,1],
+                        [1,-1], [1,0], [1,1]
+                    ];
+                    kOffsets.forEach(([dr, dc]) => {
+                        const nr = r + dr, nc = c + dc;
+                        if (inBounds(nr, nc)) {
+                            const target = b[nr][nc];
+                            if (!target || target.color === enemy) {
+                                moves.push({ from: {r,c}, to: {r: nr, c: nc}, capture: !!target });
+                            }
                         }
-                    }
-                    return bestMove;
-                }
-
-                // Level 5: Impossible (Minimax Depth 3 + Tactical evaluation bonus)
-                if (currentDifficulty === 5) {
-                    let bestMove = null;
-                    let bestValue = -9999;
-
-                    for (let move of possibleMoves) {
-                        game.move(move);
-                        // Extra bonus for checkmates or checks
-                        let bonus = 0;
-                        if (game.in_checkmate()) bonus += 1000;
-                        else if (game.in_check()) bonus += 30;
-
-                        let boardValue = minimax(2, -10000, 10000, false) + bonus;
-                        game.undo();
-
-                        if (boardValue > bestValue) {
-                            bestValue = boardValue;
-                            bestMove = move;
-                        }
-                    }
-                    return bestMove;
-                }
-
-                return possibleMoves[0];
-            }
-
-            function triggerAiMove() {
-                isAiThinking = true;
-                aiThinkingOverlay.classList.remove('hidden');
-
-                // Artificial delay for realistic thinking animation
-                const delay = currentDifficulty >= 4 ? 600 : 350;
-
-                setTimeout(() => {
-                    const aiMove = getBestAiMove();
-                    isAiThinking = false;
-                    aiThinkingOverlay.classList.add('hidden');
-
-                    if (aiMove) {
-                        executeMove(aiMove);
-                    }
-                }, delay);
-            }
-
-            // Game Over Modal Control
-            function showGameOverModal(isPlayerWin) {
-                if (isPlayerWin === true) {
-                    modalTitle.textContent = '🎉 승리했습니다!';
-                    modalDescription.textContent = '탁월한 수 읽기와 전략으로 AI를 제압했습니다!';
-                    modalIcon.className = 'w-16 h-16 rounded-full bg-emerald-500/20 text-emerald-400 text-3xl flex items-center justify-center mx-auto mb-4 border border-emerald-500/40';
-                } else if (isPlayerWin === false) {
-                    modalTitle.textContent = '💀 패배했습니다';
-                    modalDescription.textContent = 'AI의 연산과 수 읽기에 킹을 빼앗겼습니다. 다시 도전해 보세요.';
-                    modalIcon.className = 'w-16 h-16 rounded-full bg-rose-500/20 text-rose-400 text-3xl flex items-center justify-center mx-auto mb-4 border border-rose-500/40';
-                } else {
-                    modalTitle.textContent = '🤝 무승부';
-                    modalDescription.textContent = '치열한 접전 끝에 어느 쪽도 승리 조건에 도달하지 못했습니다.';
-                    modalIcon.className = 'w-16 h-16 rounded-full bg-slate-500/20 text-slate-300 text-3xl flex items-center justify-center mx-auto mb-4 border border-slate-500/40';
-                }
-                gameOverModal.classList.remove('hidden');
-            }
-
-            // Controls & Event Listeners
-            resetBtn.addEventListener('click', () => {
-                game.reset();
-                selectedSquare = null;
-                possibleMoves = [];
-                renderBoard();
-            });
-
-            modalResetBtn.addEventListener('click', () => {
-                gameOverModal.classList.add('hidden');
-                game.reset();
-                selectedSquare = null;
-                possibleMoves = [];
-                renderBoard();
-            });
-
-            undoBtn.addEventListener('click', () => {
-                if (isAiThinking) return;
-                // Undo two moves (both AI and Player)
-                game.undo();
-                game.undo();
-                selectedSquare = null;
-                possibleMoves = [];
-                renderBoard();
-            });
-
-            // Difficulty Buttons Switch
-            difficultyButtons.forEach(btn => {
-                btn.addEventListener('click', () => {
-                    const level = parseInt(btn.dataset.level);
-                    currentDifficulty = level;
-
-                    difficultyButtons.forEach(b => {
-                        b.className = 'diff-btn py-2 px-3 rounded-xl text-left text-xs md:text-sm font-semibold transition flex justify-between items-center bg-slate-800 text-slate-300 border border-slate-700 hover:bg-slate-700';
                     });
 
-                    btn.className = 'diff-btn py-2 px-3 rounded-xl text-left text-xs md:text-sm font-semibold transition flex justify-between items-center bg-amber-500/20 text-amber-300 border border-amber-500/40';
-                });
+                    // Castling Logic
+                    if (cRights[color] && !isSquareAttacked(b, r, c, enemy)) {
+                        // Kingside
+                        if (cRights[color].kingSide && !b[r][c+1] && !b[r][c+2]) {
+                            if (!isSquareAttacked(b, r, c+1, enemy) && !isSquareAttacked(b, r, c+2, enemy)) {
+                                moves.push({ from: {r,c}, to: {r, c: c+2}, special: 'castling-ks' });
+                            }
+                        }
+                        // Queenside
+                        if (cRights[color].queenSide && !b[r][c-1] && !b[r][c-2] && !b[r][c-3]) {
+                            if (!isSquareAttacked(b, r, c-1, enemy) && !isSquareAttacked(b, r, c-2, enemy)) {
+                                moves.push({ from: {r,c}, to: {r, c: c-2}, special: 'castling-qs' });
+                            }
+                        }
+                    }
+                    break;
+            }
+
+            return moves;
+        }
+
+        // Check if square (r,c) is attacked by opponent color
+        function isSquareAttacked(b, r, c, attackerColor) {
+            for (let i = 0; i < 8; i++) {
+                for (let j = 0; j < 8; j++) {
+                    const p = b[i][j];
+                    if (p && p.color === attackerColor) {
+                        // Get basic attacks (ignore castling recursion)
+                        if (p.type === 'k') {
+                            if (Math.max(Math.abs(r - i), Math.abs(c - j)) === 1) return true;
+                        } else if (p.type === 'p') {
+                            const f = attackerColor === WHITE ? -1 : 1;
+                            if (i + f === r && (j - 1 === c || j + 1 === c)) return true;
+                        } else {
+                            const pm = getPseudoLegalMoves(b, i, j, {w:{},b:{}}, null);
+                            if (pm.some(m => m.to.r === r && m.to.c === c)) return true;
+                        }
+                    }
+                }
+            }
+            return false;
+        }
+
+        function findKing(b, color) {
+            for (let r = 0; r < 8; r++) {
+                for (let c = 0; c < 8; c++) {
+                    const p = b[r][c];
+                    if (p && p.type === 'k' && p.color === color) return {r, c};
+                }
+            }
+            return null;
+        }
+
+        function isKingInCheck(b, color) {
+            const kingPos = findKing(b, color);
+            if (!kingPos) return false;
+            const enemy = color === WHITE ? BLACK : WHITE;
+            return isSquareAttacked(b, kingPos.r, kingPos.c, enemy);
+        }
+
+        // Deep copy board
+        function cloneBoard(b) {
+            return b.map(row => row.map(cell => cell ? { ...cell } : null));
+        }
+
+        // Execute a virtual move to test validity
+        function makeVirtualMove(b, move) {
+            const nextB = cloneBoard(b);
+            const piece = nextB[move.from.r][move.from.c];
+            nextB[move.to.r][move.to.c] = piece;
+            nextB[move.from.r][move.from.c] = null;
+
+            // Handle Special Moves in Virtual
+            if (move.special === 'en-passant') {
+                const epRow = move.from.r;
+                nextB[epRow][move.to.c] = null;
+            } else if (move.special === 'castling-ks') {
+                const rook = nextB[move.from.r][7];
+                nextB[move.from.r][5] = rook;
+                nextB[move.from.r][7] = null;
+            } else if (move.special === 'castling-qs') {
+                const rook = nextB[move.from.r][0];
+                nextB[move.from.r][3] = rook;
+                nextB[move.from.r][0] = null;
+            } else if (move.promotion) {
+                nextB[move.to.r][move.to.c] = { type: move.promotion, color: piece.color };
+            }
+
+            return nextB;
+        }
+
+        // Get strict legal moves (filters moves leaving King in Check)
+        function getLegalMoves(b, r, c) {
+            const piece = getPiece(b, r, c);
+            if (!piece || piece.color !== turn) return [];
+
+            const pseudo = getPseudoLegalMoves(b, r, c);
+            return pseudo.filter(m => {
+                const nextB = makeVirtualMove(b, m);
+                return !isKingInCheck(nextB, piece.color);
+            });
+        }
+
+        function getAllLegalMoves(b, color) {
+            let moves = [];
+            for (let r = 0; r < 8; r++) {
+                for (let c = 0; c < 8; c++) {
+                    const p = b[r][c];
+                    if (p && p.color === color) {
+                        // Temporarily swap turn to compute legal moves for that piece
+                        const savedTurn = turn;
+                        turn = color;
+                        const lm = getLegalMoves(b, r, c);
+                        turn = savedTurn;
+                        moves = moves.concat(lm);
+                    }
+                }
+            }
+            return moves;
+        }
+
+        // --- GAME EXECUTION & STATE UPDATES ---
+        function handleSquareClick(r, c) {
+            if (isGameOver) return;
+
+            // Prevent user clicks if it's AI turn
+            const mode = document.getElementById('gameModeSelect').value;
+            if (mode === 'pve' && turn === BLACK) return;
+
+            const piece = getPiece(board, r, c);
+
+            // If a valid destination is clicked
+            if (selectedSquare) {
+                const move = validMoves.find(m => m.to.r === r && m.to.c === c);
+                if (move) {
+                    executeMove(move);
+                    return;
+                }
+            }
+
+            // Select piece if it belongs to active turn player
+            if (piece && piece.color === turn) {
+                selectedSquare = { r, c };
+                validMoves = getLegalMoves(board, r, c);
+                renderBoard();
+            } else {
+                selectedSquare = null;
+                validMoves = [];
+                renderBoard();
+            }
+        }
+
+        function executeMove(move, promotionPiece = null) {
+            const piece = board[move.from.r][move.from.c];
+
+            // Check for Pawn Promotion requirement
+            if (piece.type === 'p' && (move.to.r === 0 || move.to.r === 7) && !promotionPiece) {
+                pendingPromotion = move;
+                showPromotionModal(piece.color);
+                return;
+            }
+
+            // Save state for Undo History
+            const moveRecord = {
+                boardBefore: cloneBoard(board),
+                castlingBefore: JSON.parse(JSON.stringify(castlingRights)),
+                enPassantBefore: enPassantTarget ? { ...enPassantTarget } : null,
+                turnBefore: turn,
+                capturedPiecesBefore: { w: [...capturedPieces.w], b: [...capturedPieces.b] },
+                move: move,
+                san: generateSAN(board, move, promotionPiece)
+            };
+
+            // Execute Movement
+            let captured = board[move.to.r][move.to.c];
+
+            if (move.special === 'en-passant') {
+                const epRow = move.from.r;
+                captured = board[epRow][move.to.c];
+                board[epRow][move.to.c] = null;
+            }
+
+            if (captured) {
+                capturedPieces[turn].push(captured.type);
+                sounds.playCapture();
+            } else {
+                sounds.playMove();
+            }
+
+            board[move.to.r][move.to.c] = piece;
+            board[move.from.r][move.from.c] = null;
+
+            // Castling Execution
+            if (move.special === 'castling-ks') {
+                const rook = board[move.from.r][7];
+                board[move.from.r][5] = rook;
+                board[move.from.r][7] = null;
+            } else if (move.special === 'castling-qs') {
+                const rook = board[move.from.r][0];
+                board[move.from.r][3] = rook;
+                board[move.from.r][0] = null;
+            }
+
+            // Promotion Application
+            if (promotionPiece) {
+                board[move.to.r][move.to.c] = { type: promotionPiece, color: piece.color };
+            }
+
+            // Update Castling Rights
+            if (piece.type === 'k') {
+                castlingRights[turn].kingSide = false;
+                castlingRights[turn].queenSide = false;
+            }
+            if (piece.type === 'r') {
+                if (move.from.c === 0) castlingRights[turn].queenSide = false;
+                if (move.from.c === 7) castlingRights[turn].kingSide = false;
+            }
+
+            // Update En Passant Target
+            if (move.special === 'double-step') {
+                const forward = turn === WHITE ? -1 : 1;
+                enPassantTarget = { r: move.from.r + forward, c: move.from.c };
+            } else {
+                enPassantTarget = null;
+            }
+
+            // Switch Turn
+            turn = turn === WHITE ? BLACK : WHITE;
+            selectedSquare = null;
+            validMoves = [];
+
+            // Add Record to History
+            moveHistory.push(moveRecord);
+
+            // Check Check / Checkmate / Stalemate Status
+            const enemyInCheck = isKingInCheck(board, turn);
+            const enemyLegalMoves = getAllLegalMoves(board, turn);
+
+            if (enemyInCheck) {
+                if (enemyLegalMoves.length === 0) {
+                    isGameOver = true;
+                    sounds.playGameEnd();
+                    const winnerText = turn === WHITE ? '흑색 (Black)' : '백색 (White)';
+                    showOverlay('체크메이트!', `${winnerText}의 승리입니다!`);
+                    updateStatus(`체크메이트! ${winnerText} 승리`);
+                } else {
+                    sounds.playCheck();
+                    updateStatus(`${turn === WHITE ? '백' : '흑'}색 왕이 체크 상태입니다!`);
+                }
+            } else {
+                if (enemyLegalMoves.length === 0) {
+                    isGameOver = true;
+                    sounds.playGameEnd();
+                    showOverlay('스테일메이트 (무승부)', '더 이상 둘 수 있는 수가 없습니다.');
+                    updateStatus('스테일메이트 - 무승부입니다.');
+                } else {
+                    updateStatus(`${turn === WHITE ? '백색' : '흑색'}의 차례입니다.`);
+                }
+            }
+
+            updateUI();
+
+            // Trigger AI if applicable
+            const mode = document.getElementById('gameModeSelect').value;
+            if (!isGameOver && mode === 'pve' && turn === BLACK) {
+                setTimeout(makeAIMove, 350);
+            }
+        }
+
+        // --- ALGEBRAIC NOTATION (SAN) GENERATOR ---
+        function generateSAN(b, move, promo) {
+            const piece = b[move.from.r][move.from.c];
+            if (move.special === 'castling-ks') return 'O-O';
+            if (move.special === 'castling-qs') return 'O-O-O';
+
+            const colNames = ['a','b','c','d','e','f','g','h'];
+            const rowNames = ['8','7','6','5','4','3','2','1'];
+
+            let res = '';
+            if (piece.type !== 'p') {
+                res += piece.type.toUpperCase();
+            }
+
+            const isCapture = b[move.to.r][move.to.c] || move.special === 'en-passant';
+            if (isCapture) {
+                if (piece.type === 'p') res += colNames[move.from.c];
+                res += 'x';
+            }
+
+            res += colNames[move.to.c] + rowNames[move.to.r];
+
+            if (promo) {
+                res += '=' + promo.toUpperCase();
+            }
+
+            return res;
+        }
+
+        // --- UNDO MOVE FEATURE ---
+        function undoMove() {
+            if (moveHistory.length === 0 || isGameOver) return;
+
+            const mode = document.getElementById('gameModeSelect').value;
+            
+            // In AI mode, undo 2 moves (Player + AI)
+            const movesToUndo = (mode === 'pve' && moveHistory.length >= 2) ? 2 : 1;
+
+            for (let i = 0; i < movesToUndo; i++) {
+                if (moveHistory.length === 0) break;
+                const last = moveHistory.pop();
+                board = last.boardBefore;
+                castlingRights = last.castlingBefore;
+                enPassantTarget = last.enPassantBefore;
+                turn = last.turnBefore;
+                capturedPieces = last.capturedPiecesBefore;
+            }
+
+            selectedSquare = null;
+            validMoves = [];
+            isGameOver = false;
+            document.getElementById('gameOverlay').classList.add('hidden');
+
+            updateUI();
+            updateStatus('수를 되돌렸습니다. ' + (turn === WHITE ? '백색' : '흑색') + '의 차례입니다.');
+        }
+
+        // --- AI ENGINE (Minimax with Alpha-Beta Pruning) ---
+        function makeAIMove() {
+            if (isGameOver) return;
+
+            const diff = document.getElementById('difficultySelect').value;
+            let depth = 2; // Default Medium
+            if (diff === 'easy') depth = 1;
+            if (diff === 'hard') depth = 3;
+
+            const bestMove = getBestMove(board, BLACK, depth);
+            if (bestMove) {
+                if (bestMove.promotion) {
+                    executeMove(bestMove, 'q'); // AI defaults to Queen promotion
+                } else {
+                    executeMove(bestMove);
+                }
+            }
+        }
+
+        function evaluateBoard(b) {
+            let score = 0;
+            for (let r = 0; r < 8; r++) {
+                for (let c = 0; c < 8; c++) {
+                    const p = b[r][c];
+                    if (p) {
+                        let val = PIECE_VALUES[p.type];
+                        // Add positional bias
+                        if (p.type === 'p') {
+                            val += (p.color === WHITE ? PAWN_TABLE[r][c] : PAWN_TABLE[7-r][c]);
+                        } else if (p.type === 'n') {
+                            val += KNIGHT_TABLE[r][c];
+                        }
+
+                        if (p.color === BLACK) score += val;
+                        else score -= val;
+                    }
+                }
+            }
+            return score;
+        }
+
+        function minimax(b, depth, alpha, beta, isMaximizing) {
+            if (depth === 0) return evaluateBoard(b);
+
+            const activeColor = isMaximizing ? BLACK : WHITE;
+            const moves = getAllLegalMoves(b, activeColor);
+
+            if (moves.length === 0) {
+                if (isKingInCheck(b, activeColor)) {
+                    return isMaximizing ? -9999 : 9999; // Checkmate score
+                }
+                return 0; // Stalemate
+            }
+
+            if (isMaximizing) {
+                let maxEval = -Infinity;
+                for (let m of moves) {
+                    const nextB = makeVirtualMove(b, m);
+                    const evalVal = minimax(nextB, depth - 1, alpha, beta, false);
+                    maxEval = Math.max(maxEval, evalVal);
+                    alpha = Math.max(alpha, evalVal);
+                    if (beta <= alpha) break;
+                }
+                return maxEval;
+            } else {
+                let minEval = Infinity;
+                for (let m of moves) {
+                    const nextB = makeVirtualMove(b, m);
+                    const evalVal = minimax(nextB, depth - 1, alpha, beta, true);
+                    minEval = Math.min(minEval, evalVal);
+                    beta = Math.min(beta, evalVal);
+                    if (beta <= alpha) break;
+                }
+                return minEval;
+            }
+        }
+
+        function getBestMove(b, color, depth) {
+            const moves = getAllLegalMoves(b, color);
+            if (moves.length === 0) return null;
+
+            // Randomize move order to prevent repetitive gameplay
+            moves.sort(() => Math.random() - 0.5);
+
+            let bestMove = null;
+            let bestValue = -Infinity;
+
+            for (let m of moves) {
+                // Handle Pawn Promotion auto-selection for AI
+                if (b[m.from.r][m.from.c].type === 'p' && (m.to.r === 0 || m.to.r === 7)) {
+                    m.promotion = 'q';
+                }
+
+                const nextB = makeVirtualMove(b, m);
+                const boardVal = minimax(nextB, depth - 1, -Infinity, Infinity, false);
+
+                if (boardVal > bestValue) {
+                    bestValue = boardVal;
+                    bestMove = m;
+                }
+            }
+
+            return bestMove;
+        }
+
+        // --- PAWN PROMOTION MODAL ---
+        function showPromotionModal(color) {
+            const container = document.getElementById('promotionOptions');
+            container.innerHTML = '';
+            const pieces = ['q', 'r', 'b', 'n'];
+
+            pieces.forEach(p => {
+                const btn = document.createElement('button');
+                btn.className = 'bg-slate-700 hover:bg-amber-500 hover:text-slate-900 text-3xl p-3 rounded-xl transition shadow flex items-center justify-center';
+                btn.innerHTML = PIECE_SYMBOLS[color][p];
+                btn.onclick = () => {
+                    document.getElementById('promotionModal').classList.add('hidden');
+                    if (pendingPromotion) {
+                        const m = pendingPromotion;
+                        pendingPromotion = null;
+                        executeMove(m, p);
+                    }
+                };
+                container.appendChild(btn);
             });
 
-            // Initial Board Render
+            document.getElementById('promotionModal').classList.remove('hidden');
+        }
+
+        // --- TIMER MANAGEMENT ---
+        function startTimer() {
+            stopTimer();
+            timerInterval = setInterval(() => {
+                if (isGameOver) return;
+
+                timeRemaining[turn]--;
+                updateTimerDisplay();
+
+                if (timeRemaining[turn] <= 0) {
+                    stopTimer();
+                    isGameOver = true;
+                    sounds.playGameEnd();
+                    const winner = turn === WHITE ? '흑색 (시간승)' : '백색 (시간승)';
+                    showOverlay('시간 초과!', `${winner}의 승리입니다!`);
+                }
+            }, 1000);
+        }
+
+        function stopTimer() {
+            if (timerInterval) clearInterval(timerInterval);
+        }
+
+        function updateTimerDisplay() {
+            if (initialTime === 0) {
+                document.getElementById('whiteTimer').innerText = '--:--';
+                document.getElementById('blackTimer').innerText = '--:--';
+                return;
+            }
+
+            const format = (s) => {
+                const mins = Math.floor(Math.max(0, s) / 60);
+                const secs = Math.max(0, s) % 60;
+                return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+            };
+
+            document.getElementById('whiteTimer').innerText = format(timeRemaining.w);
+            document.getElementById('blackTimer').innerText = format(timeRemaining.b);
+        }
+
+        // --- UI & RENDERING FUNCTIONS ---
+        function renderBoard() {
+            const boardEl = document.getElementById('board');
+            boardEl.innerHTML = '';
+
+            const lastMove = moveHistory.length > 0 ? moveHistory[moveHistory.length - 1].move : null;
+            const inCheckColor = (isKingInCheck(board, WHITE) ? WHITE : (isKingInCheck(board, BLACK) ? BLACK : null));
+
+            for (let rDisplay = 0; rDisplay < 8; rDisplay++) {
+                for (let cDisplay = 0; cDisplay < 8; cDisplay++) {
+                    const r = isFlipped ? 7 - rDisplay : rDisplay;
+                    const c = isFlipped ? 7 - cDisplay : cDisplay;
+
+                    const square = document.createElement('div');
+                    const isLight = (r + c) % 2 === 0;
+                    square.className = `relative flex items-center justify-center ${isLight ? 'square-light' : 'square-dark'}`;
+
+                    // Highlights
+                    if (selectedSquare && selectedSquare.r === r && selectedSquare.c === c) {
+                        square.classList.add('square-selected');
+                    }
+                    if (lastMove && ((lastMove.from.r === r && lastMove.from.c === c) || (lastMove.to.r === r && lastMove.to.c === c))) {
+                        square.classList.add('square-last-move');
+                    }
+                    const piece = board[r][c];
+                    if (inCheckColor && piece && piece.type === 'k' && piece.color === inCheckColor) {
+                        square.classList.add('square-check');
+                    }
+
+                    // Render Piece
+                    if (piece) {
+                        const pieceSpan = document.createElement('span');
+                        pieceSpan.className = `chess-piece text-3xl sm:text-4xl md:text-5xl font-bold select-none ${piece.color === WHITE ? 'text-slate-100 drop-shadow-[0_2px_2px_rgba(0,0,0,0.8)]' : 'text-slate-900 drop-shadow-[0_1px_1px_rgba(255,255,255,0.4)]'}`;
+                        pieceSpan.innerHTML = PIECE_SYMBOLS[piece.color][piece.type];
+                        square.appendChild(pieceSpan);
+                    }
+
+                    // Render Valid Move Indicators
+                    const isValidMove = validMoves.some(m => m.to.r === r && m.to.c === c);
+                    if (isValidMove) {
+                        const dot = document.createElement('div');
+                        if (piece) {
+                            dot.className = 'absolute inset-0 border-4 border-amber-400/80 rounded-full animate-pulse';
+                        } else {
+                            dot.className = 'w-3 h-3 bg-amber-400/80 rounded-full';
+                        }
+                        square.appendChild(dot);
+                    }
+
+                    // Coordinates Overlay on Edges
+                    if (cDisplay === 0) {
+                        const rankLabel = document.createElement('span');
+                        rankLabel.className = 'absolute top-0.5 left-1 text-[10px] opacity-60 font-semibold pointer-events-none';
+                        rankLabel.innerText = 8 - r;
+                        square.appendChild(rankLabel);
+                    }
+                    if (rDisplay === 7) {
+                        const fileLabel = document.createElement('span');
+                        fileLabel.className = 'absolute bottom-0.5 right-1 text-[10px] opacity-60 font-semibold pointer-events-none';
+                        fileLabel.innerText = String.fromCharCode(97 + c);
+                        square.appendChild(fileLabel);
+                    }
+
+                    square.onclick = () => handleSquareClick(r, c);
+                    boardEl.appendChild(square);
+                }
+            }
+        }
+
+        function updateUI() {
             renderBoard();
-        });
+            renderCapturedPieces();
+            renderMoveHistory();
+
+            // Player Active Cards Highlight
+            const wCard = document.getElementById('whitePlayerCard');
+            const bCard = document.getElementById('blackPlayerCard');
+
+            if (turn === WHITE) {
+                wCard.classList.add('border-amber-500/80', 'bg-slate-800');
+                wCard.classList.remove('border-slate-700', 'opacity-70');
+                bCard.classList.remove('border-amber-500/80');
+                bCard.classList.add('border-slate-700', 'opacity-70');
+            } else {
+                bCard.classList.add('border-amber-500/80', 'bg-slate-800');
+                bCard.classList.remove('border-slate-700', 'opacity-70');
+                wCard.classList.remove('border-amber-500/80');
+                wCard.classList.add('border-slate-700', 'opacity-70');
+            }
+        }
+
+        function renderCapturedPieces() {
+            const wCapEl = document.getElementById('whiteCaptures');
+            const bCapEl = document.getElementById('blackCaptures');
+
+            wCapEl.innerHTML = capturedPieces.w.map(t => PIECE_SYMBOLS[BLACK][t]).join(' ');
+            bCapEl.innerHTML = capturedPieces.b.map(t => PIECE_SYMBOLS[WHITE][t]).join(' ');
+        }
+
+        function renderMoveHistory() {
+            const list = document.getElementById('moveHistoryList');
+            list.innerHTML = '';
+
+            for (let i = 0; i < moveHistory.length; i += 2) {
+                const tr = document.createElement('tr');
+                tr.className = 'hover:bg-slate-800/50';
+
+                const numTd = document.createElement('td');
+                numTd.className = 'py-1 text-slate-500 text-xs';
+                numTd.innerText = `${Math.floor(i / 2) + 1}.`;
+
+                const wTd = document.createElement('td');
+                wTd.className = 'py-1 text-slate-200 font-medium';
+                wTd.innerText = moveHistory[i].san;
+
+                const bTd = document.createElement('td');
+                bTd.className = 'py-1 text-slate-400 font-medium';
+                bTd.innerText = moveHistory[i + 1] ? moveHistory[i + 1].san : '';
+
+                tr.appendChild(numTd);
+                tr.appendChild(wTd);
+                tr.appendChild(bTd);
+                list.appendChild(tr);
+            }
+
+            // Auto scroll history to bottom
+            const container = list.parentElement.parentElement;
+            container.scrollTop = container.scrollHeight;
+        }
+
+        function updateStatus(text) {
+            document.getElementById('statusText').innerText = text;
+        }
+
+        function showOverlay(title, desc) {
+            document.getElementById('overlayTitle').innerText = title;
+            document.getElementById('overlayDesc').innerText = desc;
+            document.getElementById('gameOverlay').classList.remove('hidden');
+        }
+
+        function toggleFlipBoard() {
+            isFlipped = !isFlipped;
+            renderBoard();
+        }
+
+        function resignGame() {
+            if (isGameOver) return;
+            isGameOver = true;
+            stopTimer();
+            sounds.playGameEnd();
+            const winner = turn === WHITE ? '흑색 (Black)' : '백색 (White)';
+            showOverlay('기권 패', `${winner}의 승리입니다!`);
+            updateStatus(`${turn === WHITE ? '백색' : '흑색'}이 기권했습니다.`);
+        }
+
+        // Theme Toggle Switch
+        const themes = ['theme-classic', 'theme-glass', 'theme-emerald'];
+        let currentThemeIdx = 0;
+
+        document.getElementById('themeToggleBtn').onclick = () => {
+            const boardEl = document.getElementById('board');
+            boardEl.classList.remove(themes[currentThemeIdx]);
+            currentThemeIdx = (currentThemeIdx + 1) % themes.length;
+            boardEl.classList.add(themes[currentThemeIdx]);
+        };
+
+        // Option Select Listeners
+        document.getElementById('gameModeSelect').onchange = resetGame;
+        document.getElementById('timeControlSelect').onchange = resetGame;
+
+        // Initialize Game on Window Load
+        window.onload = () => {
+            resetGame();
+        };
     </script>
 </body>
 </html>
