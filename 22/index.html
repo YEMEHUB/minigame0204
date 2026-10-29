@@ -1,956 +1,970 @@
-
 <!DOCTYPE html>
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AIM LAB PRO - 3D FPS Aim Trainer</title>
-    <!-- Tailwind CSS -->
+    <title>맥도날드 빨대 훔치기 (McDonald's Straw Heist)</title>
+    <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Three.js Library -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    <!-- Lucide Icons -->
-    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- FontAwesome for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <!-- Google Fonts -->
-    <link href="https://fonts.googleapis.com/css2?family=Pretendard:wght@400;600;700;900&family=Teko:wght@500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;800;900&family=Press+Start+2P&family=Pretendard:wght@400;600;800;900&display=swap" rel="stylesheet">
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Pretendard', 'sans-serif'],
+                        arcade: ['"Press Start 2P"', 'monospace'],
+                        digital: ['Orbitron', 'sans-serif'],
+                    },
+                    colors: {
+                        mc: {
+                            red: '#DA291C',
+                            yellow: '#FFBC0D',
+                            darkRed: '#8F0B00',
+                            bg: '#140506',
+                            card: '#240A0C',
+                        }
+                    },
+                    animation: {
+                        'bounce-short': 'bounce 0.5s ease-in-out 1',
+                        'scanline': 'scanline 8s linear infinite',
+                        'pulse-fast': 'pulse 0.4s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+                    },
+                    keyframes: {
+                        scanline: {
+                            '0%': { transform: 'translateY(-100%)' },
+                            '100%': { transform: 'translateY(1000%)' }
+                        }
+                    }
+                }
+            }
+        }
+    </script>
     <style>
-        * {
-            font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, Roboto, sans-serif;
-            box-sizing: border-box;
+        body {
+            font-family: 'Pretendard', sans-serif;
+            touch-action: manipulation;
             user-select: none;
+            -webkit-user-select: none;
+            background-color: #0b0203;
+            background-image: 
+                radial-gradient(circle at 50% 20%, rgba(218, 41, 28, 0.25) 0%, transparent 50%),
+                radial-gradient(circle at 80% 80%, rgba(255, 188, 13, 0.15) 0%, transparent 40%);
+        }
+        .glow-yellow {
+            box-shadow: 0 0 20px rgba(255, 188, 13, 0.6), inset 0 0 10px rgba(255, 188, 13, 0.3);
+        }
+        .glow-red {
+            box-shadow: 0 0 25px rgba(218, 41, 28, 0.8), inset 0 0 15px rgba(218, 41, 28, 0.5);
+        }
+        .mc-box {
+            background: linear-gradient(135deg, rgba(20, 6, 7, 0.98) 0%, rgba(10, 3, 4, 0.99) 100%);
+            border: 2px solid rgba(255, 188, 13, 0.4);
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.9);
+        }
+        .scanlines {
+            background: linear-gradient(
+                to bottom,
+                rgba(255,255,255,0),
+                rgba(255,255,255,0) 50%,
+                rgba(0, 0, 0, 0.35) 50%,
+                rgba(0, 0, 0, 0.35)
+            );
+            background-size: 100% 4px;
+        }
+        .font-digital {
+            font-family: 'Orbitron', sans-serif;
+            font-variant-numeric: tabular-nums;
+        }
+        .font-arcade {
+            font-family: 'Press Start 2P', monospace;
         }
 
-        .font-digits {
-            font-family: 'Teko', sans-serif;
-            letter-spacing: 0.05em;
+        /* Human Arm Stealing Animation */
+        @keyframes armExtend {
+            0% { transform: scaleX(0.2) rotate(-10deg); opacity: 0.3; }
+            50% { transform: scaleX(1.1) rotate(0deg); opacity: 1; }
+            100% { transform: scaleX(0.2) rotate(-10deg); opacity: 0; }
+        }
+        .arm-extend {
+            animation: armExtend 0.22s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
         }
 
-        body, html {
-            margin: 0;
-            padding: 0;
-            width: 100%;
-            height: 100%;
-            overflow: hidden;
-            background-color: #030712;
-            color: #f3f4f6;
+        /* Thief Sneak Step */
+        @keyframes thiefStep {
+            0% { transform: translateX(0); }
+            50% { transform: translateX(8px) translateY(-3px); }
+            100% { transform: translateX(0); }
+        }
+        .thief-sneak {
+            animation: thiefStep 0.2s ease-in-out;
         }
 
-        #game-canvas {
-            width: 100%;
-            height: 100%;
-            display: block;
+        /* Straw Dispenser Shake */
+        @keyframes dispenserShake {
+            0% { transform: rotate(0deg); }
+            25% { transform: rotate(-3deg) translateY(-2px); }
+            75% { transform: rotate(3deg); }
+            100% { transform: rotate(0deg); }
+        }
+        .shake-anim {
+            animation: dispenserShake 0.15s ease-in-out;
         }
 
-        /* Glassmorphism Styles */
-        .glass-panel {
-            background: rgba(15, 23, 42, 0.85);
-            backdrop-filter: blur(20px);
-            -webkit-backdrop-filter: blur(20px);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+        /* Flying Straw Particle Animation */
+        @keyframes flyToBag {
+            0% { opacity: 1; transform: translate(0, 0) rotate(0deg) scale(1); }
+            100% { opacity: 0; transform: translate(-90px, 45px) rotate(-120deg) scale(0.3); }
         }
-
-        /* Crosshair Overlay */
-        #crosshair-container {
+        .flying-straw {
             position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
+            animation: flyToBag 0.25s ease-out forwards;
             pointer-events: none;
-            z-index: 20;
-        }
-
-        /* Custom Scrollbar */
-        ::-webkit-scrollbar {
-            width: 6px;
-        }
-        ::-webkit-scrollbar-track {
-            background: rgba(15, 23, 42, 0.6);
-        }
-        ::-webkit-scrollbar-thumb {
-            background: #0ea5e9;
-            border-radius: 3px;
-        }
-
-        .category-tab.active {
-            background-color: #0ea5e9;
-            color: #030712;
-            font-weight: 700;
-            box-shadow: 0 0 15px rgba(14, 165, 233, 0.4);
-        }
-
-        /* Hit Marker Effect */
-        @keyframes hitPulse {
-            0% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
-            100% { transform: translate(-50%, -50%) scale(1.6); opacity: 0; }
-        }
-        .hit-marker {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            pointer-events: none;
-            z-index: 25;
-            animation: hitPulse 0.15s ease-out forwards;
+            z-index: 60;
         }
     </style>
 </head>
-<body class="relative w-full h-full">
+<body class="text-slate-100 min-h-screen flex flex-col items-center justify-between p-4 selection:bg-mc-yellow selection:text-black relative overflow-x-hidden">
 
-    <!-- 3D Canvas -->
-    <canvas id="game-canvas"></canvas>
+    <!-- Grid Background Effect -->
+    <div class="fixed inset-0 bg-[linear-gradient(to_right,#3a0f1215_1px,transparent_1px),linear-gradient(to_bottom,#3a0f1215_1px,transparent_1px)] bg-[size:24px_24px] pointer-events-none"></div>
 
-    <!-- Crosshair UI -->
-    <div id="crosshair-container">
-        <div id="crosshair-dot" class="w-2.5 h-2.5 bg-cyan-400 rounded-full shadow-[0_0_12px_#38bdf8] border border-white"></div>
-    </div>
-
-    <!-- Hit Marker Container -->
-    <div id="hit-marker-layer"></div>
-
-    <!-- HUD Overlay -->
-    <div id="hud-overlay" class="absolute top-0 left-0 w-full p-6 flex justify-between items-start pointer-events-none z-10 hidden">
-        <!-- Left Hud Block: Time & Score -->
-        <div class="flex gap-4">
-            <div class="glass-panel px-5 py-2.5 rounded-2xl flex items-center gap-3">
-                <i data-lucide="timer" class="w-6 h-6 text-cyan-400"></i>
-                <div>
-                    <div class="text-[10px] text-slate-400 font-bold uppercase tracking-widest">TIME LEFT</div>
-                    <div id="hud-timer" class="text-3xl font-digits font-bold text-white leading-none">60.0s</div>
-                </div>
+    <!-- Header Section -->
+    <header class="w-full max-w-md pt-2 flex justify-between items-center z-10">
+        <div class="flex items-center space-x-3">
+            <div class="w-11 h-11 rounded-2xl bg-mc-red flex items-center justify-center font-black text-2xl text-mc-yellow shadow-lg border-2 border-mc-yellow animate-bounce-short">
+                M
             </div>
-            <div class="glass-panel px-5 py-2.5 rounded-2xl flex items-center gap-3">
-                <i data-lucide="trophy" class="w-6 h-6 text-amber-400"></i>
-                <div>
-                    <div class="text-[10px] text-slate-400 font-bold uppercase tracking-widest">SCORE</div>
-                    <div id="hud-score" class="text-3xl font-digits font-bold text-amber-400 leading-none">0</div>
-                </div>
+            <div>
+                <h1 class="text-base font-black tracking-wider font-arcade text-transparent bg-clip-text bg-gradient-to-r from-mc-yellow via-white to-mc-red drop-shadow">
+                    STRAW HEIST
+                </h1>
+                <p class="text-[9px] font-arcade text-mc-yellow tracking-widest uppercase">맥도날드 매장 빨대 서리범</p>
+            </div>
+        </div>
+        
+        <div class="flex space-x-2">
+            <!-- Audio Toggle Button -->
+            <button id="soundBtn" class="p-2.5 rounded-xl bg-slate-900/90 border border-mc-yellow/40 text-mc-yellow hover:border-mc-yellow transition-all">
+                <i class="fas fa-volume-up text-lg"></i>
+            </button>
+            <!-- Stats Button -->
+            <button id="statsBtn" class="p-2.5 rounded-xl bg-slate-900/90 border border-mc-yellow/40 text-mc-yellow hover:border-mc-yellow transition-all">
+                <i class="fas fa-trophy text-lg"></i>
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Game Container -->
+    <main class="w-full max-w-md flex-1 flex flex-col justify-center items-center my-2 z-10">
+        
+        <!-- Score & Combo Header -->
+        <div class="w-full flex justify-between items-center bg-slate-950/80 px-4 py-2 rounded-2xl border border-mc-red/40 mb-3 shadow-inner">
+            <div class="flex items-center space-x-2">
+                <i class="fas fa-box-open text-mc-yellow text-sm"></i>
+                <span class="text-[10px] font-arcade text-slate-400">STRAWS:</span>
+                <span id="scoreDisplay" class="font-digital text-2xl font-black text-mc-yellow">0</span>
+            </div>
+            <div class="flex items-center space-x-2">
+                <span class="text-[10px] font-arcade text-mc-red">COMBO:</span>
+                <span id="comboDisplay" class="font-digital text-xl font-black text-white">x0</span>
             </div>
         </div>
 
-        <!-- Right Hud Block: Acc, Headshots, KPS -->
-        <div class="flex gap-4">
-            <div class="glass-panel px-5 py-2.5 rounded-2xl flex items-center gap-3">
-                <i data-lucide="target" class="w-6 h-6 text-emerald-400"></i>
-                <div>
-                    <div class="text-[10px] text-slate-400 font-bold uppercase tracking-widest">ACCURACY</div>
-                    <div id="hud-acc" class="text-3xl font-digits font-bold text-emerald-400 leading-none">100%</div>
+        <!-- McDonald's Store Scene Canvas Card -->
+        <div id="gameCard" class="w-full aspect-[4/3] max-w-[360px] mc-box rounded-3xl flex flex-col items-center justify-between p-3 relative overflow-hidden transition-all duration-300 border-2 border-mc-yellow/50 glow-yellow select-none">
+            <!-- Retro Scanlines Layer -->
+            <div class="absolute inset-0 scanlines pointer-events-none opacity-40 z-20"></div>
+
+            <!-- Warning Flash Overlay -->
+            <div id="warningOverlay" class="absolute inset-0 bg-mc-red/35 pointer-events-none opacity-0 transition-opacity z-10"></div>
+
+            <!-- Top Alert Status Bar -->
+            <div class="z-30 w-full flex justify-between items-center bg-slate-950/85 px-3 py-1.5 rounded-xl border border-mc-yellow/30">
+                <div class="flex items-center space-x-2">
+                    <span id="statusIcon" class="text-emerald-400 text-sm">●</span>
+                    <span id="statusText" class="text-[9px] font-arcade text-emerald-400">STAFF IS BUSY (SAFE)</span>
+                </div>
+                <div id="alertBadge" class="hidden text-[8px] font-arcade px-2 py-0.5 rounded bg-mc-red text-white animate-pulse">
+                    WATCH OUT!
                 </div>
             </div>
-            <div class="glass-panel px-5 py-2.5 rounded-2xl flex items-center gap-3">
-                <i data-lucide="crosshair" class="w-6 h-6 text-red-400"></i>
-                <div>
-                    <div class="text-[10px] text-slate-400 font-bold uppercase tracking-widest">HEADSHOTS</div>
-                    <div id="hud-headshots" class="text-3xl font-digits font-bold text-red-400 leading-none">0</div>
+
+            <!-- McDonald's Store Interior (Interactive Stage) -->
+            <div class="z-30 w-full flex-1 flex items-end justify-between my-1 relative px-1 bg-gradient-to-b from-amber-950/20 via-slate-900/60 to-slate-950/90 rounded-2xl border border-slate-800/80 overflow-hidden">
+                
+                <!-- Store Wall Background Decoration (McDonald's Menu Board & McD Logo) -->
+                <div class="absolute top-2 left-0 right-0 flex justify-between px-4 pointer-events-none opacity-40">
+                    <div class="w-20 h-6 bg-amber-600/30 border border-amber-500/40 rounded flex items-center justify-around px-1">
+                        <div class="w-3 h-3 bg-mc-yellow/60 rounded-full"></div>
+                        <div class="w-10 h-1 bg-slate-300/40 rounded"></div>
+                    </div>
+                    <div class="text-mc-yellow/40 font-black text-xl font-arcade">M</div>
+                    <div class="w-20 h-6 bg-amber-600/30 border border-amber-500/40 rounded flex items-center justify-around px-1">
+                        <div class="w-10 h-1 bg-slate-300/40 rounded"></div>
+                        <div class="w-3 h-3 bg-mc-red/60 rounded-full"></div>
+                    </div>
                 </div>
-            </div>
-            <div class="glass-panel px-5 py-2.5 rounded-2xl flex items-center gap-3">
-                <i data-lucide="zap" class="w-6 h-6 text-indigo-400"></i>
-                <div>
-                    <div class="text-[10px] text-slate-400 font-bold uppercase tracking-widest">KILLS / SEC</div>
-                    <div id="hud-kps" class="text-3xl font-digits font-bold text-indigo-300 leading-none">0.00</div>
+
+                <!-- 1. Player Character (Person in Hoodie Stealing Straws) -->
+                <div id="thiefContainer" class="flex flex-col items-center relative z-40 transition-transform duration-100 mb-1 pl-1">
+                    <div id="thiefActionText" class="absolute -top-6 text-[10px] font-arcade text-mc-yellow font-black whitespace-nowrap opacity-0 transition-opacity drop-shadow-md">
+                        GOT IT!
+                    </div>
+
+                    <!-- Human Body Graphical Construction -->
+                    <div id="thiefPerson" class="relative w-16 h-32 flex flex-col items-center justify-end">
+                        
+                        <!-- Head / Face / Cap -->
+                        <div class="w-9 h-9 bg-amber-200 rounded-full relative border-2 border-slate-900 flex flex-col items-center justify-center z-20 shadow-md">
+                            <!-- Cap (Hat) -->
+                            <div class="absolute -top-1 -left-1 w-11 h-4 bg-slate-800 rounded-t-full border border-slate-900">
+                                <div class="absolute bottom-0 right-0 w-4 h-1 bg-mc-red rounded-r"></div>
+                            </div>
+                            <!-- Face Expression -->
+                            <div id="thiefEyes" class="flex space-x-1.5 mt-2">
+                                <div class="w-1.5 h-1.5 bg-slate-900 rounded-full"></div>
+                                <div class="w-1.5 h-1.5 bg-slate-900 rounded-full"></div>
+                            </div>
+                            <!-- Sneaky Mouth -->
+                            <div id="thiefMouth" class="w-2 h-1 bg-slate-800 rounded-full mt-1"></div>
+                        </div>
+
+                        <!-- Torso (Jacket) & Backpack -->
+                        <div class="w-12 h-14 bg-mc-red rounded-t-xl relative border-2 border-slate-900 z-10 shadow-lg flex flex-col items-center">
+                            <!-- Jacket Zipper -->
+                            <div class="w-0.5 h-full bg-mc-yellow"></div>
+                            <!-- Backpack on Bag -->
+                            <div class="absolute -left-3 top-2 w-5 h-10 bg-amber-900 border-2 border-slate-900 rounded-l-lg flex flex-col items-center justify-center">
+                                <span class="text-[7px] font-arcade text-mc-yellow">🎒</span>
+                            </div>
+                        </div>
+
+                        <!-- Extending Human Arm (Stealing Animation Element) -->
+                        <div id="extendingArm" class="absolute top-11 left-8 w-16 h-3.5 bg-amber-200 border-2 border-slate-900 rounded-r-full z-30 origin-left opacity-0 pointer-events-none flex items-center justify-end pr-1">
+                            <!-- Hand Holding Straw -->
+                            <div class="w-3.5 h-3.5 bg-amber-300 rounded-full border border-slate-900 flex items-center justify-center">
+                                <div class="w-1 h-5 bg-mc-red rotate-45 rounded-sm"></div>
+                            </div>
+                        </div>
+
+                        <!-- Legs -->
+                        <div class="flex space-x-1.5 z-0">
+                            <div class="w-4 h-9 bg-slate-800 border-x-2 border-b-2 border-slate-900 rounded-b"></div>
+                            <div class="w-4 h-9 bg-slate-800 border-x-2 border-b-2 border-slate-900 rounded-b"></div>
+                        </div>
+                    </div>
+
+                    <!-- Label -->
+                    <div class="mt-1 bg-slate-900/90 border border-mc-yellow/60 px-1.5 py-0.5 rounded text-[8px] font-arcade text-mc-yellow">
+                        YOU (STEALING)
+                    </div>
                 </div>
-            </div>
-        </div>
-    </div>
 
-    <!-- WASD Move Hint -->
-    <div id="controls-hint" class="absolute bottom-6 left-1/2 transform -translate-x-1/2 glass-panel px-5 py-2.5 rounded-2xl text-xs text-slate-300 pointer-events-none z-10 hidden flex items-center gap-4 border border-cyan-500/30">
-        <span class="flex items-center gap-1.5"><kbd class="px-2 py-0.5 bg-slate-800 rounded border border-slate-700 font-mono text-cyan-400">WASD</kbd> 이동</span>
-        <span class="flex items-center gap-1.5"><kbd class="px-2 py-0.5 bg-slate-800 rounded border border-slate-700 font-mono text-cyan-400">Space</kbd> 점프</span>
-        <span class="text-red-400 font-bold">🎯 빨간 머리(Head) 추가 점수!</span>
-    </div>
-
-    <!-- Main Menu Modal -->
-    <div id="main-menu" class="absolute inset-0 bg-slate-950/80 backdrop-blur-lg flex items-center justify-center z-30 p-4">
-        <div class="max-w-4xl w-full glass-panel rounded-3xl p-6 md:p-8 flex flex-col max-h-[92vh]">
-            
-            <!-- Header -->
-            <div class="flex justify-between items-center pb-4 border-b border-slate-800/80 mb-4">
-                <div>
-                    <h1 class="text-3xl md:text-4xl font-black text-white tracking-wider flex items-center gap-3">
-                        <i data-lucide="crosshair" class="text-cyan-400 w-9 h-9"></i> AIM LAB <span class="text-cyan-400">PRO</span>
-                    </h1>
-                    <p class="text-xs text-slate-400 mt-1">프로급 FPS 3D 에임 시뮬레이터 & 트레이너</p>
-                </div>
-                <button id="btn-settings-toggle" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 rounded-xl text-slate-200 transition border border-slate-700 flex items-center gap-2 text-xs font-semibold">
-                    <i data-lucide="sliders" class="w-4 h-4 text-cyan-400"></i> 조작/감도 설정
-                </button>
-            </div>
-
-            <!-- Tabs -->
-            <div class="flex gap-2 mb-4 overflow-x-auto pb-1 text-xs">
-                <button onclick="filterCategory('all')" id="tab-all" class="category-tab active px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 transition">전체 모드</button>
-                <button onclick="filterCategory('flick')" id="tab-flick" class="category-tab px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 transition">🎯 플릭 / 그리드샷</button>
-                <button onclick="filterCategory('wasd')" id="tab-wasd" class="category-tab px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 transition">🤖 3D 봇 / WASD 피킹</button>
-                <button onclick="filterCategory('track')" id="tab-track" class="category-tab px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 transition">🔄 트래킹</button>
-            </div>
-
-            <!-- Grid Modes -->
-            <div class="flex-1 overflow-y-auto pr-2 mb-4">
-                <div id="mode-grid" class="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+                <!-- 2. Straw Dispenser Station (Self-Service Bar) -->
+                <div id="dispenserStation" class="flex flex-col items-center relative z-30 mb-1">
+                    <div class="text-[7px] font-arcade text-slate-300 mb-1">STRAW BAR</div>
                     
-                    <!-- Mode 1: Gridshot -->
-                    <div data-category="flick" onclick="selectMode('gridshot')" id="mode-gridshot" class="mode-card cursor-pointer p-4 rounded-2xl border-2 border-cyan-500 bg-cyan-500/10 hover:border-cyan-400 transition flex items-start gap-3.5">
-                        <div class="p-3 bg-cyan-500/20 rounded-xl text-cyan-400">
-                            <i data-lucide="layout-grid" class="w-6 h-6"></i>
+                    <div id="dispenserBox" class="w-16 h-28 bg-gradient-to-b from-slate-700 via-slate-800 to-slate-900 border-2 border-mc-yellow rounded-xl flex flex-col items-center justify-between p-1.5 relative shadow-2xl">
+                        <!-- McD Yellow Arch Branding -->
+                        <div class="w-12 h-5 bg-mc-red rounded-md border border-mc-yellow flex items-center justify-center">
+                            <span class="text-mc-yellow font-black text-xs font-arcade">M</span>
                         </div>
-                        <div class="flex-1">
-                            <div class="flex items-center justify-between">
-                                <h3 class="font-bold text-white text-sm">Gridshot (그리드샷) ⭐</h3>
-                                <span class="text-[10px] font-bold text-cyan-400 bg-cyan-950/80 px-2 py-0.5 rounded border border-cyan-800">대표 모드</span>
+
+                        <!-- Straw Holder Slot with Visible Straws -->
+                        <div class="w-12 h-14 bg-slate-950 border border-slate-700 rounded-lg flex items-end justify-center px-1 py-1 relative overflow-hidden">
+                            <!-- Straw Tuft Graphic -->
+                            <div id="strawVisuals" class="flex space-x-1 items-end">
+                                <div class="w-1.5 h-11 bg-white border-x border-mc-red"></div>
+                                <div class="w-1.5 h-12 bg-white border-x border-mc-yellow"></div>
+                                <div class="w-1.5 h-10 bg-white border-x border-mc-red"></div>
+                                <div class="w-1.5 h-12 bg-white border-x border-mc-yellow"></div>
+                                <div class="w-1.5 h-9 bg-white border-x border-mc-red"></div>
                             </div>
-                            <p class="text-xs text-slate-400 mt-1">3개의 대형 타깃을 빠른 속도로 타격하여 에임 속도를 극대화합니다.</p>
+                        </div>
+
+                        <!-- Push Lever -->
+                        <div class="w-10 h-2.5 bg-slate-600 border border-slate-400 rounded-full flex items-center justify-center shadow">
+                            <div class="w-6 h-0.5 bg-slate-300"></div>
                         </div>
                     </div>
-
-                    <!-- Mode 2: Bot Strafe & Headshot -->
-                    <div data-category="wasd flick" onclick="selectMode('bot_strafe')" id="mode-bot_strafe" class="mode-card cursor-pointer p-4 rounded-2xl border-2 border-slate-800 bg-slate-900/60 hover:border-slate-700 transition flex items-start gap-3.5">
-                        <div class="p-3 bg-red-500/20 rounded-xl text-red-400">
-                            <i data-lucide="bot" class="w-6 h-6"></i>
-                        </div>
-                        <div class="flex-1">
-                            <div class="flex items-center justify-between">
-                                <h3 class="font-bold text-white text-sm">3D Bot Strafe & Headshot</h3>
-                                <span class="text-[10px] font-bold text-red-400 bg-red-950/80 px-2 py-0.5 rounded border border-red-800">WASD+봇</span>
-                            </div>
-                            <p class="text-xs text-slate-400 mt-1">좌우 스트레이프 회피 무빙을 하는 3D 봇의 헤드라인을 조준 사격하세요.</p>
-                        </div>
-                    </div>
-
-                    <!-- Mode 3: Wall Peeking -->
-                    <div data-category="wasd" onclick="selectMode('peeking')" id="mode-peeking" class="mode-card cursor-pointer p-4 rounded-2xl border-2 border-slate-800 bg-slate-900/60 hover:border-slate-700 transition flex items-start gap-3.5">
-                        <div class="p-3 bg-amber-500/20 rounded-xl text-amber-400">
-                            <i data-lucide="shield-alert" class="w-6 h-6"></i>
-                        </div>
-                        <div class="flex-1">
-                            <div class="flex items-center justify-between">
-                                <h3 class="font-bold text-white text-sm">Wall Peeking (각 쪼개기)</h3>
-                                <span class="text-[10px] font-bold text-amber-400 bg-amber-950/80 px-2 py-0.5 rounded border border-amber-800">엄폐물 피킹</span>
-                            </div>
-                            <p class="text-xs text-slate-400 mt-1">장애물 뒤에 있는 봇들을 WASD 무빙과 각 쪼개기로 정교하게 제거하세요.</p>
-                        </div>
-                    </div>
-
-                    <!-- Mode 4: Microshot -->
-                    <div data-category="flick" onclick="selectMode('microshot')" id="mode-microshot" class="mode-card cursor-pointer p-4 rounded-2xl border-2 border-slate-800 bg-slate-900/60 hover:border-slate-700 transition flex items-start gap-3.5">
-                        <div class="p-3 bg-indigo-500/20 rounded-xl text-indigo-400">
-                            <i data-lucide="disc" class="w-6 h-6"></i>
-                        </div>
-                        <div class="flex-1">
-                            <div class="flex items-center justify-between">
-                                <h3 class="font-bold text-white text-sm">Microshot (미세조정)</h3>
-                                <span class="text-[10px] font-bold text-indigo-400 bg-indigo-950/80 px-2 py-0.5 rounded border border-indigo-800">정밀 타깃</span>
-                            </div>
-                            <p class="text-xs text-slate-400 mt-1">초소형 구체 표적을 정밀하게 클릭하는 미세 컨트롤 훈련.</p>
-                        </div>
-                    </div>
-
-                    <!-- Mode 5: Sphere Tracking -->
-                    <div data-category="track" onclick="selectMode('tracking')" id="mode-tracking" class="mode-card cursor-pointer p-4 rounded-2xl border-2 border-slate-800 bg-slate-900/60 hover:border-slate-700 transition flex items-start gap-3.5">
-                        <div class="p-3 bg-emerald-500/20 rounded-xl text-emerald-400">
-                            <i data-lucide="activity" class="w-6 h-6"></i>
-                        </div>
-                        <div class="flex-1">
-                            <div class="flex items-center justify-between">
-                                <h3 class="font-bold text-white text-sm">Smooth Sphere Tracking</h3>
-                                <span class="text-[10px] font-bold text-emerald-400 bg-emerald-950/80 px-2 py-0.5 rounded border border-emerald-800">연속 트래킹</span>
-                            </div>
-                            <p class="text-xs text-slate-400 mt-1">움직이는 표적에 크로스헤어를 지속 유지하여 트래킹 감각을 익힙니다.</p>
-                        </div>
-                    </div>
-
-                    <!-- Mode 6: 360 Vertical Spawns -->
-                    <div data-category="flick track" onclick="selectMode('angles_360')" id="mode-angles_360" class="mode-card cursor-pointer p-4 rounded-2xl border-2 border-slate-800 bg-slate-900/60 hover:border-slate-700 transition flex items-start gap-3.5">
-                        <div class="p-3 bg-rose-500/20 rounded-xl text-rose-400">
-                            <i data-lucide="compass" class="w-6 h-6"></i>
-                        </div>
-                        <div class="flex-1">
-                            <div class="flex items-center justify-between">
-                                <h3 class="font-bold text-white text-sm">360° Vertical Spawns</h3>
-                                <span class="text-[10px] font-bold text-rose-400 bg-rose-950/80 px-2 py-0.5 rounded border border-rose-800">입체 전방위</span>
-                            </div>
-                            <p class="text-xs text-slate-400 mt-1">상하좌우 다방향 고저차 공간의 무작위 표적을 반응 사격합니다.</p>
-                        </div>
-                    </div>
-
                 </div>
+
+                <!-- 3. McDonald's Crew / Staff Member (Counter Person) -->
+                <div id="crewContainer" class="flex flex-col items-center relative z-20 mb-1 pr-1">
+                    <div id="crewEmote" class="absolute -top-6 text-sm font-arcade h-5">🎵</div>
+
+                    <!-- Crew Human Character Construction -->
+                    <div id="crewPerson" class="relative w-16 h-32 flex flex-col items-center justify-end transition-transform duration-200">
+                        
+                        <!-- Staff Head & Visor Cap -->
+                        <div class="w-9 h-9 bg-amber-100 rounded-full relative border-2 border-slate-900 flex flex-col items-center justify-center z-20 shadow-md">
+                            <!-- McD Red Visor Cap -->
+                            <div id="crewCap" class="absolute -top-1.5 w-11 h-4 bg-mc-red rounded-t-full border border-mc-yellow flex items-center justify-center">
+                                <span class="text-[6px] font-arcade text-mc-yellow">M</span>
+                            </div>
+
+                            <!-- Eyes Expression -->
+                            <div id="crewEyes" class="flex space-x-1 mt-2">
+                                <div class="w-1.5 h-1.5 bg-slate-900 rounded-full"></div>
+                                <div class="w-1.5 h-1.5 bg-slate-900 rounded-full"></div>
+                            </div>
+                            <!-- Mouth -->
+                            <div id="crewMouth" class="w-2.5 h-1 bg-slate-700 rounded-full mt-1"></div>
+                        </div>
+
+                        <!-- Uniform Torso (McDonald's Red Shirt) -->
+                        <div class="w-12 h-14 bg-mc-red rounded-t-xl relative border-2 border-slate-900 z-10 shadow-lg flex flex-col items-center justify-center">
+                            <!-- Name Tag -->
+                            <div class="w-4 h-1.5 bg-mc-yellow rounded-sm border border-slate-900 self-start ml-1 mt-1"></div>
+                        </div>
+
+                        <!-- Counter Wall Obstacle (Staff Stand) -->
+                        <div class="absolute -bottom-1 -left-2 -right-2 h-12 bg-slate-800 border-t-2 border-slate-900 z-30 flex items-center justify-center">
+                            <span class="text-[7px] font-arcade text-slate-400">COUNTER</span>
+                        </div>
+
+                        <!-- Legs -->
+                        <div class="flex space-x-1 z-0">
+                            <div class="w-4 h-9 bg-slate-900"></div>
+                            <div class="w-4 h-9 bg-slate-900"></div>
+                        </div>
+                    </div>
+
+                    <!-- Label -->
+                    <div class="mt-1 bg-slate-900/90 border border-mc-red/60 px-1.5 py-0.5 rounded text-[8px] font-arcade text-mc-red">
+                        STAFF
+                    </div>
+                </div>
+
             </div>
 
-            <!-- Settings Panel Collapse -->
-            <div id="settings-panel" class="hidden mb-4 p-4 bg-slate-900/90 border border-slate-800 rounded-2xl space-y-4">
-                <h3 class="text-xs font-bold text-cyan-400 uppercase tracking-wider flex items-center gap-2">
-                    <i data-lucide="settings" class="w-4 h-4"></i> 감도 및 조작 설정
-                </h3>
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
-                    <div>
-                        <label class="text-slate-300 font-semibold mb-1 block">마우스 감도 (Sens)</label>
-                        <div class="flex items-center gap-3">
-                            <input id="sens-slider" type="range" min="0.1" max="5.0" step="0.1" value="1.0" class="w-full accent-cyan-400">
-                            <span id="sens-value" class="font-mono text-cyan-300 font-bold w-10 text-right">1.0</span>
-                        </div>
-                    </div>
-                    <div>
-                        <label class="text-slate-300 font-semibold mb-1 block">시야각 (FOV)</label>
-                        <div class="flex items-center gap-3">
-                            <input id="fov-slider" type="range" min="60" max="110" step="1" value="90" class="w-full accent-cyan-400">
-                            <span id="fov-value" class="font-mono text-cyan-300 font-bold w-10 text-right">90°</span>
-                        </div>
-                    </div>
-                    <div>
-                        <label class="text-slate-300 font-semibold mb-1 block">조준선 (Crosshair)</label>
-                        <select id="crosshair-select" onchange="changeCrosshairStyle(this.value)" class="w-full bg-slate-800 border border-slate-700 text-slate-200 rounded-lg p-1.5 focus:outline-none focus:border-cyan-400">
-                            <option value="dot">기본 닷 (Cyan Dot)</option>
-                            <option value="cross">십자선 (Crosshair)</option>
-                            <option value="ring">원형 링 (Circle Ring)</option>
-                        </select>
-                    </div>
+            <!-- Bottom Bag Counter Bar -->
+            <div class="z-30 w-full bg-slate-950/80 rounded-2xl p-2 border border-mc-yellow/30 flex justify-between items-center px-4">
+                <span class="text-[9px] font-arcade text-slate-300">STOLEN IN BAG:</span>
+                <div id="bagStraws" class="flex space-x-1 overflow-hidden items-center">
+                    <span class="text-sm">🎒</span>
+                    <span id="bagCountText" class="text-xs font-arcade text-mc-yellow font-bold">x0 STRAWS</span>
                 </div>
-            </div>
-
-            <!-- Bottom Start Bar -->
-            <div class="flex flex-col sm:flex-row items-center justify-between gap-4 pt-4 border-t border-slate-800/80">
-                <div class="text-xs text-slate-400 text-center sm:text-left">
-                    <p>💡 화면 클릭 시 마우스가 중앙에 고정(Pointer Lock)됩니다.</p>
-                    <p>게임 중 <kbd class="px-1.5 py-0.5 bg-slate-800 text-slate-200 rounded border border-slate-700">ESC</kbd> 키를 누르면 일시정지 됩니다.</p>
-                </div>
-                <button id="btn-start" onclick="startGame()" class="w-full sm:w-auto px-10 py-3.5 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 font-black rounded-2xl shadow-[0_0_25px_rgba(6,182,212,0.4)] transition transform hover:scale-105 flex items-center justify-center gap-2 text-base">
-                    <i data-lucide="play" class="w-5 h-5 fill-slate-950"></i> 훈련 시작
-                </button>
             </div>
 
         </div>
-    </div>
 
-    <!-- Results Modal -->
-    <div id="results-modal" class="absolute inset-0 bg-slate-950/90 backdrop-blur-xl flex items-center justify-center z-40 hidden p-4">
-        <div class="max-w-md w-full glass-panel rounded-3xl p-6 md:p-8 text-center">
-            <div class="p-3.5 bg-emerald-500/20 border border-emerald-500/40 rounded-2xl text-emerald-400 w-fit mx-auto mb-4">
-                <i data-lucide="award" class="w-9 h-9"></i>
-            </div>
-            <h2 class="text-2xl font-black text-white mb-1">훈련 종료!</h2>
-            <p id="res-mode-name" class="text-xs text-cyan-400 font-bold uppercase tracking-wider mb-6">SUMMARY</p>
-
-            <div class="grid grid-cols-2 gap-3 mb-6 text-left">
-                <div class="bg-slate-900/80 p-3.5 rounded-2xl border border-slate-800">
-                    <div class="text-[10px] text-slate-400 font-bold">최종 SCORE</div>
-                    <div id="res-score" class="text-2xl font-digits font-bold text-white">0</div>
-                </div>
-                <div class="bg-slate-900/80 p-3.5 rounded-2xl border border-slate-800">
-                    <div class="text-[10px] text-slate-400 font-bold">명중률 (ACC)</div>
-                    <div id="res-acc" class="text-2xl font-digits font-bold text-emerald-400">0%</div>
-                </div>
-                <div class="bg-slate-900/80 p-3.5 rounded-2xl border border-slate-800">
-                    <div class="text-[10px] text-slate-400 font-bold">헤드샷 수</div>
-                    <div id="res-headshots" class="text-2xl font-digits font-bold text-red-400">0</div>
-                </div>
-                <div class="bg-slate-900/80 p-3.5 rounded-2xl border border-slate-800">
-                    <div class="text-[10px] text-slate-400 font-bold">KILLS / SEC</div>
-                    <div id="res-kps" class="text-2xl font-digits font-bold text-cyan-400">0.00</div>
-                </div>
+        <!-- Control Area -->
+        <div class="w-full mt-4 flex flex-col items-center gap-3">
+            <!-- Action Steal Button & Reset Button Group -->
+            <div class="w-full flex gap-3">
+                <button id="stealBtn" class="flex-1 py-5 rounded-2xl bg-gradient-to-r from-mc-yellow via-amber-400 to-mc-red text-slate-950 font-black text-xl tracking-wider font-arcade shadow-xl hover:brightness-110 active:scale-[0.95] transition-all glow-yellow border-2 border-white/60 flex items-center justify-center gap-2">
+                    <i class="fas fa-hand-holding"></i>
+                    <span>STEAL STRAW!</span>
+                </button>
+                <button id="resetBtn" title="게임 리셋 [R]" class="px-5 py-5 rounded-2xl bg-slate-900/90 hover:bg-slate-800 border-2 border-mc-red/60 text-mc-yellow font-bold text-lg active:scale-[0.95] transition-all flex items-center justify-center gap-2 shadow-md hover:border-mc-yellow">
+                    <i class="fas fa-rotate-left"></i>
+                    <span class="hidden sm:inline font-arcade text-[10px]">RESET</span>
+                </button>
             </div>
 
+            <div class="flex items-center gap-2 text-xs text-slate-300 bg-slate-950/90 px-4 py-1.5 rounded-full border border-mc-yellow/30">
+                <span class="w-2 h-2 rounded-full bg-mc-yellow animate-ping"></span>
+                <p class="text-[10px] font-medium">
+                    <span class="text-mc-yellow font-bold font-arcade">SPACE / TAP</span> 빨대 훔치기 | <span class="text-mc-red font-bold font-arcade">R</span> 리셋
+                </p>
+            </div>
+        </div>
+    </main>
+
+    <!-- Footer Stats / Best Record -->
+    <footer class="w-full max-w-md bg-slate-950/90 rounded-2xl border border-mc-red/50 p-3 mb-1 z-10 backdrop-blur-sm">
+        <div class="flex justify-around text-center">
+            <div>
+                <div class="text-[8px] text-slate-400 font-arcade uppercase tracking-wider">MAX STOLEN</div>
+                <div id="bestScore" class="text-base font-bold font-digital text-mc-yellow mt-0.5">0</div>
+            </div>
+            <div class="w-[1px] bg-slate-800"></div>
+            <div>
+                <div class="text-[8px] text-slate-400 font-arcade uppercase tracking-wider">MAX COMBO</div>
+                <div id="bestCombo" class="text-base font-bold font-digital text-mc-yellow mt-0.5">x0</div>
+            </div>
+            <div class="w-[1px] bg-slate-800"></div>
+            <div>
+                <div class="text-[8px] text-slate-400 font-arcade uppercase tracking-wider">HEISTS</div>
+                <div id="totalGames" class="text-base font-bold font-digital text-slate-200 mt-0.5">0</div>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Game Over Result Modal -->
+    <div id="resultModal" class="fixed inset-0 bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-4 z-50 opacity-0 pointer-events-none transition-opacity duration-300">
+        <div class="bg-slate-900 border-2 border-mc-red w-full max-w-sm rounded-3xl p-6 text-center shadow-2xl transform scale-95 transition-transform duration-300 relative overflow-hidden glow-red" id="modalCard">
+            
+            <!-- Police / Caught Header -->
+            <div class="w-12 h-12 bg-mc-red border-2 border-mc-yellow rounded-2xl mx-auto flex items-center justify-center text-white font-black text-2xl mb-2 shadow-lg animate-bounce">
+                🚨
+            </div>
+
+            <!-- Result Title Badge -->
+            <div id="resultBadge" class="inline-block px-5 py-1.5 rounded-full text-xs font-arcade tracking-widest uppercase mb-3 bg-mc-red/30 text-mc-red border border-mc-red">
+                CAUGHT BY CREW!
+            </div>
+
+            <div class="text-4xl my-2">
+                👮‍♂️🚔
+            </div>
+
+            <div class="text-[10px] text-slate-400 font-arcade uppercase mb-1">STOLEN STRAWS</div>
+            <div id="resultScore" class="font-digital text-5xl font-black text-mc-yellow mb-1 drop-shadow">
+                0
+            </div>
+
+            <div id="resultRankText" class="text-xs font-bold font-arcade text-mc-yellow mb-4">
+                RANK: STRAW AMATEUR
+            </div>
+
+            <!-- Modal Action Buttons -->
             <div class="flex gap-3">
-                <button onclick="closeResults()" class="flex-1 py-3 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl font-bold text-xs transition border border-slate-700">
-                    메인 메뉴
+                <button id="shareBtn" class="flex-1 py-3 bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold rounded-xl text-xs font-arcade transition-all flex items-center justify-center gap-2 border border-slate-700">
+                    <i class="fas fa-share-nodes"></i>
+                    SHARE
                 </button>
-                <button onclick="restartGame()" class="flex-1 py-3 bg-cyan-500 hover:bg-cyan-400 text-slate-950 rounded-xl font-bold text-xs transition shadow-[0_0_20px_rgba(6,182,212,0.4)]">
-                    다시 시도
-                </button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Pause Modal -->
-    <div id="pause-modal" class="absolute inset-0 bg-slate-950/80 backdrop-blur-md flex items-center justify-center z-40 hidden p-4">
-        <div class="max-w-xs w-full glass-panel rounded-3xl p-6 text-center">
-            <h2 class="text-xl font-black text-white mb-2">일시 정지</h2>
-            <p class="text-xs text-slate-400 mb-6">화면을 다시 클릭하거나 계속하기 버튼을 눌러 게임을 재개하세요.</p>
-            <div class="flex flex-col gap-2.5">
-                <button onclick="resumeGame()" class="w-full py-3 bg-cyan-500 hover:bg-cyan-400 text-slate-950 rounded-xl font-bold text-xs transition">
-                    계속하기
-                </button>
-                <button onclick="endGame()" class="w-full py-3 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl font-bold text-xs transition border border-slate-700">
-                    훈련 종료
+                <button id="retryBtn" class="flex-1 py-3 bg-gradient-to-r from-mc-yellow to-amber-500 text-slate-950 font-black rounded-xl text-xs font-arcade transition-all shadow-lg glow-yellow hover:brightness-110">
+                    RETRY [SPACE]
                 </button>
             </div>
         </div>
     </div>
 
-    <!-- Game Logic Engine -->
+    <!-- Stats Drawer Modal -->
+    <div id="statsModal" class="fixed inset-0 bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-4 z-50 opacity-0 pointer-events-none transition-opacity duration-300">
+        <div class="bg-slate-900 border-2 border-mc-red w-full max-w-sm rounded-3xl p-6 text-center shadow-2xl relative">
+            <h2 class="text-sm font-black font-arcade text-mc-yellow mb-4 flex items-center justify-center gap-2">
+                <i class="fas fa-trophy text-mc-yellow"></i> HEIST HALL OF FAME
+            </h2>
+
+            <div class="space-y-2.5 mb-6 text-left text-xs font-digital">
+                <div class="flex justify-between p-3 bg-slate-950/80 rounded-xl border border-slate-800">
+                    <span class="text-slate-400 font-arcade text-[9px]">TOTAL ATTEMPTS</span>
+                    <span id="statTotal" class="font-bold text-white">0</span>
+                </div>
+                <div class="flex justify-between p-3 bg-slate-950/80 rounded-xl border border-slate-800">
+                    <span class="text-slate-400 font-arcade text-[9px]">MAX STOLEN</span>
+                    <span id="statHighScore" class="font-bold text-mc-yellow">0 STRAWS</span>
+                </div>
+                <div class="flex justify-between p-3 bg-slate-950/80 rounded-xl border border-slate-800">
+                    <span class="text-slate-400 font-arcade text-[9px]">MAX COMBO</span>
+                    <span id="statMaxCombo" class="font-bold text-emerald-400">x0</span>
+                </div>
+            </div>
+
+            <button id="closeStatsBtn" class="w-full py-3 bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold rounded-xl text-xs font-arcade transition-all border border-slate-700">
+                CLOSE
+            </button>
+        </div>
+    </div>
+
+    <!-- Toast Notification -->
+    <div id="toast" class="fixed bottom-10 bg-slate-900 border border-mc-yellow text-slate-100 px-4 py-2.5 rounded-xl text-xs font-bold font-arcade shadow-2xl transition-all duration-300 opacity-0 pointer-events-none translate-y-4 flex items-center gap-2 z-50 glow-yellow">
+        <i class="fas fa-dumpster text-mc-yellow"></i>
+        <span id="toastMsg" class="text-[10px]">NOTIFICATION</span>
+    </div>
+
+    <!-- JavaScript Logic -->
     <script>
-        // Game Core States
-        let scene, camera, renderer;
-        let targets = [];
-        let obstacleWalls = [];
-        let isGameRunning = false;
-        let isGamePaused = false;
-        let selectedMode = 'gridshot';
-
-        // Movement Physics
-        let playerPos = new THREE.Vector3(0, 0, 0);
-        let playerVelocity = new THREE.Vector3(0, 0, 0);
-        let moveKeys = { w: false, a: false, s: false, d: false, space: false };
-        let isGrounded = true;
-        const moveSpeed = 10.0;
-        const jumpVelocity = 7.5;
-        const gravity = -22.0;
-        let clock = new THREE.Clock();
-
-        // Statistics
+        // Game State Variables
+        let gameState = 'IDLE'; // 'IDLE', 'PLAYING', 'GAMEOVER'
         let score = 0;
-        let hits = 0;
-        let headshots = 0;
-        let totalShots = 0;
-        let gameTimeLeft = 60.0;
-        let gameTimerInterval = null;
+        let combo = 0;
+        let maxComboInSession = 0;
+        let soundEnabled = true;
 
-        // Mouse Controls & Sensitivity
-        let mouseSensitivity = 1.0;
-        let fov = 90;
-        let isPointerLocked = false;
-        let pitch = 0;
-        let yaw = 0;
+        // Crew AI State Variables
+        // States: 0 = SAFE (Cleaning/Looking away), 1 = ALERT (Suspicious !), 2 = LOOKING (Turns Around to Watch)
+        let crewState = 0; 
+        let crewTimer = null;
 
-        // Web Audio Synthesizer
-        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        // Statistics Structure stored in localStorage
+        let stats = {
+            totalGames: 0,
+            highScore: 0,
+            bestCombo: 0
+        };
 
-        function playHitSound(isHeadshot = false) {
-            if (audioCtx.state === 'suspended') audioCtx.resume();
-            const osc = audioCtx.createOscillator();
-            const gain = audioCtx.createGain();
+        // DOM Elements
+        const scoreDisplay = document.getElementById('scoreDisplay');
+        const comboDisplay = document.getElementById('comboDisplay');
+        const bagCountText = document.getElementById('bagCountText');
+        const thiefContainer = document.getElementById('thiefContainer');
+        const thiefActionText = document.getElementById('thiefActionText');
+        const extendingArm = document.getElementById('extendingArm');
+        const thiefEyes = document.getElementById('thiefEyes');
+        const thiefMouth = document.getElementById('thiefMouth');
 
-            if (isHeadshot) {
-                osc.type = 'triangle';
-                osc.frequency.setValueAtTime(1400, audioCtx.currentTime);
-                osc.frequency.exponentialRampToValueAtTime(2400, audioCtx.currentTime + 0.08);
-                gain.gain.setValueAtTime(0.4, audioCtx.currentTime);
-                gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
-            } else {
-                osc.type = 'sine';
-                osc.frequency.setValueAtTime(650, audioCtx.currentTime);
-                osc.frequency.exponentialRampToValueAtTime(1100, audioCtx.currentTime + 0.05);
-                gain.gain.setValueAtTime(0.25, audioCtx.currentTime);
-                gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.05);
-            }
+        const statusIcon = document.getElementById('statusIcon');
+        const statusText = document.getElementById('statusText');
+        const alertBadge = document.getElementById('alertBadge');
+        
+        const crewPerson = document.getElementById('crewPerson');
+        const crewEyes = document.getElementById('crewEyes');
+        const crewMouth = document.getElementById('crewMouth');
+        const crewEmote = document.getElementById('crewEmote');
+        const warningOverlay = document.getElementById('warningOverlay');
+        const gameCard = document.getElementById('gameCard');
+        const dispenserBox = document.getElementById('dispenserBox');
 
-            osc.connect(gain);
-            gain.connect(audioCtx.destination);
-            osc.start();
-            osc.stop(audioCtx.currentTime + 0.1);
-        }
+        const stealBtn = document.getElementById('stealBtn');
+        const resetBtn = document.getElementById('resetBtn');
+        const soundBtn = document.getElementById('soundBtn');
 
-        function playShotSound() {
-            if (audioCtx.state === 'suspended') audioCtx.resume();
-            const osc = audioCtx.createOscillator();
-            const gain = audioCtx.createGain();
-            osc.type = 'sawtooth';
-            osc.frequency.setValueAtTime(280, audioCtx.currentTime);
-            osc.frequency.exponentialRampToValueAtTime(50, audioCtx.currentTime + 0.04);
-            gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
-            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.04);
-            osc.connect(gain);
-            gain.connect(audioCtx.destination);
-            osc.start();
-            osc.stop(audioCtx.currentTime + 0.04);
-        }
+        // Modal Elements
+        const resultModal = document.getElementById('resultModal');
+        const modalCard = document.getElementById('modalCard');
+        const resultScore = document.getElementById('resultScore');
+        const resultRankText = document.getElementById('resultRankText');
+        const retryBtn = document.getElementById('retryBtn');
+        const shareBtn = document.getElementById('shareBtn');
 
-        // Initialize Three.js Scene
-        function initScene() {
-            const canvas = document.getElementById('game-canvas');
-            scene = new THREE.Scene();
-            scene.background = new THREE.Color(0x030712);
-            scene.fog = new THREE.FogExp2(0x030712, 0.018);
+        // Stats Elements
+        const statsBtn = document.getElementById('statsBtn');
+        const statsModal = document.getElementById('statsModal');
+        const closeStatsBtn = document.getElementById('closeStatsBtn');
+        const bestScoreEl = document.getElementById('bestScore');
+        const bestComboEl = document.getElementById('bestCombo');
+        const totalGamesEl = document.getElementById('totalGames');
 
-            camera = new THREE.PerspectiveCamera(fov, window.innerWidth / window.innerHeight, 0.1, 1000);
-            camera.position.set(0, 1.6, 0);
-
-            renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true });
-            renderer.setSize(window.innerWidth, window.innerHeight);
-            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-
-            const ambientLight = new THREE.AmbientLight(0xffffff, 0.85);
-            scene.add(ambientLight);
-
-            const dirLight = new THREE.DirectionalLight(0x38bdf8, 1.5);
-            dirLight.position.set(20, 40, 20);
-            scene.add(dirLight);
-
-            createEnvironment();
-            scene.add(camera);
-
-            window.addEventListener('resize', onWindowResize);
-        }
-
-        function createEnvironment() {
-            const gridHelper = new THREE.GridHelper(70, 70, 0x0ea5e9, 0x1e293b);
-            gridHelper.position.y = 0;
-            scene.add(gridHelper);
-
-            const wallMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.8, side: THREE.DoubleSide });
-            const arenaBox = new THREE.Mesh(new THREE.BoxGeometry(70, 35, 70), wallMat);
-            arenaBox.position.set(0, 17.5, 0);
-            scene.add(arenaBox);
-        }
-
-        // Raycasting & Shooting Logic
-        function performShootRaycast() {
-            totalShots++;
-            const raycaster = new THREE.Raycaster();
-            raycaster.setFromCamera(new THREE.Vector2(0, 0), camera);
-
-            let rayCheckList = [];
-            targets.forEach(t => {
-                if (t.isBotGroup) {
-                    rayCheckList.push(t.userData.headMesh);
-                    rayCheckList.push(t.userData.bodyMesh);
-                } else {
-                    rayCheckList.push(t);
-                }
-            });
-
-            const intersects = raycaster.intersectObjects(rayCheckList, false);
-
-            if (intersects.length > 0) {
-                const hitObj = intersects[0].object;
-                hits++;
-
-                let isHead = false;
-                let targetToRemove = hitObj;
-
-                if (hitObj.userData && hitObj.userData.isBotPart) {
-                    targetToRemove = hitObj.userData.parentBot;
-                    if (hitObj.userData.isHead) {
-                        isHead = true;
-                        headshots++;
-                    }
-                }
-
-                playHitSound(isHead);
-                triggerHitMarker();
-
-                score += isHead ? 250 : 100;
-
-                scene.remove(targetToRemove);
-                targets = targets.filter(t => t !== targetToRemove);
-
-                spawnTarget();
-            }
-
-            updateHUD();
-        }
-
-        function triggerHitMarker() {
-            const layer = document.getElementById('hit-marker-layer');
-            const marker = document.createElement('div');
-            marker.className = 'hit-marker w-6 h-6 border-2 border-red-500 rounded-full';
-            layer.appendChild(marker);
-            setTimeout(() => marker.remove(), 150);
-        }
-
-        // 3D Humanoid Bot Builder
-        function create3DBotMesh() {
-            const botGroup = new THREE.Group();
-            botGroup.isBotGroup = true;
-
-            // Head (Red Zone)
-            const headGeo = new THREE.SphereGeometry(0.38, 16, 16);
-            const headMat = new THREE.MeshStandardMaterial({ 
-                color: 0xff0000, 
-                roughness: 0.1, 
-                emissive: 0xcc0000,
-                emissiveIntensity: 0.8 
-            });
-            const headMesh = new THREE.Mesh(headGeo, headMat);
-            headMesh.position.set(0, 1.65, 0);
-
-            // Body (Cyan Zone)
-            const bodyGeo = new THREE.CylinderGeometry(0.38, 0.28, 1.15, 16);
-            const bodyMat = new THREE.MeshStandardMaterial({ 
-                color: 0x0284c7, 
-                roughness: 0.3,
-                emissive: 0x0284c7,
-                emissiveIntensity: 0.3
-            });
-            const bodyMesh = new THREE.Mesh(bodyGeo, bodyMat);
-            bodyMesh.position.set(0, 0.8, 0);
-
-            headMesh.userData = { parentBot: botGroup, isBotPart: true, isHead: true };
-            bodyMesh.userData = { parentBot: botGroup, isBotPart: true, isHead: false };
-
-            botGroup.add(headMesh);
-            botGroup.add(bodyMesh);
-
-            botGroup.userData = {
-                headMesh: headMesh,
-                bodyMesh: bodyMesh
-            };
-
-            return botGroup;
-        }
-
-        // Target Spawning Engine
-        function spawnTarget() {
-            if (!isGameRunning) return;
-
-            if (selectedMode === 'bot_strafe' || selectedMode === 'peeking') {
-                const bot = create3DBotMesh();
-
-                let spawnX = (Math.random() - 0.5) * 8;
-                let spawnZ = -7 - Math.random() * 4;
-
-                if (selectedMode === 'peeking') {
-                    spawnX = (Math.random() - 0.5) * 6;
-                    spawnZ = -8 - Math.random() * 3;
-                }
-
-                bot.position.set(spawnX, 0, spawnZ);
-                bot.userData.strafeDir = Math.random() > 0.5 ? 1 : -1;
-                bot.userData.strafeSpeed = 2.5 + Math.random() * 2.5;
-
-                scene.add(bot);
-                targets.push(bot);
-            } else {
-                let size = 0.45;
-                if (selectedMode === 'microshot') size = 0.18;
-                if (selectedMode === 'tracking') size = 0.55;
-
-                const geo = new THREE.SphereGeometry(size, 24, 24);
-                const mat = new THREE.MeshStandardMaterial({ 
-                    color: selectedMode === 'microshot' ? 0xa855f7 : 0x06b6d4, 
-                    emissive: selectedMode === 'microshot' ? 0x7e22ce : 0x0284c7,
-                    emissiveIntensity: 0.6,
-                    roughness: 0.2 
-                });
-                const sphere = new THREE.Mesh(geo, mat);
-
-                let x = (Math.random() - 0.5) * 9;
-                let y = 1.2 + Math.random() * 2.0;
-                let z = -6 - Math.random() * 5;
-
-                if (selectedMode === 'angles_360') {
-                    const angle = Math.random() * Math.PI * 2;
-                    const radius = 6 + Math.random() * 5;
-                    x = Math.cos(angle) * radius;
-                    z = Math.sin(angle) * radius;
-                    y = 0.8 + Math.random() * 3.5;
-                }
-
-                sphere.position.set(x, y, z);
-                scene.add(sphere);
-                targets.push(sphere);
+        // Audio Context Setup
+        let audioCtx = null;
+        function initAudio() {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
             }
         }
 
-        function createWallObstacles() {
-            clearObstacles();
-            if (selectedMode !== 'peeking') return;
+        function playSound(type) {
+            if (!soundEnabled) return;
+            try {
+                initAudio();
+                if (audioCtx.state === 'suspended') audioCtx.resume();
 
-            const wallMat = new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.5 });
-            const wallPositions = [
-                { x: -4.5, y: 2, z: -7.5, w: 3.5, h: 4, d: 0.5 },
-                { x: 4.5, y: 2, z: -7.5, w: 3.5, h: 4, d: 0.5 },
-                { x: 0, y: 2, z: -11, w: 5, h: 4, d: 0.5 }
-            ];
+                const now = audioCtx.currentTime;
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
 
-            wallPositions.forEach(p => {
-                const wall = new THREE.Mesh(new THREE.BoxGeometry(p.w, p.h, p.d), wallMat);
-                wall.position.set(p.x, p.y, p.z);
-                scene.add(wall);
-                obstacleWalls.push(wall);
-            });
-        }
-
-        function clearObstacles() {
-            obstacleWalls.forEach(w => scene.remove(w));
-            obstacleWalls = [];
-        }
-
-        function clearTargets() {
-            targets.forEach(t => scene.remove(t));
-            targets = [];
-        }
-
-        // Control Listeners
-        function setupControls() {
-            window.addEventListener('mousedown', (e) => {
-                if (!isGameRunning || isGamePaused) return;
-                if (e.button === 0) {
-                    playShotSound();
-                    performShootRaycast();
+                if (type === 'steal') {
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(400, now);
+                    osc.frequency.exponentialRampToValueAtTime(800, now + 0.08);
+                    gain.gain.setValueAtTime(0.3, now);
+                    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.08);
+                    osc.start(now);
+                    osc.stop(now + 0.08);
+                } else if (type === 'alert') {
+                    osc.type = 'sawtooth';
+                    osc.frequency.setValueAtTime(250, now);
+                    osc.frequency.linearRampToValueAtTime(450, now + 0.12);
+                    gain.gain.setValueAtTime(0.2, now);
+                    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.12);
+                    osc.start(now);
+                    osc.stop(now + 0.12);
+                } else if (type === 'caught') {
+                    osc.type = 'sawtooth';
+                    osc.frequency.setValueAtTime(150, now);
+                    osc.frequency.linearRampToValueAtTime(80, now + 0.4);
+                    gain.gain.setValueAtTime(0.4, now);
+                    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.4);
+                    osc.start(now);
+                    osc.stop(now + 0.4);
+                } else if (type === 'reset') {
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(600, now);
+                    osc.frequency.exponentialRampToValueAtTime(300, now + 0.1);
+                    gain.gain.setValueAtTime(0.2, now);
+                    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
+                    osc.start(now);
+                    osc.stop(now + 0.1);
                 }
-            });
-
-            window.addEventListener('keydown', (e) => {
-                if (!isGameRunning) return;
-                switch (e.code) {
-                    case 'KeyW': moveKeys.w = true; break;
-                    case 'KeyA': moveKeys.a = true; break;
-                    case 'KeyS': moveKeys.s = true; break;
-                    case 'KeyD': moveKeys.d = true; break;
-                    case 'Space': moveKeys.space = true; break;
-                }
-            });
-
-            window.addEventListener('keyup', (e) => {
-                switch (e.code) {
-                    case 'KeyW': moveKeys.w = false; break;
-                    case 'KeyA': moveKeys.a = false; break;
-                    case 'KeyS': moveKeys.s = false; break;
-                    case 'KeyD': moveKeys.d = false; break;
-                    case 'Space': moveKeys.space = false; break;
-                }
-            });
-
-            document.addEventListener('pointerlockchange', () => {
-                isPointerLocked = (document.pointerLockElement === document.getElementById('game-canvas'));
-                if (!isPointerLocked && isGameRunning && !isGamePaused) {
-                    pauseGame();
-                }
-            });
-
-            window.addEventListener('mousemove', (e) => {
-                if (!isPointerLocked || isGamePaused) return;
-                const sens = mouseSensitivity * 0.002;
-                yaw -= e.movementX * sens;
-                pitch -= e.movementY * sens;
-                pitch = Math.max(-Math.PI / 2 + 0.01, Math.min(Math.PI / 2 - 0.01, pitch));
-            });
-        }
-
-        // Main Loop
-        function animate() {
-            requestAnimationFrame(animate);
-            const delta = clock.getDelta();
-
-            if (isGameRunning && !isGamePaused) {
-                camera.rotation.order = 'YXZ';
-                camera.rotation.y = yaw;
-                camera.rotation.x = pitch;
-
-                // WASD Player Move Physics
-                const moveVector = new THREE.Vector3();
-                if (moveKeys.w) moveVector.z -= 1;
-                if (moveKeys.s) moveVector.z += 1;
-                if (moveKeys.a) moveVector.x -= 1;
-                if (moveKeys.d) moveVector.x += 1;
-                moveVector.normalize();
-
-                const euler = new THREE.Euler(0, yaw, 0, 'YXZ');
-                moveVector.applyEuler(euler);
-
-                playerPos.addScaledVector(moveVector, moveSpeed * delta);
-
-                if (moveKeys.space && isGrounded) {
-                    playerVelocity.y = jumpVelocity;
-                    isGrounded = false;
-                }
-
-                playerVelocity.y += gravity * delta;
-                playerPos.y += playerVelocity.y * delta;
-
-                if (playerPos.y <= 0) {
-                    playerPos.y = 0;
-                    playerVelocity.y = 0;
-                    isGrounded = true;
-                }
-
-                camera.position.set(playerPos.x, playerPos.y + 1.6, playerPos.z);
-
-                // Bot Strafe Motion Update
-                targets.forEach(t => {
-                    if (t.isBotGroup) {
-                        t.position.x += t.userData.strafeDir * t.userData.strafeSpeed * delta;
-                        if (Math.abs(t.position.x) > 8) {
-                            t.userData.strafeDir *= -1;
-                        }
-                    }
-                });
-            }
-
-            renderer.render(scene, camera);
-        }
-
-        // UI Helpers & Filters
-        function filterCategory(cat) {
-            document.querySelectorAll('.category-tab').forEach(btn => btn.classList.remove('active'));
-            document.getElementById(`tab-${cat}`).classList.add('active');
-
-            const cards = document.querySelectorAll('.mode-card');
-            cards.forEach(card => {
-                const cats = card.getAttribute('data-category');
-                if (cat === 'all' || (cats && cats.includes(cat))) {
-                    card.style.display = 'flex';
-                } else {
-                    card.style.display = 'none';
-                }
-            });
-        }
-
-        function selectMode(mode) {
-            selectedMode = mode;
-            document.querySelectorAll('.mode-card').forEach(c => {
-                c.classList.remove('border-cyan-500', 'bg-cyan-500/10');
-                c.classList.add('border-slate-800', 'bg-slate-900/60');
-            });
-
-            const selCard = document.getElementById(`mode-${mode}`);
-            if (selCard) {
-                selCard.classList.remove('border-slate-800', 'bg-slate-900/60');
-                selCard.classList.add('border-cyan-500', 'bg-cyan-500/10');
+            } catch(e) {
+                console.error(e);
             }
         }
 
-        function changeCrosshairStyle(style) {
-            const dot = document.getElementById('crosshair-dot');
-            if (style === 'dot') {
-                dot.className = 'w-2.5 h-2.5 bg-cyan-400 rounded-full shadow-[0_0_12px_#38bdf8] border border-white';
-            } else if (style === 'cross') {
-                dot.className = 'w-4 h-4 border-2 border-cyan-400 border-t-0 border-l-0 shadow-[0_0_8px_#38bdf8]';
-            } else if (style === 'ring') {
-                dot.className = 'w-5 h-5 border-2 border-cyan-400 rounded-full shadow-[0_0_10px_#38bdf8]';
+        // Voice Effect Function: "이게 뭐야?!" Speech Synthesis & Dynamic Human Voice Synthesizer
+        function speakVoice(text) {
+            if (!soundEnabled) return;
+            
+            // 1. Web Speech Synthesis API (Korean Human Voice)
+            if ('speechSynthesis' in window) {
+                try {
+                    window.speechSynthesis.cancel(); // Cancel any lingering utterances
+                    const utterance = new SpeechSynthesisUtterance(text);
+                    utterance.lang = 'ko-KR';
+                    
+                    // Exaggerated human shock tone settings
+                    utterance.pitch = 1.35; // Surprised higher pitch
+                    utterance.rate = 1.4;   // Fast reactive speed
+                    utterance.volume = 1.0;
+                    
+                    // Force selecting a natural sounding Korean voice if available
+                    const voices = window.speechSynthesis.getVoices();
+                    const koVoice = voices.find(v => v.lang.includes('ko') || v.lang.includes('KO'));
+                    if (koVoice) utterance.voice = koVoice;
+
+                    window.speechSynthesis.speak(utterance);
+                } catch (e) {
+                    console.error(e);
+                }
+            }
+
+            // 2. Fallback / Layered Human Exclamation Pitch Blast via Web Audio API
+            try {
+                initAudio();
+                if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+                const now = audioCtx.currentTime;
+
+                // Expressive Vocal Formant Simulation ("이-게-뭐-야!")
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.type = 'sawtooth';
+
+                // Pitch inflection mimicking "이게 뭐야?!" (Up-Down-Up pitch contour)
+                osc.frequency.setValueAtTime(320, now);
+                osc.frequency.linearRampToValueAtTime(480, now + 0.1);
+                osc.frequency.linearRampToValueAtTime(300, now + 0.2);
+                osc.frequency.linearRampToValueAtTime(550, now + 0.35);
+
+                gain.gain.setValueAtTime(0.25, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.4);
+
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.start(now);
+                osc.stop(now + 0.4);
+            } catch (e) {
+                console.error(e);
             }
         }
 
-        // Game Flow Controls
+        function loadStats() {
+            const saved = localStorage.getItem('mc_straw_heist_stats');
+            if (saved) {
+                try { stats = JSON.parse(saved); } catch(e){}
+            }
+            updateFooterUI();
+        }
+
+        function saveStats() {
+            localStorage.setItem('mc_straw_heist_stats', JSON.stringify(stats));
+            updateFooterUI();
+        }
+
+        function updateFooterUI() {
+            bestScoreEl.innerText = `${stats.highScore}`;
+            bestComboEl.innerText = `x${stats.bestCombo}`;
+            totalGamesEl.innerText = `${stats.totalGames}`;
+        }
+
+        function showToast(msg) {
+            const toast = document.getElementById('toast');
+            document.getElementById('toastMsg').innerText = msg;
+            toast.classList.remove('opacity-0', 'pointer-events-none', 'translate-y-4');
+            toast.classList.add('opacity-100', 'translate-y-0');
+            setTimeout(() => {
+                toast.classList.remove('opacity-100', 'translate-y-0');
+                toast.classList.add('opacity-0', 'pointer-events-none', 'translate-y-4');
+            }, 2000);
+        }
+
+        // Spawn Flying Straw Effect
+        function spawnFlyingStraw() {
+            const straw = document.createElement('div');
+            straw.className = 'flying-straw text-lg';
+            straw.innerText = '🥤';
+            straw.style.right = '42%';
+            straw.style.top = '50%';
+            gameCard.appendChild(straw);
+            setTimeout(() => straw.remove(), 250);
+        }
+
+        // Crew Behavior AI Loop (Human Staff Looking Away vs Looking Back)
+        function scheduleNextCrewState() {
+            if (gameState !== 'PLAYING') return;
+
+            let nextDelay = 0;
+            if (crewState === 0) {
+                // SAFE -> Next ALERT state
+                nextDelay = Math.random() * 2200 + 1200; // 1.2s - 3.4s
+                crewTimer = setTimeout(() => {
+                    setCrewState(1);
+                    scheduleNextCrewState();
+                }, nextDelay);
+            } else if (crewState === 1) {
+                // ALERT (!) -> LOOKING BACK
+                nextDelay = Math.random() * 600 + 350; // 0.35s - 0.95s (Slight reaction window)
+                crewTimer = setTimeout(() => {
+                    setCrewState(2);
+                    scheduleNextCrewState();
+                }, nextDelay);
+            } else if (crewState === 2) {
+                // LOOKING BACK -> SAFE
+                nextDelay = Math.random() * 1300 + 800; // 0.8s - 2.1s staring time
+                crewTimer = setTimeout(() => {
+                    setCrewState(0);
+                    scheduleNextCrewState();
+                }, nextDelay);
+            }
+        }
+
+        function setCrewState(state) {
+            crewState = state;
+            if (state === 0) {
+                // SAFE: Crew looking sideways / busy working
+                statusIcon.className = "text-emerald-400 text-sm";
+                statusText.innerText = "STAFF IS BUSY (SAFE)";
+                statusText.className = "text-[9px] font-arcade text-emerald-400";
+                alertBadge.classList.add('hidden');
+                
+                // Human Staff Graphics: Face Sideways
+                crewPerson.style.transform = "scaleX(1)"; // Sideways stance
+                crewEyes.innerHTML = '<div class="w-1.5 h-1.5 bg-slate-900 rounded-full"></div>';
+                crewMouth.className = "w-2.5 h-1 bg-slate-700 rounded-full mt-1";
+                crewEmote.innerText = "🎵";
+
+                warningOverlay.style.opacity = '0';
+                gameCard.classList.remove('border-mc-red', 'glow-red');
+                gameCard.classList.add('border-mc-yellow/50', 'glow-yellow');
+
+            } else if (state === 1) {
+                // ALERT (!): Crew pauses & turns head slightly
+                statusIcon.className = "text-amber-400 text-sm animate-ping";
+                statusText.innerText = "SUSPICIOUS... !";
+                statusText.className = "text-[9px] font-arcade text-amber-400 font-bold";
+                alertBadge.classList.remove('hidden');
+                
+                crewPerson.style.transform = "scaleX(1) translateY(-2px)";
+                crewEyes.innerHTML = '<div class="w-2 h-2 bg-slate-900 rounded-full"></div>';
+                crewMouth.className = "w-1.5 h-1.5 bg-amber-800 rounded-full mt-1";
+                crewEmote.innerText = "❓";
+
+                playSound('alert');
+
+            } else if (state === 2) {
+                // LOOKING (DANGER): Crew turns 180 degrees directly to face player!
+                statusIcon.className = "text-mc-red text-sm animate-pulse";
+                statusText.innerText = "STAFF IS WATCHING!!";
+                statusText.className = "text-[9px] font-arcade text-mc-red font-black animate-pulse";
+                alertBadge.classList.remove('hidden');
+
+                // Human Staff Graphics: Turn full front facing with wide open eyes
+                crewPerson.style.transform = "scale(1.2)"; 
+                crewEyes.innerHTML = `
+                    <div class="w-2 h-2 bg-slate-900 rounded-full border border-mc-red animate-ping"></div>
+                    <div class="w-2 h-2 bg-slate-900 rounded-full border border-mc-red animate-ping"></div>
+                `;
+                crewMouth.className = "w-3 h-2 bg-mc-red rounded-t-full mt-0.5";
+                crewEmote.innerText = "👀‼️";
+
+                warningOverlay.style.opacity = '1';
+                gameCard.classList.remove('border-mc-yellow/50', 'glow-yellow');
+                gameCard.classList.add('border-mc-red', 'glow-red');
+            }
+        }
+
+        // Steal Action Trigger (Human Arm Reaches Out & Player Shouts "이게 뭐야?!")
+        function stealStraw() {
+            if (gameState === 'IDLE') {
+                startGame();
+            }
+
+            if (gameState !== 'PLAYING') return;
+
+            // Check if caught by crew
+            if (crewState === 2) {
+                gameOver();
+                return;
+            }
+
+            // Successfully Stole A Straw!
+            score++;
+            combo++;
+            if (combo > maxComboInSession) maxComboInSession = combo;
+
+            // Human Arm Extension & Sneak Motion
+            thiefContainer.classList.add('thief-sneak');
+            setTimeout(() => thiefContainer.classList.remove('thief-sneak'), 200);
+
+            extendingArm.classList.remove('arm-extend');
+            void extendingArm.offsetWidth; // Trigger reflow for CSS restart
+            extendingArm.classList.add('arm-extend');
+
+            thiefActionText.innerText = combo > 5 ? `COMBO x${combo}!` : 'SNATCH!';
+            thiefActionText.classList.remove('opacity-0');
+            setTimeout(() => thiefActionText.classList.add('opacity-0'), 250);
+
+            dispenserBox.classList.add('shake-anim');
+            setTimeout(() => dispenserBox.classList.remove('shake-anim'), 150);
+
+            spawnFlyingStraw();
+
+            scoreDisplay.innerText = `${score}`;
+            comboDisplay.innerText = `x${combo}`;
+            bagCountText.innerText = `x${score} STRAWS`;
+
+            playSound('steal');
+            // 훔치는 사람이 진짜 사람 목소리로 "이게 뭐야?!" 외치기
+            speakVoice("이게 뭐야?!");
+        }
+
         function startGame() {
+            gameState = 'PLAYING';
             score = 0;
-            hits = 0;
-            headshots = 0;
-            totalShots = 0;
-            gameTimeLeft = 60.0;
-            isGamePaused = false;
+            combo = 0;
+            maxComboInSession = 0;
 
-            document.getElementById('pause-modal').classList.add('hidden');
+            scoreDisplay.innerText = '0';
+            comboDisplay.innerText = 'x0';
+            bagCountText.innerText = 'x0 STRAWS';
 
-            playerPos.set(0, 0, 0);
-            yaw = 0;
-            pitch = 0;
-            if (camera) camera.rotation.set(0, 0, 0);
+            // Reset Player Expressions
+            thiefEyes.innerHTML = `
+                <div class="w-1.5 h-1.5 bg-slate-900 rounded-full"></div>
+                <div class="w-1.5 h-1.5 bg-slate-900 rounded-full"></div>
+            `;
+            thiefMouth.className = "w-2 h-1 bg-slate-800 rounded-full mt-1";
 
-            clearTargets();
-            createWallObstacles();
+            setCrewState(0);
+            scheduleNextCrewState();
+        }
 
-            const count = (selectedMode === 'gridshot') ? 3 : 2;
-            for (let i = 0; i < count; i++) {
-                spawnTarget();
-            }
+        function resetGame() {
+            if (crewTimer) clearTimeout(crewTimer);
+            gameState = 'IDLE';
+            score = 0;
+            combo = 0;
+            maxComboInSession = 0;
 
-            document.getElementById('main-menu').classList.add('hidden');
-            document.getElementById('hud-overlay').classList.remove('hidden');
+            scoreDisplay.innerText = '0';
+            comboDisplay.innerText = 'x0';
+            bagCountText.innerText = 'x0 STRAWS';
 
-            if (selectedMode === 'bot_strafe' || selectedMode === 'peeking') {
-                document.getElementById('controls-hint').classList.remove('hidden');
-            } else {
-                document.getElementById('controls-hint').classList.add('hidden');
-            }
+            thiefEyes.innerHTML = `
+                <div class="w-1.5 h-1.5 bg-slate-900 rounded-full"></div>
+                <div class="w-1.5 h-1.5 bg-slate-900 rounded-full"></div>
+            `;
 
-            isGameRunning = true;
-            updateHUD();
+            setCrewState(0);
+            playSound('reset');
+        }
 
-            const canvas = document.getElementById('game-canvas');
-            canvas.requestPointerLock();
+        function gameOver() {
+            gameState = 'GAMEOVER';
+            if (crewTimer) clearTimeout(crewTimer);
 
-            if (gameTimerInterval) clearInterval(gameTimerInterval);
-            gameTimerInterval = setInterval(() => {
-                if (!isGameRunning || isGamePaused) return;
-                gameTimeLeft -= 0.1;
-                if (gameTimeLeft <= 0) {
-                    gameTimeLeft = 0;
-                    endGame();
+            playSound('caught');
+
+            // Busted Human Facial Expressions
+            thiefEyes.innerHTML = `
+                <div class="w-2.5 h-2.5 bg-slate-900 rounded-full text-white text-[6px] flex items-center justify-center">x</div>
+                <div class="w-2.5 h-2.5 bg-slate-900 rounded-full text-white text-[6px] flex items-center justify-center">x</div>
+            `;
+            thiefMouth.className = "w-3 h-3 bg-mc-red rounded-full mt-0.5 border border-slate-900";
+
+            crewEmote.innerText = "🚨 POLICE!";
+
+            // Save stats
+            stats.totalGames++;
+            if (score > stats.highScore) stats.highScore = score;
+            if (maxComboInSession > stats.bestCombo) stats.bestCombo = maxComboInSession;
+            saveStats();
+
+            // Rank Title
+            let rank = "STRAW AMATEUR";
+            if (score >= 50) rank = "GOD OF STRAW HEIST 👑";
+            else if (score >= 30) rank = "MASTER STRAW THIEF 🎒";
+            else if (score >= 15) rank = "EXPERT SNATCHER 🥤";
+            else if (score >= 5) rank = "PART-TIME THIEF 🍟";
+
+            resultScore.innerText = `${score}`;
+            resultRankText.innerText = `RANK: ${rank}`;
+
+            // Show Result Modal
+            setTimeout(() => {
+                resultModal.classList.remove('opacity-0', 'pointer-events-none');
+                modalCard.classList.remove('scale-95');
+                modalCard.classList.add('scale-100');
+            }, 300);
+        }
+
+        function closeModal() {
+            resultModal.classList.add('opacity-0', 'pointer-events-none');
+            modalCard.classList.remove('scale-100');
+            modalCard.classList.add('scale-95');
+            resetGame();
+        }
+
+        // Event Listeners
+        stealBtn.addEventListener('click', stealStraw);
+        resetBtn.addEventListener('click', resetGame);
+
+        window.addEventListener('keydown', (e) => {
+            if (e.code === 'Space') {
+                e.preventDefault();
+                if (!resultModal.classList.contains('opacity-0')) {
+                    closeModal();
+                    startGame();
+                    return;
                 }
-                updateHUD();
-            }, 100);
-        }
-
-        function pauseGame() {
-            if (!isGameRunning) return;
-            isGamePaused = true;
-            document.getElementById('pause-modal').classList.remove('hidden');
-            if (document.exitPointerLock) document.exitPointerLock();
-        }
-
-        function resumeGame() {
-            if (!isGameRunning) return;
-            isGamePaused = false;
-            document.getElementById('pause-modal').classList.add('hidden');
-            const canvas = document.getElementById('game-canvas');
-            canvas.requestPointerLock();
-        }
-
-        function endGame() {
-            isGameRunning = false;
-            isGamePaused = false;
-            if (gameTimerInterval) clearInterval(gameTimerInterval);
-            if (document.exitPointerLock) document.exitPointerLock();
-
-            document.getElementById('pause-modal').classList.add('hidden');
-            document.getElementById('hud-overlay').classList.add('hidden');
-            document.getElementById('controls-hint').classList.add('hidden');
-
-            const acc = totalShots > 0 ? ((hits / totalShots) * 100).toFixed(1) : '0.0';
-            const kps = (hits / 60.0).toFixed(2);
-
-            document.getElementById('res-score').innerText = score;
-            document.getElementById('res-acc').innerText = acc + '%';
-            document.getElementById('res-headshots').innerText = headshots;
-            document.getElementById('res-kps').innerText = kps;
-            document.getElementById('res-mode-name').innerText = selectedMode.toUpperCase() + ' SUMMARY';
-
-            document.getElementById('results-modal').classList.remove('hidden');
-        }
-
-        function closeResults() {
-            document.getElementById('results-modal').classList.add('hidden');
-            document.getElementById('main-menu').classList.remove('hidden');
-        }
-
-        function restartGame() {
-            document.getElementById('results-modal').classList.add('hidden');
-            startGame();
-        }
-
-        function updateHUD() {
-            document.getElementById('hud-timer').innerText = gameTimeLeft.toFixed(1) + 's';
-            document.getElementById('hud-score').innerText = score;
-            const acc = totalShots > 0 ? Math.round((hits / totalShots) * 100) : 100;
-            document.getElementById('hud-acc').innerText = acc + '%';
-            document.getElementById('hud-headshots').innerText = headshots;
-            const elapsedTime = Math.max(0.1, 60.0 - gameTimeLeft);
-            document.getElementById('hud-kps').innerText = (hits / elapsedTime).toFixed(2);
-        }
-
-        function onWindowResize() {
-            camera.aspect = window.innerWidth / window.innerHeight;
-            camera.updateProjectionMatrix();
-            renderer.setSize(window.innerWidth, window.innerHeight);
-        }
-
-        // Settings Listeners
-        document.getElementById('btn-settings-toggle').addEventListener('click', () => {
-            const panel = document.getElementById('settings-panel');
-            panel.classList.toggle('hidden');
-        });
-
-        document.getElementById('sens-slider').addEventListener('input', (e) => {
-            mouseSensitivity = parseFloat(e.target.value);
-            document.getElementById('sens-value').innerText = mouseSensitivity.toFixed(1);
-        });
-
-        document.getElementById('fov-slider').addEventListener('input', (e) => {
-            fov = parseInt(e.target.value);
-            document.getElementById('fov-value').innerText = fov + '°';
-            if (camera) {
-                camera.fov = fov;
-                camera.updateProjectionMatrix();
+                stealStraw();
+            } else if (e.code === 'KeyR') {
+                e.preventDefault();
+                if (!resultModal.classList.contains('opacity-0')) closeModal();
+                resetGame();
             }
         });
 
-        window.onload = function() {
-            lucide.createIcons();
-            initScene();
-            setupControls();
-            animate();
+        retryBtn.addEventListener('click', () => {
+            closeModal();
+            startGame();
+        });
+
+        shareBtn.addEventListener('click', () => {
+            const text = `🥤 McDONALD'S STRAW HEIST RECORD!\nI stole ${score} straws before getting caught by the crew! Can you beat me?`;
+            const dummy = document.createElement('textarea');
+            document.body.appendChild(dummy);
+            dummy.value = text;
+            dummy.select();
+            document.execCommand('copy');
+            document.body.removeChild(dummy);
+            showToast("COPIED TO CLIPBOARD!");
+        });
+
+        // Audio Toggle
+        soundBtn.addEventListener('click', () => {
+            soundEnabled = !soundEnabled;
+            soundBtn.innerHTML = soundEnabled ? 
+                '<i class="fas fa-volume-up text-lg text-mc-yellow"></i>' : 
+                '<i class="fas fa-volume-mute text-lg text-slate-600"></i>';
+            showToast(soundEnabled ? "SOUND ON" : "MUTED");
+        });
+
+        // Stats Modal Logic
+        statsBtn.addEventListener('click', () => {
+            document.getElementById('statTotal').innerText = `${stats.totalGames}`;
+            document.getElementById('statHighScore').innerText = `${stats.highScore} STRAWS`;
+            document.getElementById('statMaxCombo').innerText = `x${stats.bestCombo}`;
+            statsModal.classList.remove('opacity-0', 'pointer-events-none');
+            playSound('reset');
+        });
+
+        closeStatsBtn.addEventListener('click', () => {
+            statsModal.classList.add('opacity-0', 'pointer-events-none');
+        });
+
+        window.onload = () => {
+            loadStats();
         };
     </script>
 </body>
