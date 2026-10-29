@@ -1,904 +1,700 @@
-
 <!DOCTYPE html>
-<html lang="ko" class="h-full bg-slate-950 text-slate-100 select-none">
+<html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>3D FPS 타겟 슈팅 게임 - 스킨 & 점수</title>
-    <!-- Tailwind CSS CDN -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>야식대장 (치킨&피자 게임)</title>
+    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- FontAwesome icons -->
+    <!-- Matter.js Physics Engine -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.19.0/matter.min.js"></script>
+    <!-- Canvas Confetti -->
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    <!-- FontAwesome Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <!-- Google Fonts -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Noto+Sans+KR:wght@400;700;900&display=swap" rel="stylesheet">
-    <!-- Three.js CDN -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 
     <style>
+        @import url('https://fonts.googleapis.com/css2?family=Jua&display=swap');
+
+        * {
+            font-family: 'Jua', sans-serif;
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: manipulation;
+        }
+
         body {
-            font-family: 'Noto Sans KR', 'Orbitron', sans-serif;
-            overflow: hidden;
-        }
-        .orbitron {
-            font-family: 'Orbitron', sans-serif;
-        }
-        /* Crosshair styling */
-        #crosshair {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            width: 16px;
-            height: 16px;
-            transform: translate(-50%, -50%);
-            pointer-events: none;
-            z-index: 20;
-        }
-        #crosshair::before, #crosshair::after {
-            content: '';
-            position: absolute;
-            background-color: rgba(255, 255, 255, 0.85);
-            box-shadow: 0 0 6px rgba(0, 255, 200, 0.8);
-        }
-        #crosshair::before {
-            top: 7px;
-            left: 0;
-            width: 16px;
-            height: 2px;
-        }
-        #crosshair::after {
-            top: 0;
-            left: 7px;
-            width: 2px;
-            height: 16px;
+            background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);
         }
 
-        /* Flash on shot */
-        @keyframes muzzleFlash {
-            0% { opacity: 0.9; transform: scale(1); }
-            100% { opacity: 0; transform: scale(1.5); }
-        }
-        .flash {
-            animation: muzzleFlash 0.05s ease-out forwards;
-        }
-
-        /* Glassmorphism card */
-        .glass-panel {
-            background: rgba(15, 23, 42, 0.75);
+        /* Glassmorphic UI Containers */
+        .glass-card {
+            background: rgba(255, 255, 255, 0.88);
             backdrop-filter: blur(12px);
-            border: 1px solid rgba(255, 255, 255, 0.12);
+            border: 2px solid rgba(255, 255, 255, 0.7);
+            box-shadow: 0 10px 25px -5px rgba(217, 119, 6, 0.15);
+        }
+
+        /* Responsive Game Canvas Wrapper */
+        #game-container {
+            position: relative;
+            width: 100%;
+            max-width: 420px;
+            height: 600px;
+            margin: 0 auto;
+            border-radius: 24px;
+            overflow: hidden;
+            box-shadow: 0 20px 40px rgba(180, 83, 9, 0.2), inset 0 0 0 4px rgba(255, 255, 255, 0.8);
+            background: #fffdfa;
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+
+        /* Top Warning Line */
+        .danger-line {
+            position: absolute;
+            top: 100px;
+            left: 0;
+            width: 100%;
+            height: 2px;
+            border-top: 2px dashed #ef4444;
+            pointer-events: none;
+            z-index: 10;
+        }
+
+        /* Fruit Drop Guide Indicator */
+        #guide-line {
+            position: absolute;
+            top: 0;
+            width: 2px;
+            height: 100%;
+            background: rgba(249, 115, 22, 0.4);
+            pointer-events: none;
+            display: none;
+            z-index: 5;
+        }
+
+        /* Bouncy Button Effect */
+        .btn-bounce {
+            transition: all 0.15s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        .btn-bounce:active {
+            transform: scale(0.92);
         }
     </style>
 </head>
-<body class="h-full w-full bg-black relative">
+<body class="min-h-screen flex flex-col items-center justify-center p-3 sm:p-6 text-slate-800">
 
-    <!-- 3D Canvas Container -->
-    <div id="canvas-container" class="w-full h-full absolute inset-0 cursor-crosshair"></div>
-
-    <!-- HUD Overlay -->
-    <div id="hud" class="absolute inset-0 pointer-events-none z-10 flex flex-col justify-between p-6 hidden">
-        <!-- Top HUD (Score, Health, Combo) -->
-        <div class="flex justify-between items-start">
-            <!-- Health & Ammo -->
-            <div class="glass-panel px-5 py-3 rounded-2xl flex items-center gap-6 shadow-xl">
-                <div>
-                    <div class="text-xs text-slate-400 font-bold uppercase tracking-wider">체력 (Health)</div>
-                    <div class="flex items-center gap-2 mt-1">
-                        <i class="fa-solid fa-heart text-rose-500 text-xl animate-pulse"></i>
-                        <div class="w-32 bg-slate-800 h-3 rounded-full overflow-hidden border border-slate-700">
-                            <div id="hp-bar" class="bg-gradient-to-r from-rose-600 to-emerald-400 h-full w-full transition-all duration-300"></div>
-                        </div>
-                    </div>
-                </div>
-                <div class="border-l border-slate-700 pl-6">
-                    <div class="text-xs text-slate-400 font-bold uppercase tracking-wider">탄약 (Ammo)</div>
-                    <div class="text-2xl font-black orbitron text-cyan-400 tracking-widest mt-0.5">
-                        <span id="ammo-count">30</span> <span class="text-xs text-slate-500">/ ∞</span>
-                    </div>
-                </div>
+    <!-- Top Navigation Header / Score Bar -->
+    <div class="w-full max-w-[420px] mb-3 flex items-center justify-between gap-2">
+        <div class="glass-card rounded-2xl px-4 py-2 flex items-center gap-3 shadow-md flex-1">
+            <div class="w-10 h-10 rounded-xl bg-amber-500 text-white flex items-center justify-center text-xl shadow-inner">
+                🍗
             </div>
-
-            <!-- Score & Kills -->
-            <div class="glass-panel px-6 py-3 rounded-2xl text-right shadow-xl">
-                <div class="text-xs text-amber-400 font-bold uppercase tracking-wider">현재 점수</div>
-                <div id="score-display" class="text-4xl font-black orbitron text-white drop-shadow-md">0</div>
-                <div class="text-xs text-slate-400 mt-0.5">처치 수: <span id="kill-count" class="text-emerald-400 font-bold">0</span>명</div>
+            <div>
+                <div class="text-[11px] text-amber-700 font-bold uppercase tracking-wider">SCORE</div>
+                <div id="score" class="text-2xl font-black text-amber-900 leading-none">0</div>
             </div>
         </div>
 
-        <!-- Center Aim Dot Crosshair -->
-        <div id="crosshair">
-            <div class="w-1.5 h-1.5 bg-cyan-400 rounded-full absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 shadow-[0_0_8px_#00f3ff]"></div>
-        </div>
-
-        <!-- Hit Marker Effect -->
-        <div id="hit-marker" class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-8 h-8 opacity-0 pointer-events-none transition-opacity duration-100">
-            <div class="absolute inset-0 border-2 border-rose-500 rotate-45"></div>
-        </div>
-
-        <!-- Bottom Info -->
-        <div class="flex justify-between items-end">
-            <div class="glass-panel px-4 py-2 rounded-xl text-xs text-slate-300">
-                <i class="fa-solid fa-gamepad text-cyan-400 me-1.5"></i> WASD: 이동 | 마우스: 시점 전환 | 좌클릭: 발사 | R: 재장전
+        <div class="glass-card rounded-2xl px-4 py-2 flex items-center gap-3 shadow-md flex-1">
+            <div class="w-10 h-10 rounded-xl bg-orange-400 text-white flex items-center justify-center text-xl shadow-inner">
+                🏆
             </div>
-            <div id="current-skin-badge" class="glass-panel px-4 py-2 rounded-xl text-xs font-bold text-amber-300 border-amber-500/30">
-                스킨: Standard Tactical
+            <div>
+                <div class="text-[11px] text-amber-700 font-bold uppercase tracking-wider">BEST</div>
+                <div id="best-score" class="text-2xl font-black text-amber-900 leading-none">0</div>
             </div>
         </div>
-    </div>
 
-    <!-- Start / Pause / Game Over Menu Screen -->
-    <div id="menu-overlay" class="absolute inset-0 bg-slate-950/85 backdrop-blur-md z-30 flex items-center justify-center p-4">
-        <div class="glass-panel max-w-xl w-full rounded-3xl p-8 border border-slate-700/80 shadow-2xl relative overflow-hidden text-center">
-            
-            <!-- Title -->
-            <div class="mb-6">
-                <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 text-xs font-bold mb-3">
-                    <i class="fa-solid fa-crosshairs"></i> 3D FPS SHOOTER
-                </div>
-                <h1 class="text-4xl sm:text-5xl font-black tracking-tight text-white orbitron bg-gradient-to-r from-cyan-400 via-indigo-300 to-rose-400 bg-clip-text text-transparent">
-                    CYBER TARGET 3D
-                </h1>
-                <p class="text-slate-400 text-sm mt-2">다가오는 적들을 조준하고 제압하여 최다 점수를 기록하세요!</p>
-            </div>
-
-            <!-- Game Over Stat Box (Visible when Game Over) -->
-            <div id="game-over-stats" class="hidden mb-6 p-4 rounded-2xl bg-rose-500/10 border border-rose-500/30 text-center">
-                <div class="text-xs font-bold text-rose-400 uppercase tracking-widest mb-1">GAME OVER</div>
-                <div class="text-2xl font-extrabold text-white">최종 점수: <span id="final-score" class="text-amber-400 orbitron">0</span>점</div>
-                <div class="text-xs text-slate-400 mt-1">총 처치한 적: <span id="final-kills" class="text-emerald-400 font-bold">0</span>명</div>
-            </div>
-
-            <!-- Gun Skin Selection Carousel -->
-            <div class="mb-8 text-left bg-slate-900/60 p-4 rounded-2xl border border-slate-800">
-                <div class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3 flex items-center justify-between">
-                    <span><i class="fa-solid fa-gun text-cyan-400 me-1.5"></i> 총기 스킨 선택</span>
-                    <span class="text-[10px] text-cyan-400 font-normal">클릭하여 적용</span>
-                </div>
-                
-                <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                    <!-- Skin 1 -->
-                    <button class="skin-btn p-3 rounded-xl border border-cyan-500 bg-cyan-500/20 flex flex-col items-center gap-2 transition-all hover:scale-105" data-skin="default">
-                        <div class="w-8 h-8 rounded-full bg-slate-700 flex items-center justify-center border border-slate-500">
-                            <i class="fa-solid fa-shield-halved text-slate-300 text-sm"></i>
-                        </div>
-                        <span class="text-xs font-bold text-white">택티컬 블랙</span>
-                        <span class="text-[10px] text-slate-400">기본 제공</span>
-                    </button>
-
-                    <!-- Skin 2 -->
-                    <button class="skin-btn p-3 rounded-xl border border-slate-800 bg-slate-800/50 hover:border-purple-500/50 flex flex-col items-center gap-2 transition-all hover:scale-105" data-skin="neon">
-                        <div class="w-8 h-8 rounded-full bg-purple-900/80 flex items-center justify-center border border-purple-400">
-                            <i class="fa-solid fa-bolt text-purple-300 text-sm"></i>
-                        </div>
-                        <span class="text-xs font-bold text-purple-300">네온 서킷</span>
-                        <span class="text-[10px] text-slate-400">사이버펑크</span>
-                    </button>
-
-                    <!-- Skin 3 -->
-                    <button class="skin-btn p-3 rounded-xl border border-slate-800 bg-slate-800/50 hover:border-amber-500/50 flex flex-col items-center gap-2 transition-all hover:scale-105" data-skin="gold">
-                        <div class="w-8 h-8 rounded-full bg-amber-900/80 flex items-center justify-center border border-amber-400">
-                            <i class="fa-solid fa-crown text-amber-300 text-sm"></i>
-                        </div>
-                        <span class="text-xs font-bold text-amber-300">골드 라이온</span>
-                        <span class="text-[10px] text-slate-400">황금 패키지</span>
-                    </button>
-
-                    <!-- Skin 4 -->
-                    <button class="skin-btn p-3 rounded-xl border border-slate-800 bg-slate-800/50 hover:border-rose-500/50 flex flex-col items-center gap-2 transition-all hover:scale-105" data-skin="ruby">
-                        <div class="w-8 h-8 rounded-full bg-rose-900/80 flex items-center justify-center border border-rose-400">
-                            <i class="fa-solid fa-fire text-rose-300 text-sm"></i>
-                        </div>
-                        <span class="text-xs font-bold text-rose-300">루비 인페르노</span>
-                        <span class="text-[10px] text-slate-400">화염 레드</span>
-                    </button>
+        <!-- Next Food Preview & Reset -->
+        <div class="glass-card rounded-2xl p-2 flex items-center justify-center gap-2 shadow-md">
+            <div class="flex flex-col items-center">
+                <span class="text-[10px] text-amber-700 font-bold mb-0.5">NEXT</span>
+                <div id="next-fruit-preview" class="w-8 h-8 flex items-center justify-center text-xl">
+                    🍿
                 </div>
             </div>
-
-            <!-- Start Button -->
-            <button id="start-btn" class="w-full py-4 px-8 rounded-2xl bg-gradient-to-r from-cyan-500 via-blue-600 to-indigo-600 hover:from-cyan-400 hover:to-indigo-500 text-white font-extrabold text-lg shadow-lg shadow-cyan-500/30 active:scale-95 transition-all duration-150 flex items-center justify-center gap-3">
-                <i class="fa-solid fa-play text-xl"></i>
-                <span id="start-btn-text">게임 시작하기</span>
+            <button id="restart-btn" class="w-9 h-9 rounded-xl bg-amber-100 hover:bg-amber-200 text-amber-800 flex items-center justify-center btn-bounce shadow-sm">
+                <i class="fa-solid fa-rotate-right"></i>
             </button>
-            <p class="text-slate-500 text-xs mt-3">화면을 클릭하면 마우스 포인터가 잠기며 전투가 시작됩니다.</p>
         </div>
     </div>
 
-    <!-- Audio FX Engine -->
+    <!-- Main Game Container -->
+    <div id="game-container" class="relative">
+        <div class="danger-line"></div>
+        <div id="guide-line"></div>
+        <canvas id="canvas"></canvas>
+
+        <!-- Danger Warning Glow -->
+        <div id="warning-overlay" class="absolute inset-0 bg-red-500/10 opacity-0 pointer-events-none transition-opacity duration-300"></div>
+
+        <!-- Game Start Overlay -->
+        <div id="start-modal" class="absolute inset-0 bg-amber-950/40 backdrop-blur-sm z-30 flex flex-col items-center justify-center p-6 text-center">
+            <div class="glass-card rounded-3xl p-6 max-w-xs w-full flex flex-col items-center border-2 border-amber-300 shadow-2xl">
+                <div class="text-6xl mb-2 animate-bounce">🍕</div>
+                <h1 class="text-3xl font-black text-amber-900 mb-1">야식대장 게임</h1>
+                <p class="text-xs text-amber-700 mb-6">맛있는 야식들을 합쳐서<br>최고의 치킨&피자 세트를 만들어보세요!</p>
+
+                <div class="w-full bg-amber-50/80 rounded-2xl p-3 border border-amber-200 text-xs text-amber-800 mb-6 space-y-1 text-left">
+                    <div class="flex items-center gap-1.5"><span class="text-amber-500 font-bold">•</span> 클릭/드래그로 위치 조절 후 손 떼기</div>
+                    <div class="flex items-center gap-1.5"><span class="text-amber-500 font-bold">•</span> 같은 음식끼리 닿으면 더 큰 요리로 합체!</div>
+                    <div class="flex items-center gap-1.5"><span class="text-amber-500 font-bold">•</span> 빨간선을 3초 이상 넘어가면 배부름 오버!</div>
+                </div>
+
+                <button id="start-btn" class="w-full py-3.5 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-bold text-xl rounded-2xl shadow-lg shadow-amber-500/30 btn-bounce">
+                    게임 시작
+                </button>
+            </div>
+        </div>
+
+        <!-- Game Over Modal -->
+        <div id="gameover-modal" class="absolute inset-0 bg-amber-950/60 backdrop-blur-md z-30 flex flex-col items-center justify-center p-6 text-center hidden">
+            <div class="glass-card rounded-3xl p-6 max-w-xs w-full flex flex-col items-center border-2 border-red-300 shadow-2xl">
+                <div class="text-6xl mb-2">💥</div>
+                <h2 class="text-3xl font-black text-rose-600 mb-1">GAME OVER</h2>
+                <p class="text-xs text-slate-500 mb-4">음식 상자가 가득 차버렸어요!</p>
+
+                <div class="w-full bg-amber-50 rounded-2xl p-4 border border-amber-200 mb-6">
+                    <div class="text-xs text-amber-700 font-bold mb-1">최종 점수</div>
+                    <div id="final-score" class="text-4xl font-black text-amber-900">0</div>
+                </div>
+
+                <button id="retry-btn" class="w-full py-3.5 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-bold text-xl rounded-2xl shadow-lg shadow-amber-500/30 btn-bounce">
+                    다시 도전하기
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Food Evolutionary Chain Bar -->
+    <div class="w-full max-w-[420px] mt-3 glass-card rounded-2xl p-2.5 flex items-center justify-between text-lg overflow-x-auto gap-1">
+        <span class="text-xs font-bold text-amber-800 px-1">합체:</span>
+        <span title="팝콘">🍿</span><i class="fa-solid fa-angle-right text-[10px] text-amber-400"></i>
+        <span title="타코야키">🐙</span><i class="fa-solid fa-angle-right text-[10px] text-amber-400"></i>
+        <span title="핫도그">🌭</span><i class="fa-solid fa-angle-right text-[10px] text-amber-400"></i>
+        <span title="감자튀김">🍟</span><i class="fa-solid fa-angle-right text-[10px] text-amber-400"></i>
+        <span title="샌드위치">🥪</span><i class="fa-solid fa-angle-right text-[10px] text-amber-400"></i>
+        <span title="만두">🥟</span><i class="fa-solid fa-angle-right text-[10px] text-amber-400"></i>
+        <span title="초밥">🍣</span><i class="fa-solid fa-angle-right text-[10px] text-amber-400"></i>
+        <span title="치킨">🍗</span><i class="fa-solid fa-angle-right text-[10px] text-amber-400"></i>
+        <span title="피자">🍕</span><i class="fa-solid fa-angle-right text-[10px] text-amber-400"></i>
+        <span title="족발">🍖</span><i class="fa-solid fa-angle-right text-[10px] text-amber-400"></i>
+        <span title="치킨피자세트">🍱</span>
+    </div>
+
     <script>
-        class SoundEngine {
-            constructor() {
-                this.ctx = null;
-            }
-            init() {
-                if (!this.ctx) {
-                    this.ctx = new (window.AudioContext || window.webkitAudioContext)();
-                }
-            }
-            playGunShot() {
-                this.init();
-                if (!this.ctx) return;
+        // --- Web Audio API Synthesizer Sound Engine ---
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        let audioCtx = null;
 
-                // Noise Buffer for Gunshot Impact
-                const bufferSize = this.ctx.sampleRate * 0.15;
-                const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
-                const data = buffer.getChannelData(0);
-                for (let i = 0; i < bufferSize; i++) {
-                    data[i] = Math.random() * 2 - 1;
-                }
+        function initAudio() {
+            if (!audioCtx) audioCtx = new AudioContext();
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+        }
 
-                const noise = this.ctx.createBufferSource();
-                noise.buffer = buffer;
+        function playSound(type) {
+            if (!audioCtx) return;
+            const now = audioCtx.currentTime;
 
-                const filter = this.ctx.createBiquadFilter();
-                filter.type = 'lowpass';
-                filter.frequency.setValueAtTime(3000, this.ctx.currentTime);
-                filter.frequency.exponentialRampToValueAtTime(100, this.ctx.currentTime + 0.15);
-
-                const gain = this.ctx.createGain();
-                gain.gain.setValueAtTime(0.5, this.ctx.currentTime);
-                gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.15);
-
-                noise.connect(filter);
-                filter.connect(gain);
-                gain.connect(this.ctx.destination);
-
-                noise.start();
-            }
-
-            playHitSound() {
-                this.init();
-                if (!this.ctx) return;
-                const osc = this.ctx.createOscillator();
-                const gain = this.ctx.createGain();
+            if (type === 'pop') {
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
                 osc.type = 'sine';
-                osc.frequency.setValueAtTime(800, this.ctx.currentTime);
-                osc.frequency.exponentialRampToValueAtTime(400, this.ctx.currentTime + 0.08);
-                gain.gain.setValueAtTime(0.3, this.ctx.currentTime);
-                gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.08);
+                osc.frequency.setValueAtTime(300, now);
+                osc.frequency.exponentialRampToValueAtTime(800, now + 0.1);
+                gain.gain.setValueAtTime(0.3, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
                 osc.connect(gain);
-                gain.connect(this.ctx.destination);
-                osc.start();
-                osc.stop(this.ctx.currentTime + 0.08);
-            }
-
-            playKillSound() {
-                this.init();
-                if (!this.ctx) return;
-                const osc = this.ctx.createOscillator();
-                const gain = this.ctx.createGain();
+                gain.connect(audioCtx.destination);
+                osc.start(now);
+                osc.stop(now + 0.1);
+            } else if (type === 'merge') {
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
                 osc.type = 'triangle';
-                osc.frequency.setValueAtTime(523.25, this.ctx.currentTime); // C5
-                osc.frequency.setValueAtTime(1046.50, this.ctx.currentTime + 0.08); // C6
-                gain.gain.setValueAtTime(0.4, this.ctx.currentTime);
-                gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.2);
+                osc.frequency.setValueAtTime(400, now);
+                osc.frequency.setValueAtTime(600, now + 0.08);
+                osc.frequency.setValueAtTime(900, now + 0.16);
+                gain.gain.setValueAtTime(0.4, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.25);
                 osc.connect(gain);
-                gain.connect(this.ctx.destination);
-                osc.start();
-                osc.stop(this.ctx.currentTime + 0.2);
-            }
-
-            playReload() {
-                this.init();
-                if (!this.ctx) return;
-                const osc = this.ctx.createOscillator();
-                const gain = this.ctx.createGain();
+                gain.connect(audioCtx.destination);
+                osc.start(now);
+                osc.stop(now + 0.25);
+            } else if (type === 'watermelon') {
+                // Fanfare sound when making a big pizza/chicken set
+                const notes = [523.25, 659.25, 783.99, 1046.50];
+                notes.forEach((freq, idx) => {
+                    const osc = audioCtx.createOscillator();
+                    const gain = audioCtx.createGain();
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(freq, now + idx * 0.08);
+                    gain.gain.setValueAtTime(0.3, now + idx * 0.08);
+                    gain.gain.exponentialRampToValueAtTime(0.01, now + idx * 0.08 + 0.3);
+                    osc.connect(gain);
+                    gain.connect(audioCtx.destination);
+                    osc.start(now + idx * 0.08);
+                    osc.stop(now + idx * 0.08 + 0.3);
+                });
+            } else if (type === 'gameover') {
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
                 osc.type = 'sawtooth';
-                osc.frequency.setValueAtTime(200, this.ctx.currentTime);
-                osc.frequency.exponentialRampToValueAtTime(600, this.ctx.currentTime + 0.1);
-                gain.gain.setValueAtTime(0.1, this.ctx.currentTime);
-                gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.2);
+                osc.frequency.setValueAtTime(300, now);
+                osc.frequency.exponentialRampToValueAtTime(80, now + 0.5);
+                gain.gain.setValueAtTime(0.4, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.5);
                 osc.connect(gain);
-                gain.connect(this.ctx.destination);
-                osc.start();
-                osc.stop(this.ctx.currentTime + 0.2);
+                gain.connect(audioCtx.destination);
+                osc.start(now);
+                osc.stop(now + 0.5);
             }
         }
 
-        const sound = new SoundEngine();
-    </script>
+        // 음성 합성(SpeechSynthesis) - "이게 뭐야" 재생 함수
+        function speakWhatsThis() {
+            if ('speechSynthesis' in window) {
+                // 이전 음성이 재생 중이면 취소하고 즉시 새로 말하기
+                window.speechSynthesis.cancel();
 
-    <!-- Main Game Logic Script -->
-    <script>
-        // Game Configuration & State
-        const CONFIG = {
-            moveSpeed: 10,
-            enemySpawnInterval: 2000,
-            maxAmmo: 30,
-            playerMaxHp: 100
-        };
+                const utterance = new SpeechSynthesisUtterance('이게 뭐야');
+                utterance.lang = 'ko-KR';
+                utterance.rate = 1.3;  // 신나고 통통 튀게 빠른 속도로 설정
+                utterance.pitch = 1.2; // 약간 높은 톤
+                utterance.volume = 1.0;
+                
+                window.speechSynthesis.speak(utterance);
+            }
+        }
 
+        // --- Food Definitions (11 Evolution Stages including Chicken & Pizza) ---
+        const FRUITS = [
+            { name: '팝콘', radius: 15, score: 2, color: '#fde047', emoji: '🍿' },
+            { name: '타코야키', radius: 22, score: 4, color: '#fb923c', emoji: '🐙' },
+            { name: '핫도그', radius: 30, score: 8, color: '#f87171', emoji: '🌭' },
+            { name: '감자튀김', radius: 38, score: 16, color: '#facc15', emoji: '🍟' },
+            { name: '샌드위치', radius: 46, score: 32, color: '#a3e635', emoji: '🥪' },
+            { name: '만두', radius: 55, score: 64, color: '#fed7aa', emoji: '🥟' },
+            { name: '초밥', radius: 65, score: 128, color: '#f43f5e', emoji: '🍣' },
+            { name: '치킨', radius: 75, score: 256, color: '#d97706', emoji: '🍗' },
+            { name: '피자', radius: 88, score: 512, color: '#ea580c', emoji: '🍕' },
+            { name: '족발', radius: 102, score: 1024, color: '#78350f', emoji: '🍖' },
+            { name: '치킨피자세트', radius: 118, score: 2048, color: '#b45309', emoji: '🍱' }
+        ];
+
+        // --- Game Logic & Matter.js State ---
+        const { Engine, Render, Runner, Bodies, World, Events, Body } = Matter;
+
+        let engine, runner;
+        let canvas, ctx;
         let score = 0;
-        let kills = 0;
-        let playerHp = CONFIG.playerMaxHp;
-        let ammo = CONFIG.maxAmmo;
-        let isReloading = false;
-        let isGameActive = false;
-        let selectedSkin = 'default';
+        let bestScore = parseInt(localStorage.getItem('food_game_best') || '0');
 
-        // Three.js Core Variables
-        let scene, camera, renderer;
-        let gunGroup, gunMesh, muzzleFlashMesh;
-        let enemies = [];
-        let bullets = [];
+        let currentFruit = null;
+        let nextFruitIndex = 0;
+        let canDrop = true;
+        let isGameOver = false;
+        let isGameStarted = false;
+
+        let currentMouseX = 210; // Default center X
+        let lineTimer = 0; // Overflow danger timer
         let particles = [];
-        let lastEnemySpawnTime = 0;
 
-        // Player Movement & Physics Controls
-        let moveForward = false;
-        let moveBackward = false;
-        let moveLeft = false;
-        let moveRight = false;
-        let velocity = new THREE.Vector3();
-        let direction = new THREE.Vector3();
-        let clock = new THREE.Clock();
-
-        // Pointer Lock & Camera Rotation
-        let pitchObject = new THREE.Object3D();
-        let yawObject = new THREE.Object3D();
+        // Container Dimensions
+        const CONTAINER_WIDTH = 420;
+        const CONTAINER_HEIGHT = 600;
+        const DANGER_Y = 100;
 
         // DOM Elements
-        const menuOverlay = document.getElementById('menu-overlay');
-        const startBtn = document.getElementById('start-btn');
-        const startBtnText = document.getElementById('start-btn-text');
-        const hud = document.getElementById('hud');
-        const scoreDisplay = document.getElementById('score-display');
-        const killCountDisplay = document.getElementById('kill-count');
-        const ammoCountDisplay = document.getElementById('ammo-count');
-        const hpBar = document.getElementById('hp-bar');
-        const hitMarker = document.getElementById('hit-marker');
-        const gameOverStats = document.getElementById('game-over-stats');
-        const finalScore = document.getElementById('final-score');
-        const finalKills = document.getElementById('final-kills');
-        const skinBadge = document.getElementById('current-skin-badge');
-        const skinBtns = document.querySelectorAll('.skin-btn');
+        const scoreEl = document.getElementById('score');
+        const bestScoreEl = document.getElementById('best-score');
+        const finalScoreEl = document.getElementById('final-score');
+        const nextPreviewEl = document.getElementById('next-fruit-preview');
+        const guideLine = document.getElementById('guide-line');
+        const warningOverlay = document.getElementById('warning-overlay');
+        const startModal = document.getElementById('start-modal');
+        const gameoverModal = document.getElementById('gameover-modal');
 
-        // Skin Definitions
-        const SKINS = {
-            default: { name: '택티컬 블랙', bodyColor: 0x22252a, accentColor: 0x475569, emissive: 0x000000 },
-            neon: { name: '네온 서킷', bodyColor: 0x0f172a, accentColor: 0x8b5cf6, emissive: 0xa855f7 },
-            gold: { name: '골드 라이온', bodyColor: 0xd97706, accentColor: 0xfef08a, emissive: 0xb45309 },
-            ruby: { name: '루비 인페르노', bodyColor: 0x881337, accentColor: 0xf43f5e, emissive: 0xe11d48 }
-        };
-
-        // Window Load Handler
-        window.onload = function() {
-            init3DScene();
+        // Initialize App
+        window.addEventListener('load', () => {
+            bestScoreEl.innerText = bestScore;
+            initMatterEngine();
             setupEventListeners();
-            animate();
-        };
+        });
 
-        // Initialize 3D Scene World
-        function init3DScene() {
-            const container = document.getElementById('canvas-container');
+        function initMatterEngine() {
+            canvas = document.getElementById('canvas');
+            ctx = canvas.getContext('2d');
+            canvas.width = CONTAINER_WIDTH;
+            canvas.height = CONTAINER_HEIGHT;
 
-            // Scene setup
-            scene = new THREE.Scene();
-            scene.background = new THREE.Color(0x090d16);
-            scene.fog = new THREE.FogExp2(0x090d16, 0.02);
+            // Physics Engine Init
+            engine = Engine.create({
+                gravity: { x: 0, y: 1.5, scale: 0.001 }
+            });
 
-            // Camera & FPS Camera Rig Setup
-            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-            
-            pitchObject.add(camera);
-            yawObject.position.y = 1.6; // Eye level height
-            yawObject.add(pitchObject);
-            scene.add(yawObject);
+            // Boundary Walls (Left, Right, Bottom)
+            const wallOptions = { isStatic: true, friction: 0.2, restitution: 0.2 };
+            const ground = Bodies.rectangle(CONTAINER_WIDTH / 2, CONTAINER_HEIGHT + 30, CONTAINER_WIDTH + 100, 60, wallOptions);
+            const leftWall = Bodies.rectangle(-30, CONTAINER_HEIGHT / 2, 60, CONTAINER_HEIGHT * 2, wallOptions);
+            const rightWall = Bodies.rectangle(CONTAINER_WIDTH + 30, CONTAINER_HEIGHT / 2, 60, CONTAINER_HEIGHT * 2, wallOptions);
 
-            // Renderer setup
-            renderer = new THREE.WebGLRenderer({ antialias: true });
-            renderer.setSize(window.innerWidth, window.innerHeight);
-            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-            renderer.shadowMap.enabled = true;
-            container.appendChild(renderer.domElement);
+            World.add(engine.world, [ground, leftWall, rightWall]);
 
-            // Lighting
-            const ambientLight = new THREE.AmbientLight(0xffffff, 0.4);
-            scene.add(ambientLight);
+            // Collision Merge Listener
+            Events.on(engine, 'collisionStart', handleCollisions);
 
-            const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
-            dirLight.position.set(20, 40, 20);
-            dirLight.castShadow = true;
-            dirLight.shadow.mapSize.width = 2048;
-            dirLight.shadow.mapSize.height = 2048;
-            scene.add(dirLight);
+            runner = Runner.create();
+            Runner.run(runner, engine);
 
-            // Point lights for Cyberpunk atmosphere
-            const pointLight1 = new THREE.PointLight(0x00f3ff, 1, 30);
-            pointLight1.position.set(0, 5, 0);
-            scene.add(pointLight1);
-
-            // Build Environment (Floor & Obstacles)
-            buildEnvironment();
-
-            // Build Gun Model & Attach to Camera
-            buildGunModel();
-
-            // Resize Event Listener
-            window.addEventListener('resize', onWindowResize, false);
+            // Start Render Canvas Frame Loop
+            requestAnimationFrame(renderLoop);
         }
 
-        // Environment Construction
-        function buildEnvironment() {
-            // Grid Floor Texture / Mesh
-            const floorGeo = new THREE.PlaneGeometry(100, 100, 50, 50);
-            const floorMat = new THREE.MeshStandardMaterial({
-                color: 0x0f172a,
-                roughness: 0.8,
-                metalness: 0.2,
-                wireframe: false
-            });
-            const floor = new THREE.Mesh(floorGeo, floorMat);
-            floor.rotation.x = -Math.PI / 2;
-            floor.receiveShadow = true;
-            scene.add(floor);
+        // Prepare Next Drop Food
+        function prepareNextFruit() {
+            if (isGameOver) return;
 
-            // Grid Line Overlay
-            const gridHelper = new THREE.GridHelper(100, 50, 0x00f3ff, 0x1e293b);
-            gridHelper.position.y = 0.01;
-            scene.add(gridHelper);
+            const index = nextFruitIndex;
+            nextFruitIndex = Math.floor(Math.random() * 5); // Pick random small food (0-4)
+            nextPreviewEl.innerText = FRUITS[nextFruitIndex].emoji;
 
-            // Decorative Pillars / Obstacles
-            const boxGeo = new THREE.BoxGeometry(2, 6, 2);
-            const boxMat = new THREE.MeshStandardMaterial({
-                color: 0x1e293b,
-                roughness: 0.4,
-                metalness: 0.6
-            });
-
-            for (let i = 0; i < 20; i++) {
-                const obstacle = new THREE.Mesh(boxGeo, boxMat);
-                const x = (Math.random() - 0.5) * 60;
-                const z = (Math.random() - 0.5) * 60;
-                if (Math.abs(x) < 5 && Math.abs(z) < 5) continue; // Keep spawn area clear
-                obstacle.position.set(x, 3, z);
-                obstacle.castShadow = true;
-                obstacle.receiveShadow = true;
-                scene.add(obstacle);
-            }
-        }
-
-        // Build Procedural 3D FPS Gun Model
-        function buildGunModel() {
-            gunGroup = new THREE.Group();
-
-            // Gun Body
-            const bodyGeo = new THREE.BoxGeometry(0.12, 0.16, 0.6);
-            const skinData = SKINS[selectedSkin];
-            const bodyMat = new THREE.MeshStandardMaterial({
-                color: skinData.bodyColor,
-                metalness: 0.8,
-                roughness: 0.2,
-                emissive: skinData.emissive,
-                emissiveIntensity: 0.2
-            });
-            gunMesh = new THREE.Mesh(bodyGeo, bodyMat);
-            gunMesh.position.set(0, 0, 0);
-            gunGroup.add(gunMesh);
-
-            // Barrel
-            const barrelGeo = new THREE.CylinderGeometry(0.03, 0.03, 0.4, 16);
-            const accentMat = new THREE.MeshStandardMaterial({
-                color: skinData.accentColor,
-                metalness: 0.9,
-                roughness: 0.1
-            });
-            const barrel = new THREE.Mesh(barrelGeo, accentMat);
-            barrel.rotation.x = Math.PI / 2;
-            barrel.position.set(0, 0.03, -0.4);
-            gunGroup.add(barrel);
-
-            // Handle
-            const handleGeo = new THREE.BoxGeometry(0.08, 0.25, 0.12);
-            const handle = new THREE.Mesh(handleGeo, bodyMat);
-            handle.position.set(0, -0.15, 0.1);
-            handle.rotation.x = -0.2;
-            gunGroup.add(handle);
-
-            // Muzzle Flash Sprite
-            const flashGeo = new THREE.SphereGeometry(0.08, 8, 8);
-            const flashMat = new THREE.MeshBasicMaterial({
-                color: 0xffaa00,
-                transparent: true,
-                opacity: 0
-            });
-            muzzleFlashMesh = new THREE.Mesh(flashGeo, flashMat);
-            muzzleFlashMesh.position.set(0, 0.03, -0.65);
-            gunGroup.add(muzzleFlashMesh);
-
-            // Position gun in camera view
-            gunGroup.position.set(0.25, -0.22, -0.45);
-            camera.add(gunGroup);
-        }
-
-        // Apply Selected Skin to Gun Model
-        function applyGunSkin(skinKey) {
-            selectedSkin = skinKey;
-            const skinData = SKINS[skinKey];
-
-            gunGroup.children.forEach(child => {
-                if (child.material) {
-                    child.material.color.setHex(skinData.bodyColor);
-                    if (skinData.emissive) {
-                        child.material.emissive.setHex(skinData.emissive);
-                    }
-                }
-            });
-
-            skinBadge.textContent = `스킨: ${skinData.name}`;
-
-            // Update UI buttons state
-            skinBtns.forEach(btn => {
-                const btnSkin = btn.getAttribute('data-skin');
-                if (btnSkin === skinKey) {
-                    btn.classList.add('border-cyan-500', 'bg-cyan-500/20');
-                    btn.classList.remove('border-slate-800', 'bg-slate-800/50');
-                } else {
-                    btn.classList.remove('border-cyan-500', 'bg-cyan-500/20');
-                    btn.classList.add('border-slate-800', 'bg-slate-800/50');
-                }
-            });
-        }
-
-        // Spawn Enemies (Monsters)
-        function spawnEnemy() {
-            const enemyGroup = new THREE.Group();
-
-            // Enemy Body Mesh
-            const bodyGeo = new THREE.SphereGeometry(0.7, 16, 16);
-            const bodyMat = new THREE.MeshStandardMaterial({
-                color: 0xf43f5e,
-                roughness: 0.3,
-                metalness: 0.5,
-                emissive: 0x881337,
-                emissiveIntensity: 0.4
-            });
-            const body = new THREE.Mesh(bodyGeo, bodyMat);
-            body.castShadow = true;
-            enemyGroup.add(body);
-
-            // Glowing Eye
-            const eyeGeo = new THREE.SphereGeometry(0.25, 8, 8);
-            const eyeMat = new THREE.MeshBasicMaterial({ color: 0x00f3ff });
-            const eye = new THREE.Mesh(eyeGeo, eyeMat);
-            eye.position.set(0, 0.2, -0.5);
-            enemyGroup.add(eye);
-
-            // Spawn Position (Distance around player)
-            const angle = Math.random() * Math.PI * 2;
-            const distance = 20 + Math.random() * 15;
-            const x = yawObject.position.x + Math.cos(angle) * distance;
-            const z = yawObject.position.z + Math.sin(angle) * distance;
-
-            enemyGroup.position.set(x, 1, z);
-            
-            // Custom properties
-            enemyGroup.userData = {
-                hp: 2,
-                speed: 4.5 + Math.random() * 2.5,
-                radius: 0.8
+            currentFruit = {
+                index: index,
+                x: currentMouseX,
+                y: 50,
+                radius: FRUITS[index].radius
             };
-
-            scene.add(enemyGroup);
-            enemies.push(enemyGroup);
+            canDrop = true;
         }
 
-        // Player Shoot Action (Left Click)
-        function shoot() {
-            if (!isGameActive || isReloading) return;
+        // Drop Current Food into Container
+        function dropFruit() {
+            if (!canDrop || !currentFruit || isGameOver || !isGameStarted) return;
+            canDrop = false;
 
-            if (ammo <= 0) {
-                reloadAmmo();
-                return;
-            }
+            const fruitInfo = FRUITS[currentFruit.index];
 
-            ammo--;
-            ammoCountDisplay.textContent = ammo;
-            sound.playGunShot();
-
-            // Muzzle Flash Effect
-            muzzleFlashMesh.material.opacity = 1;
-            setTimeout(() => { muzzleFlashMesh.material.opacity = 0; }, 50);
-
-            // Gun Recoil Animation
-            gunGroup.position.z = -0.35;
-            gunGroup.rotation.x = 0.15;
-
-            // Raycasting for Shot Hit Detection
-            const raycaster = new THREE.Raycaster();
-            const centerVector = new THREE.Vector2(0, 0); // Screen center
-            raycaster.setFromCamera(centerVector, camera);
-
-            // Check enemy hits
-            const enemyMeshes = [];
-            enemies.forEach(e => {
-                e.children.forEach(child => enemyMeshes.push(child));
+            // Create Physics Circle Body
+            const body = Bodies.circle(currentFruit.x, currentFruit.y, fruitInfo.radius, {
+                restitution: 0.3,
+                friction: 0.1,
+                density: 0.001,
+                label: 'fruit_' + currentFruit.index
             });
 
-            const intersects = raycaster.intersectObjects(enemyMeshes);
+            body.fruitIndex = currentFruit.index;
+            World.add(engine.world, body);
 
-            if (intersects.length > 0) {
-                const hitObj = intersects[0].object;
-                const enemyGroup = hitObj.parent;
+            playSound('pop');
+            speakWhatsThis(); // 음식이 내려놓아질(설치될) 때 "이게 뭐야" 소리 출력
+            currentFruit = null;
 
-                if (enemyGroup && enemyGroup.userData) {
-                    enemyGroup.userData.hp -= 1;
-
-                    // Trigger Hit Marker UI Effect
-                    hitMarker.style.opacity = '1';
-                    setTimeout(() => { hitMarker.style.opacity = '0'; }, 100);
-
-                    // Create Spark Particles
-                    createHitParticles(intersects[0].point);
-
-                    if (enemyGroup.userData.hp <= 0) {
-                        // Enemy Destroyed / Killed
-                        sound.playKillSound();
-                        createExplosionParticles(enemyGroup.position);
-                        
-                        scene.remove(enemyGroup);
-                        enemies = enemies.filter(e => e !== enemyGroup);
-
-                        // Score & Kills Increase
-                        score += 100;
-                        kills += 1;
-                        scoreDisplay.textContent = score;
-                        killCountDisplay.textContent = kills;
-                    } else {
-                        sound.playHitSound();
-                    }
-                }
-            }
-
-            if (ammo === 0) {
-                reloadAmmo();
-            }
-        }
-
-        // Reload Ammo Action
-        function reloadAmmo() {
-            if (isReloading || ammo === CONFIG.maxAmmo) return;
-            isReloading = true;
-            sound.playReload();
-            ammoCountDisplay.textContent = "RELOADING...";
-
+            // Cooldown delay before next food appears
             setTimeout(() => {
-                ammo = CONFIG.maxAmmo;
-                ammoCountDisplay.textContent = ammo;
-                isReloading = false;
-            }, 1200);
+                if (!isGameOver) prepareNextFruit();
+            }, 500);
         }
 
-        // Particle FX Generators
-        function createHitParticles(pos) {
-            for (let i = 0; i < 8; i++) {
-                const pGeo = new THREE.SphereGeometry(0.05, 4, 4);
-                const pMat = new THREE.MeshBasicMaterial({ color: 0x00f3ff });
-                const p = new THREE.Mesh(pGeo, pMat);
-                p.position.copy(pos);
-                p.userData = {
-                    velocity: new THREE.Vector3(
-                        (Math.random() - 0.5) * 5,
-                        (Math.random() - 0.5) * 5,
-                        (Math.random() - 0.5) * 5
-                    ),
-                    life: 0.3
-                };
-                scene.add(p);
-                particles.push(p);
-            }
-        }
+        // Handle Collision and Fusion Logic
+        function handleCollisions(event) {
+            const pairs = event.pairs;
 
-        function createExplosionParticles(pos) {
-            for (let i = 0; i < 20; i++) {
-                const pGeo = new THREE.BoxGeometry(0.1, 0.1, 0.1);
-                const pMat = new THREE.MeshBasicMaterial({ color: 0xf43f5e });
-                const p = new THREE.Mesh(pGeo, pMat);
-                p.position.copy(pos);
-                p.userData = {
-                    velocity: new THREE.Vector3(
-                        (Math.random() - 0.5) * 8,
-                        Math.random() * 6,
-                        (Math.random() - 0.5) * 8
-                    ),
-                    life: 0.6
-                };
-                scene.add(p);
-                particles.push(p);
-            }
-        }
+            pairs.forEach(pair => {
+                const bodyA = pair.bodyA;
+                const bodyB = pair.bodyB;
 
-        // Setup Controls & Event Listeners
-        function setupEventListeners() {
-            // Skin selector buttons
-            skinBtns.forEach(btn => {
-                btn.addEventListener('click', (e) => {
-                    const skin = btn.getAttribute('data-skin');
-                    applyGunSkin(skin);
-                });
-            });
+                // Check if both bodies are valid food bodies
+                if (bodyA.fruitIndex !== undefined && bodyB.fruitIndex !== undefined) {
+                    if (bodyA.fruitIndex === bodyB.fruitIndex && !bodyA.isMerging && !bodyB.isMerging) {
+                        const currentIndex = bodyA.fruitIndex;
 
-            // Start Game Button
-            startBtn.addEventListener('click', startGame);
+                        // Max food reached?
+                        if (currentIndex >= FRUITS.length - 1) return;
 
-            // Pointer Lock Controls Setup
-            document.addEventListener('pointerlockchange', onPointerLockChange, false);
+                        bodyA.isMerging = true;
+                        bodyB.isMerging = true;
 
-            document.addEventListener('mousemove', (e) => {
-                if (document.pointerLockElement === document.body) {
-                    const movementX = e.movementX || 0;
-                    const movementY = e.movementY || 0;
+                        const newIndex = currentIndex + 1;
+                        const midX = (bodyA.position.x + bodyB.position.x) / 2;
+                        const midY = (bodyA.position.y + bodyB.position.y) / 2;
 
-                    yawObject.rotation.y -= movementX * 0.002;
-                    pitchObject.rotation.x -= movementY * 0.002;
+                        // Remove collided pair
+                        World.remove(engine.world, [bodyA, bodyB]);
 
-                    // Clamp camera vertical pitch angle
-                    pitchObject.rotation.x = Math.max(-Math.PI / 2.2, Math.min(Math.PI / 2.2, pitchObject.rotation.x));
-                }
-            });
+                        // Add new merged food
+                        const newFruitInfo = FRUITS[newIndex];
+                        const newBody = Bodies.circle(midX, midY, newFruitInfo.radius, {
+                            restitution: 0.3,
+                            friction: 0.1,
+                            density: 0.001,
+                            label: 'fruit_' + newIndex
+                        });
+                        newBody.fruitIndex = newIndex;
 
-            // Mouse Click Shooting
-            document.addEventListener('mousedown', (e) => {
-                if (e.button === 0 && document.pointerLockElement === document.body) {
-                    shoot();
-                }
-            });
+                        World.add(engine.world, newBody);
 
-            // Keyboard Movement Listeners
-            window.addEventListener('keydown', (e) => {
-                switch (e.code) {
-                    case 'KeyW': moveForward = true; break;
-                    case 'KeyS': moveBackward = true; break;
-                    case 'KeyA': moveLeft = true; break;
-                    case 'KeyD': moveRight = true; break;
-                    case 'KeyR': reloadAmmo(); break;
-                }
-            });
+                        // Add Score
+                        score += newFruitInfo.score;
+                        scoreEl.innerText = score;
 
-            window.addEventListener('keyup', (e) => {
-                switch (e.code) {
-                    case 'KeyW': moveForward = false; break;
-                    case 'KeyS': moveBackward = false; break;
-                    case 'KeyA': moveLeft = false; break;
-                    case 'KeyD': moveRight = false; break;
-                }
-            });
-        }
-
-        // Pointer Lock Handler
-        function onPointerLockChange() {
-            if (document.pointerLockElement === document.body) {
-                isGameActive = true;
-                menuOverlay.classList.add('hidden');
-                hud.classList.remove('hidden');
-            } else {
-                isGameActive = false;
-                hud.classList.add('hidden');
-                menuOverlay.classList.remove('hidden');
-                startBtnText.textContent = "게임 계속하기";
-            }
-        }
-
-        // Start / Reset Game Session
-        function startGame() {
-            sound.init();
-            
-            if (playerHp <= 0) {
-                // Reset stats on new game after death
-                score = 0;
-                kills = 0;
-                playerHp = CONFIG.playerMaxHp;
-                ammo = CONFIG.maxAmmo;
-                
-                scoreDisplay.textContent = score;
-                killCountDisplay.textContent = kills;
-                hpBar.style.width = '100%';
-                
-                // Clear existing enemies
-                enemies.forEach(e => scene.remove(e));
-                enemies = [];
-
-                // Reset Player position
-                yawObject.position.set(0, 1.6, 0);
-            }
-
-            document.body.requestPointerLock();
-        }
-
-        // Game Over Trigger
-        function gameOver() {
-            isGameActive = false;
-            document.exitPointerLock();
-
-            finalScore.textContent = score;
-            finalKills.textContent = kills;
-            gameOverStats.classList.remove('hidden');
-            startBtnText.textContent = "다시 도전하기";
-        }
-
-        // Main Render Loop & Physics Update
-        function animate() {
-            requestAnimationFrame(animate);
-
-            const delta = clock.getDelta();
-
-            if (isGameActive) {
-                // 1. Player Movement Logic
-                velocity.x -= velocity.x * 10.0 * delta;
-                velocity.z -= velocity.z * 10.0 * delta;
-
-                direction.z = Number(moveForward) - Number(moveBackward);
-                direction.x = Number(moveRight) - Number(moveLeft);
-                direction.normalize();
-
-                if (moveForward || moveBackward) velocity.z -= direction.z * CONFIG.moveSpeed * 10.0 * delta;
-                if (moveLeft || moveRight) velocity.x -= direction.x * CONFIG.moveSpeed * 10.0 * delta;
-
-                yawObject.translateX(-velocity.x * delta);
-                yawObject.translateZ(velocity.z * delta);
-
-                // Keep Player in Bounds
-                yawObject.position.x = Math.max(-45, Math.min(45, yawObject.position.x));
-                yawObject.position.z = Math.max(-45, Math.min(45, yawObject.position.z));
-
-                // 2. Gun Sway & Recoil Recovery Animation
-                gunGroup.position.z += (-0.45 - gunGroup.position.z) * 0.1;
-                gunGroup.rotation.x += (0 - gunGroup.rotation.x) * 0.1;
-
-                // 3. Enemy Spawning Loop
-                const now = performance.now();
-                if (now - lastEnemySpawnTime > CONFIG.enemySpawnInterval) {
-                    if (enemies.length < 12) {
-                        spawnEnemy();
-                    }
-                    lastEnemySpawnTime = now;
-                }
-
-                // 4. Update Enemies Logic
-                enemies.forEach(enemy => {
-                    // Look at Player
-                    enemy.lookAt(yawObject.position.x, 1, yawObject.position.z);
-                    
-                    // Move towards Player
-                    const dir = new THREE.Vector3().subVectors(yawObject.position, enemy.position);
-                    dir.y = 0;
-                    dir.normalize();
-                    enemy.position.addScaledVector(dir, enemy.userData.speed * delta);
-
-                    // Check Distance to Player for Damage
-                    const distToPlayer = enemy.position.distanceTo(yawObject.position);
-                    if (distToPlayer < 1.5) {
-                        playerHp -= 15 * delta;
-                        hpBar.style.width = `${Math.max(0, playerHp)}%`;
-
-                        if (playerHp <= 0) {
-                            gameOver();
+                        if (score > bestScore) {
+                            bestScore = score;
+                            bestScoreEl.innerText = bestScore;
+                            localStorage.setItem('food_game_best', bestScore.toString());
                         }
-                    }
-                });
 
-                // 5. Particles Update
-                for (let i = particles.length - 1; i >= 0; i--) {
-                    const p = particles[i];
-                    p.position.addScaledVector(p.userData.velocity, delta);
-                    p.userData.life -= delta;
-                    if (p.userData.life <= 0) {
-                        scene.remove(p);
-                        particles.splice(i, 1);
+                        // Play Sound & Effects
+                        if (newIndex === FRUITS.length - 1) {
+                            playSound('watermelon');
+                            confetti({ particleCount: 80, spread: 70, origin: { y: 0.6 } });
+                        } else {
+                            playSound('merge');
+                        }
+
+                        createParticles(midX, midY, newFruitInfo.color);
                     }
                 }
+            });
+        }
+
+        // Spawn Juicy Particles on Merge
+        function createParticles(x, y, color) {
+            for (let i = 0; i < 12; i++) {
+                particles.push({
+                    x: x,
+                    y: y,
+                    vx: (Math.random() - 0.5) * 8,
+                    vy: (Math.random() - 0.5) * 8,
+                    radius: Math.random() * 4 + 2,
+                    color: color,
+                    alpha: 1.0
+                });
+            }
+        }
+
+        // Custom Canvas Render Engine Loop
+        function renderLoop() {
+            ctx.clearRect(0, 0, CONTAINER_WIDTH, CONTAINER_HEIGHT);
+
+            // 1. Draw Static / Dynamic Physics Fruit Bodies
+            const bodies = Composite.allBodies(engine.world);
+
+            bodies.forEach(body => {
+                if (body.fruitIndex !== undefined) {
+                    const fruit = FRUITS[body.fruitIndex];
+                    const pos = body.position;
+                    const angle = body.angle;
+
+                    ctx.save();
+                    ctx.translate(pos.x, pos.y);
+                    ctx.rotate(angle);
+
+                    // Fruit Circle Color Shadow & Background
+                    ctx.beginPath();
+                    ctx.arc(0, 0, fruit.radius, 0, Math.PI * 2);
+                    ctx.fillStyle = fruit.color;
+                    ctx.shadowColor = 'rgba(0, 0, 0, 0.12)';
+                    ctx.shadowBlur = 8;
+                    ctx.shadowOffsetY = 4;
+                    ctx.fill();
+
+                    // Inner Gloss Effect
+                    ctx.beginPath();
+                    ctx.arc(-fruit.radius * 0.3, -fruit.radius * 0.3, fruit.radius * 0.25, 0, Math.PI * 2);
+                    ctx.fillStyle = 'rgba(255, 255, 255, 0.35)';
+                    ctx.fill();
+
+                    // Emoji Text Centered
+                    ctx.restore();
+                    ctx.save();
+                    ctx.translate(pos.x, pos.y);
+                    ctx.font = `${fruit.radius * 1.1}px sans-serif`;
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText(fruit.emoji, 0, 2);
+                    ctx.restore();
+                }
+            });
+
+            // 2. Draw Ready-to-Drop Floating Fruit
+            if (currentFruit && canDrop && isGameStarted && !isGameOver) {
+                const fruit = FRUITS[currentFruit.index];
+
+                ctx.save();
+                ctx.translate(currentFruit.x, currentFruit.y);
+
+                // Preview Circle Glow
+                ctx.beginPath();
+                ctx.arc(0, 0, fruit.radius, 0, Math.PI * 2);
+                ctx.fillStyle = fruit.color;
+                ctx.globalAlpha = 0.85;
+                ctx.fill();
+
+                ctx.font = `${fruit.radius * 1.1}px sans-serif`;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.globalAlpha = 1.0;
+                ctx.fillText(fruit.emoji, 0, 2);
+
+                ctx.restore();
             }
 
-            renderer.render(scene, camera);
+            // 3. Render Particles
+            particles.forEach((p, index) => {
+                p.x += p.vx;
+                p.y += p.vy;
+                p.alpha -= 0.03;
+
+                if (p.alpha <= 0) {
+                    particles.splice(index, 1);
+                } else {
+                    ctx.save();
+                    ctx.globalAlpha = p.alpha;
+                    ctx.beginPath();
+                    ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+                    ctx.fillStyle = p.color;
+                    ctx.fill();
+                    ctx.restore();
+                }
+            });
+
+            // 4. Check Game Over Line Overflow
+            checkGameOverCondition(bodies);
+
+            requestAnimationFrame(renderLoop);
         }
 
-        // Handle Window Resize
-        function onWindowResize() {
-            camera.aspect = window.innerWidth / window.innerHeight;
-            camera.updateProjectionMatrix();
-            renderer.setSize(window.innerWidth, window.innerHeight);
+        // Check overflow past red warning line
+        function checkGameOverCondition(bodies) {
+            if (!isGameStarted || isGameOver) return;
+
+            let isOverflow = false;
+
+            bodies.forEach(body => {
+                if (body.fruitIndex !== undefined && !body.isMerging) {
+                    // Body stopped moving and sits above danger line
+                    if (body.position.y - FRUITS[body.fruitIndex].radius < DANGER_Y && Math.abs(body.velocity.y) < 0.2) {
+                        isOverflow = true;
+                    }
+                }
+            });
+
+            if (isOverflow) {
+                lineTimer++;
+                warningOverlay.style.opacity = (Math.sin(lineTimer * 0.1) * 0.5 + 0.5).toString();
+
+                if (lineTimer > 180) { // Approx 3 seconds above line
+                    triggerGameOver();
+                }
+            } else {
+                lineTimer = 0;
+                warningOverlay.style.opacity = '0';
+            }
         }
+
+        // Helper to get relative canvas position
+        function updatePointerPosition(clientX) {
+            const rect = canvas.getBoundingClientRect();
+            const scaleX = CONTAINER_WIDTH / rect.width;
+            let x = (clientX - rect.left) * scaleX;
+
+            if (currentFruit) {
+                const radius = FRUITS[currentFruit.index].radius;
+                x = Math.max(radius + 10, Math.min(CONTAINER_WIDTH - radius - 10, x));
+                currentFruit.x = x;
+            }
+
+            currentMouseX = x;
+            guideLine.style.left = `${(x / CONTAINER_WIDTH) * 100}%`;
+        }
+
+        // Event Listeners
+        function setupEventListeners() {
+            const container = document.getElementById('game-container');
+
+            // Mouse Events
+            container.addEventListener('mousemove', (e) => {
+                guideLine.style.display = 'block';
+                updatePointerPosition(e.clientX);
+            });
+
+            container.addEventListener('mouseleave', () => {
+                guideLine.style.display = 'none';
+            });
+
+            container.addEventListener('click', (e) => {
+                if (!isGameStarted || isGameOver) return;
+                updatePointerPosition(e.clientX);
+                dropFruit();
+            });
+
+            // Touch Events
+            container.addEventListener('touchstart', (e) => {
+                if (!isGameStarted || isGameOver) return;
+                guideLine.style.display = 'block';
+                updatePointerPosition(e.touches[0].clientX);
+            }, { passive: true });
+
+            container.addEventListener('touchmove', (e) => {
+                if (!isGameStarted || isGameOver) return;
+                updatePointerPosition(e.touches[0].clientX);
+            }, { passive: true });
+
+            container.addEventListener('touchend', () => {
+                if (!isGameStarted || isGameOver) return;
+                guideLine.style.display = 'none';
+                dropFruit();
+            });
+
+            // Start & Restart Buttons
+            document.getElementById('start-btn').addEventListener('click', () => {
+                initAudio();
+                startModal.classList.add('hidden');
+                isGameStarted = true;
+                nextFruitIndex = Math.floor(Math.random() * 5);
+                prepareNextFruit();
+            });
+
+            document.getElementById('retry-btn').addEventListener('click', restartGame);
+            document.getElementById('restart-btn').addEventListener('click', restartGame);
+        }
+
+        function triggerGameOver() {
+            isGameOver = true;
+            playSound('gameover');
+            finalScoreEl.innerText = score;
+            gameoverModal.classList.remove('hidden');
+        }
+
+        function restartGame() {
+            // Clear physics bodies except boundaries
+            const bodies = Composite.allBodies(engine.world);
+            bodies.forEach(body => {
+                if (body.fruitIndex !== undefined) {
+                    World.remove(engine.world, body);
+                }
+            });
+
+            score = 0;
+            scoreEl.innerText = '0';
+            lineTimer = 0;
+            isGameOver = false;
+            warningOverlay.style.opacity = '0';
+            gameoverModal.classList.add('hidden');
+
+            nextFruitIndex = Math.floor(Math.random() * 5);
+            prepareNextFruit();
+        }
+
+        // Composite shortcut
+        const Composite = Matter.Composite;
     </script>
 </body>
 </html>
