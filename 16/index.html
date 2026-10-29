@@ -1,187 +1,222 @@
-
 <!DOCTYPE html>
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>3D Neon Obstacle Runner - Hard Mode</title>
-    <!-- Tailwind CSS CDN -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>피자왕자의 치킨공주 구출 작전 - Complete Edition</title>
+    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Three.js CDN -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    <!-- FontAwesome Icons -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Pixel Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Neo+Dunggeunmo&display=swap" rel="stylesheet">
     <style>
-        body {
-            margin: 0;
-            overflow: hidden;
-            background-color: #050510;
-            font-family: 'Inter', sans-serif;
+        * {
+            box-sizing: border-box;
             user-select: none;
             -webkit-user-select: none;
         }
-        #game-canvas {
-            width: 100vw;
-            height: 100vh;
+        body {
+            font-family: 'Neo Dunggeunmo', 'Courier New', monospace;
+            background-color: #080302;
+            color: #ffffff;
+            touch-action: none;
+            overflow: hidden;
+        }
+        .retro-font {
+            font-family: 'Press Start 2P', 'Neo Dunggeunmo', cursive;
+        }
+        .crt-overlay::before {
+            content: " ";
             display: block;
+            position: absolute;
+            top: 0; left: 0; bottom: 0; right: 0;
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.35) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.03), rgba(0, 255, 0, 0.01), rgba(0, 0, 255, 0.03));
+            z-index: 10;
+            background-size: 100% 3px, 6px 100%;
+            pointer-events: none;
         }
-        /* Custom Glowing & Retro Effects */
-        .neon-text-red {
-            text-shadow: 0 0 10px #ff0055, 0 0 20px #ff0055, 0 0 40px #ff0055;
+        .glow-gold {
+            text-shadow: 0 0 10px #f59e0b, 0 0 20px #f59e0b, 0 0 30px #b45309;
         }
-        .neon-text-blue {
-            text-shadow: 0 0 10px #00f0ff, 0 0 20px #00f0ff;
-        }
-        .neon-box {
-            box-shadow: 0 0 15px rgba(0, 240, 255, 0.4), inset 0 0 15px rgba(0, 240, 255, 0.2);
-            border: 1px solid #00f0ff;
+        .glow-red {
+            text-shadow: 0 0 10px #ef4444, 0 0 20px #ef4444, 0 0 30px #991b1b;
         }
         .retro-btn {
-            background: linear-gradient(135deg, #ff0055 0%, #ff5500 100%);
-            box-shadow: 0 0 15px rgba(255, 0, 85, 0.6);
-            transition: all 0.2s ease;
+            background: linear-gradient(180deg, #f59e0b 0%, #b45309 100%);
+            border: 3px solid #fef08a;
+            box-shadow: 0 5px 0 #78350f, 0 8px 15px rgba(0,0,0,0.6);
+            transition: all 0.05s ease;
         }
         .retro-btn:hover {
-            transform: scale(1.05);
-            box-shadow: 0 0 25px rgba(255, 0, 85, 0.9);
+            filter: brightness(1.15);
         }
         .retro-btn:active {
-            transform: scale(0.95);
+            transform: translateY(4px);
+            box-shadow: 0 1px 0 #78350f, 0 3px 5px rgba(0,0,0,0.6);
         }
-        .character-card {
-            transition: all 0.25s ease;
-            cursor: pointer;
+        .blue-btn {
+            background: linear-gradient(180deg, #3b82f6 0%, #1e40af 100%);
+            border: 3px solid #bfdbfe;
+            box-shadow: 0 5px 0 #1e3a8a, 0 8px 15px rgba(0,0,0,0.6);
         }
-        .character-card:hover {
-            transform: translateY(-4px);
-            box-shadow: 0 0 15px rgba(0, 240, 255, 0.5);
-        }
-        .character-card.selected {
-            border-color: #00f0ff;
-            background: rgba(0, 240, 255, 0.15);
-            box-shadow: 0 0 20px rgba(0, 240, 255, 0.7);
-        }
-        /* Laser Warning Effect */
-        @keyframes laserGlow {
-            0%, 100% { opacity: 0.3; }
-            50% { opacity: 0.9; }
-        }
-        .laser-warning {
-            animation: laserGlow 0.4s infinite;
+        .red-btn {
+            background: linear-gradient(180deg, #ef4444 0%, #991b1b 100%);
+            border: 3px solid #fca5a5;
+            box-shadow: 0 5px 0 #450a0a, 0 8px 15px rgba(0,0,0,0.6);
         }
     </style>
 </head>
-<body class="relative w-screen h-screen overflow-hidden select-none">
+<body class="flex flex-col items-center justify-center min-h-screen p-1 md:p-3 bg-neutral-950">
 
-    <!-- 3D Canvas -->
-    <canvas id="game-canvas"></canvas>
+    <!-- Game Container -->
+    <div class="relative w-full max-w-5xl flex flex-col items-center">
 
-    <!-- UI Overlay: HUD -->
-    <div id="hud" class="absolute top-0 left-0 w-full p-4 flex justify-between items-start pointer-events-none z-10 hidden">
-        <div class="flex gap-3">
-            <div class="bg-black/60 backdrop-blur-md p-4 rounded-xl border border-cyan-500/30 text-white flex flex-col gap-1">
-                <div class="text-xs text-cyan-400 font-bold uppercase tracking-wider">SCORE</div>
-                <div id="score-text" class="text-3xl font-extrabold text-white neon-text-blue">0</div>
+        <!-- Top Control HUD Bar -->
+        <div class="w-full bg-stone-900/90 border-2 border-amber-600 rounded-t-xl p-2 px-4 flex flex-wrap justify-between items-center text-xs md:text-sm shadow-lg z-20">
+            <div class="flex items-center space-x-3">
+                <div class="flex items-center space-x-1">
+                    <span class="text-amber-400 font-bold">HP</span>
+                    <div class="w-28 md:w-40 h-5 bg-stone-950 rounded border border-amber-500/50 p-0.5 relative overflow-hidden">
+                        <div id="hp-bar" class="h-full bg-gradient-to-r from-red-600 to-amber-500 transition-all duration-200" style="width: 100%;"></div>
+                        <span id="hp-text" class="absolute inset-0 flex items-center justify-center text-[10px] md:text-xs font-bold text-white drop-shadow">100/100</span>
+                    </div>
+                </div>
+                <div class="flex items-center space-x-1">
+                    <span class="text-blue-400 font-bold">SP</span>
+                    <div class="w-16 md:w-24 h-4 bg-stone-950 rounded border border-blue-500/50 p-0.5 relative overflow-hidden">
+                        <div id="sp-bar" class="h-full bg-blue-500 transition-all duration-200" style="width: 100%;"></div>
+                    </div>
+                </div>
             </div>
-            <div id="active-char-badge" class="bg-black/60 backdrop-blur-md px-4 py-2 rounded-xl border border-pink-500/30 text-pink-400 font-bold flex items-center self-center text-sm">
-                <!-- Selected character badge -->
+
+            <!-- Stage & Score -->
+            <div class="flex items-center space-x-4 my-1">
+                <div class="text-amber-300 font-bold">STAGE <span id="stage-val" class="text-white">1</span></div>
+                <div class="text-yellow-400 font-bold">SCORE <span id="score-val" class="text-white font-mono">000000</span></div>
+                <div class="text-orange-400 font-bold hidden sm:block">COMBO <span id="combo-val" class="text-white font-mono">x0</span></div>
+            </div>
+
+            <!-- Toggles -->
+            <div class="flex items-center space-x-2">
+                <button id="crt-toggle" class="bg-stone-800 hover:bg-stone-700 px-2 py-1 rounded text-xs border border-stone-600 text-stone-300">📺 CRT: ON</button>
+                <button id="audio-toggle" class="bg-amber-800 hover:bg-amber-700 px-2 py-1 rounded text-xs border border-amber-500 text-amber-200">🔊 SOUND</button>
             </div>
         </div>
-        
-        <div class="flex gap-3 pointer-events-auto">
-            <button id="audio-toggle-btn" class="bg-black/60 hover:bg-black/80 backdrop-blur-md p-3 rounded-xl border border-cyan-500/30 text-cyan-400 transition">
-                <i id="audio-icon" class="fas fa-volume-up text-xl"></i>
-            </button>
-            <div class="bg-red-500/20 backdrop-blur-md px-4 py-2 rounded-xl border border-red-500/50 flex items-center gap-2 text-red-400 font-bold">
-                <i class="fas fa-bolt"></i> HARD MODE
+
+        <!-- Canvas Container -->
+        <div id="canvas-wrapper" class="relative w-full aspect-[16/9] bg-black border-4 border-amber-600 rounded-b-xl overflow-hidden shadow-2xl crt-overlay">
+            <canvas id="gameCanvas" class="w-full h-full block bg-black"></canvas>
+
+            <!-- Dialogue Overlay -->
+            <div id="dialogue-box" class="absolute top-4 left-1/2 -translate-x-1/2 bg-stone-950/90 border-2 border-amber-400 rounded-lg p-3 px-6 max-w-lg w-11/12 text-center hidden z-30 shadow-2xl animate-pulse">
+                <div id="dialogue-speaker" class="text-amber-400 font-bold text-xs md:text-sm mb-1">피자왕자</div>
+                <div id="dialogue-text" class="text-white text-xs md:text-sm leading-relaxed">치킨공주님, 제가 구하러 갑니다!</div>
+            </div>
+
+            <!-- Boss HP Overlay -->
+            <div id="boss-hp-container" class="absolute bottom-4 left-1/2 -translate-x-1/2 w-3/4 max-w-xl bg-stone-950/80 border-2 border-red-600 p-2 rounded-lg hidden z-20 shadow-2xl">
+                <div class="flex justify-between items-center mb-1 text-xs">
+                    <span id="boss-name" class="text-red-500 font-bold tracking-wider">👑 대마왕 버거킹 1세</span>
+                    <span id="boss-hp-text" class="text-white font-mono">1000/1000</span>
+                </div>
+                <div class="w-full h-4 bg-stone-900 rounded border border-red-800 overflow-hidden">
+                    <div id="boss-hp-bar" class="h-full bg-gradient-to-r from-red-700 via-orange-500 to-yellow-400 transition-all duration-150" style="width: 100%;"></div>
+                </div>
+            </div>
+
+            <!-- Start Menu Screen -->
+            <div id="menu-screen" class="absolute inset-0 bg-stone-950/95 flex flex-col items-center justify-center p-6 text-center z-40">
+                <div class="text-amber-400 text-3xl md:text-5xl font-extrabold mb-2 glow-gold tracking-wider">🍕 피자왕자 🍕</div>
+                <div class="text-orange-300 text-lg md:text-2xl font-bold mb-4 tracking-widest">치킨공주 구출 작전</div>
+                <div class="text-amber-100 text-xs md:text-sm max-w-lg mb-6 leading-relaxed bg-stone-900/80 p-4 rounded-xl border border-amber-600/40 shadow-inner">
+                    악당 <span class="text-red-400 font-bold">버거킹</span>이 치킨공주를 가두었습니다!<br/>
+                    발판을 뛰어넘고 피자 슛, 치즈 방어막, 핫소스 폭주 모드로 버거 군단을 물리치세요!
+                </div>
+
+                <div class="grid grid-cols-2 gap-3 text-left text-xs bg-stone-900/90 p-3 rounded-lg border border-stone-700 mb-6 max-w-md w-full">
+                    <div><span class="text-amber-400">이동:</span> A / D 또는 ← / →</div>
+                    <div><span class="text-amber-400">점프:</span> W / Space / K / ↑</div>
+                    <div><span class="text-amber-400">피자슛:</span> J / Z</div>
+                    <div><span class="text-amber-400">치즈방어:</span> Shift / L</div>
+                    <div><span class="text-amber-400">폭주모드:</span> L</div>
+                    <div><span class="text-amber-400">모바일:</span> 하단 터치 버튼</div>
+                </div>
+
+                <button id="start-btn" class="retro-btn px-8 py-3 text-lg font-bold text-amber-950 rounded-lg cursor-pointer animate-pulse">
+                    게 임 시 작 🚀 (클릭하여 시작)
+                </button>
+            </div>
+
+            <!-- Game Over Screen -->
+            <div id="gameover-screen" class="absolute inset-0 bg-black/95 flex flex-col items-center justify-center p-6 text-center z-40 hidden">
+                <h1 class="text-4xl md:text-6xl text-red-600 font-extrabold mb-2 glow-red animate-bounce">GAME OVER</h1>
+                <p class="text-amber-200 text-base md:text-lg mb-4">피자왕자가 쓰러졌습니다...</p>
+                <div class="bg-stone-900 border border-red-800 p-4 rounded-lg mb-6 text-center min-w-[240px]">
+                    <div class="text-xs text-gray-400">FINAL SCORE</div>
+                    <div id="final-score" class="text-3xl font-mono text-yellow-400 font-bold">000000</div>
+                </div>
+                <button id="restart-btn" class="retro-btn px-8 py-3 text-base font-bold text-amber-950 rounded-lg">
+                    다시 도전하기 🔄
+                </button>
+            </div>
+
+            <!-- Victory Screen -->
+            <div id="victory-screen" class="absolute inset-0 bg-amber-950/95 flex flex-col items-center justify-center p-6 text-center z-40 hidden">
+                <h1 class="text-3xl md:text-5xl text-yellow-300 font-extrabold mb-2 glow-gold">🎉 왕국 구출 성공! 🎉</h1>
+                <p class="text-amber-100 text-sm md:text-base mb-6 max-w-md">
+                    피자왕자가 버거킹을 물리치고 치킨공주를 구해냈습니다!<br/>
+                    피자나라 치킨공주 왕국에 평화가 찾아왔습니다!
+                </p>
+                <div class="bg-amber-900/60 border border-amber-500 p-4 rounded-lg mb-6">
+                    <div class="text-xs text-amber-300">최종 스코어</div>
+                    <div id="victory-score" class="text-4xl font-mono text-white font-bold">000000</div>
+                </div>
+                <button id="victory-btn" class="retro-btn px-8 py-3 text-base font-bold text-amber-950 rounded-lg">
+                    메인 화면으로 🏠
+                </button>
+            </div>
+        </div>
+
+        <!-- Mobile Touch Controls -->
+        <div class="w-full mt-2 flex justify-between items-center px-2 md:hidden">
+            <div class="relative w-36 h-36 bg-stone-900/90 rounded-full border-2 border-amber-500/70 touch-none flex items-center justify-center shadow-lg" id="touch-joystick">
+                <div id="joystick-stick" class="w-14 h-14 bg-amber-500 rounded-full border-2 border-white absolute shadow-md"></div>
+            </div>
+
+            <div class="flex space-x-2">
+                <button id="btn-touch-shield" class="blue-btn w-14 h-14 rounded-full text-white font-bold text-xs flex flex-col items-center justify-center active:scale-95">
+                    <span>방어</span>
+                </button>
+                <button id="btn-touch-rage" class="red-btn w-14 h-14 rounded-full text-white font-bold text-xs flex flex-col items-center justify-center active:scale-95">
+                    <span>폭주</span>
+                </button>
+                <button id="btn-touch-attack" class="retro-btn w-16 h-16 rounded-full text-amber-950 font-bold text-sm flex flex-col items-center justify-center active:scale-95">
+                    <span>공격</span>
+                </button>
             </div>
         </div>
     </div>
 
-    <!-- On-screen Controls Guide (In Game) -->
-    <div id="controls-hint" class="absolute bottom-6 left-1/2 -translate-x-1/2 pointer-events-none z-10 hidden text-center">
-        <div class="bg-black/60 backdrop-blur-md px-6 py-2 rounded-full border border-white/10 text-white/70 text-sm flex gap-4 items-center">
-            <span><kbd class="bg-white/20 px-2 py-0.5 rounded text-white font-mono">A</kbd> / <kbd class="bg-white/20 px-2 py-0.5 rounded text-white font-mono">D</kbd> 이동</span>
-            <span class="text-white/30">|</span>
-            <span><kbd class="bg-white/20 px-2 py-0.5 rounded text-white font-mono">Space</kbd> 점프</span>
-        </div>
-    </div>
-
-    <!-- Start / Game Over Screen Overlay -->
-    <div id="menu-overlay" class="absolute inset-0 z-20 flex items-center justify-center bg-black/80 backdrop-blur-md p-4 overflow-y-auto">
-        <div class="max-w-xl w-full text-center flex flex-col items-center gap-5 p-6 sm:p-8 rounded-2xl neon-box bg-slate-950/90 my-auto">
-            
-            <div class="space-y-1">
-                <h1 class="text-4xl sm:text-5xl font-black italic tracking-wider text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-pink-500 to-red-500">
-                    CYBER RUNNER
-                </h1>
-                <p class="text-red-400 font-semibold tracking-widest text-xs sm:text-sm uppercase">Difficulty: Extreme Hard</p>
-            </div>
-
-            <!-- Game Over Details (Hidden initially) -->
-            <div id="game-over-info" class="hidden w-full bg-red-950/30 border border-red-500/30 rounded-xl p-3 my-1">
-                <p class="text-red-400 text-xs font-bold uppercase mb-1">GAME OVER</p>
-                <div class="text-gray-300 text-xs">최종 스코어</div>
-                <div id="final-score" class="text-3xl font-black text-white neon-text-red">0</div>
-            </div>
-
-            <!-- Character Selection -->
-            <div class="w-full space-y-2">
-                <div class="text-left text-xs text-cyan-400 font-bold uppercase tracking-wider flex justify-between items-center">
-                    <span><i class="fas fa-rocket mr-1"></i> 캐릭터 선택</span>
-                    <span id="char-desc-type" class="text-pink-400 font-normal">밸런스형</span>
-                </div>
-                <div class="grid grid-cols-3 sm:grid-cols-4 gap-2" id="character-selector">
-                    <!-- Cards added via JS -->
-                </div>
-            </div>
-
-            <!-- Rules & Controls -->
-            <div class="w-full bg-slate-900/60 rounded-xl p-3 text-left text-xs text-gray-300 space-y-2 border border-slate-800">
-                <div class="font-bold text-cyan-400 text-sm pb-1 border-b border-slate-800 flex justify-between items-center">
-                    <span><i class="fas fa-gamepad mr-2"></i>조작 및 장애물 회피법</span>
-                    <span id="char-perk" class="text-amber-300 text-xs font-normal">특성: 없음</span>
-                </div>
-                <div class="grid grid-cols-2 gap-2 text-[11px] text-gray-400">
-                    <div><span class="text-pink-400 font-bold">긴 바닥 벽:</span> SPACE 점프</div>
-                    <div><span class="text-cyan-400 font-bold">높은 기둥:</span> A/D 좌우 회피</div>
-                    <div><span class="text-amber-400 font-bold">공중 가로막:</span> 점프 금지 (지상 유지)</div>
-                    <div><span class="text-purple-400 font-bold">이동식 블록:</span> 타이밍 예측 회피</div>
-                </div>
-                <div class="flex justify-between items-center pt-1 border-t border-slate-800">
-                    <span>좌우 이동: <kbd class="font-mono bg-cyan-950 border border-cyan-800 text-cyan-300 px-1.5 py-0.5 rounded">A</kbd> / <kbd class="font-mono bg-cyan-950 border border-cyan-800 text-cyan-300 px-1.5 py-0.5 rounded">D</kbd></span>
-                    <span>점프: <kbd class="font-mono bg-cyan-950 border border-cyan-800 text-cyan-300 px-1.5 py-0.5 rounded">SPACE</kbd></span>
-                </div>
-            </div>
-
-            <button id="start-btn" class="w-full py-3.5 rounded-xl text-white font-extrabold text-lg retro-btn tracking-wider uppercase cursor-pointer">
-                게임 시작 (START)
-            </button>
-        </div>
-    </div>
-
-    <!-- Mobile Touch Controls Overlay -->
-    <div id="touch-controls" class="absolute bottom-4 inset-x-4 z-10 flex justify-between pointer-events-none md:hidden hidden">
-        <div class="flex gap-2 pointer-events-auto">
-            <button id="btn-left" class="w-16 h-16 rounded-full bg-white/10 active:bg-cyan-500/40 backdrop-blur border border-white/20 text-white text-2xl flex items-center justify-center">
-                <i class="fas fa-chevron-left"></i>
-            </button>
-            <button id="btn-right" class="w-16 h-16 rounded-full bg-white/10 active:bg-cyan-500/40 backdrop-blur border border-white/20 text-white text-2xl flex items-center justify-center">
-                <i class="fas fa-chevron-right"></i>
-            </button>
-        </div>
-        <button id="btn-jump" class="w-20 h-16 rounded-2xl bg-pink-500/30 active:bg-pink-500/60 backdrop-blur border border-pink-500/50 text-white font-bold text-lg flex items-center justify-center pointer-events-auto">
-            JUMP
-        </button>
-    </div>
-
+    <!-- Main Game Logic -->
     <script>
-        // --- Web Audio API Synth Sound Generator ---
-        class SoundEngine {
+        // Setup Canvas & Resolution
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        canvas.width = 960;
+        canvas.height = 540;
+
+        let gameState = 'MENU'; // MENU, PLAYING, GAMEOVER, VICTORY
+        let score = 0;
+        let combo = 0;
+        let comboTimer = 0;
+        let currentStage = 1;
+        let cameraX = 0;
+
+        // Sound Audio Engine
+        class RetroAudio {
             constructor() {
                 this.ctx = null;
-                this.isMuted = false;
-                this.bgmTimer = null;
+                this.enabled = true;
+                this.hitToggle = 0; // 0: "이게 뭐야!", 1: "치킨 머그까!"
             }
 
             init() {
@@ -193,871 +228,960 @@
                 }
             }
 
-            toggleMute() {
-                this.isMuted = !this.isMuted;
-                return this.isMuted;
-            }
-
-            // Jump Sound Effect
-            playJump() {
-                if (this.isMuted || !this.ctx) return;
-                const osc = this.ctx.createOscillator();
-                const gain = this.ctx.createGain();
-                
-                osc.type = 'sine';
-                osc.frequency.setValueAtTime(150, this.ctx.currentTime);
-                osc.frequency.exponentialRampToValueAtTime(600, this.ctx.currentTime + 0.15);
-                
-                gain.gain.setValueAtTime(0.3, this.ctx.currentTime);
-                gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.15);
-                
-                osc.connect(gain);
-                gain.connect(this.ctx.destination);
-                
-                osc.start();
-                osc.stop(this.ctx.currentTime + 0.15);
-            }
-
-            // Crash Sound Effect
-            playCrash() {
-                if (this.isMuted || !this.ctx) return;
-                const osc = this.ctx.createOscillator();
-                const gain = this.ctx.createGain();
-                
-                osc.type = 'sawtooth';
-                osc.frequency.setValueAtTime(120, this.ctx.currentTime);
-                osc.frequency.linearRampToValueAtTime(30, this.ctx.currentTime + 0.4);
-                
-                gain.gain.setValueAtTime(0.5, this.ctx.currentTime);
-                gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.4);
-                
-                osc.connect(gain);
-                gain.connect(this.ctx.destination);
-                
-                osc.start();
-                osc.stop(this.ctx.currentTime + 0.4);
-            }
-
-            // Synthesized BGM Loop (Retro synthwave arpeggio)
-            startBGM() {
-                if (this.bgmTimer || !this.ctx) return;
-                
-                const notes = [130.81, 146.83, 164.81, 196.00, 220.00, 196.00, 164.81, 146.83]; // C3, D3, E3, G3, A3...
-                let noteIndex = 0;
-
-                this.bgmTimer = setInterval(() => {
-                    if (this.isMuted || !this.ctx) return;
-                    
+            playTone(freq, type, duration, vol = 0.1) {
+                if (!this.enabled || !this.ctx) return;
+                try {
                     const osc = this.ctx.createOscillator();
                     const gain = this.ctx.createGain();
-                    
-                    osc.type = 'sawtooth';
-                    osc.frequency.setValueAtTime(notes[noteIndex], this.ctx.currentTime);
-                    
-                    // Lowpass filter for synthwave effect
-                    const filter = this.ctx.createBiquadFilter();
-                    filter.type = 'lowpass';
-                    filter.frequency.setValueAtTime(800, this.ctx.currentTime);
-
-                    gain.gain.setValueAtTime(0.08, this.ctx.currentTime);
-                    gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.12);
-                    
-                    osc.connect(filter);
-                    filter.connect(gain);
+                    osc.type = type;
+                    osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
+                    gain.gain.setValueAtTime(vol, this.ctx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + duration);
+                    osc.connect(gain);
                     gain.connect(this.ctx.destination);
-                    
                     osc.start();
-                    osc.stop(this.ctx.currentTime + 0.12);
-                    
-                    noteIndex = (noteIndex + 1) % notes.length;
-                }, 130); // BPM tempo
+                    osc.stop(this.ctx.currentTime + duration);
+                } catch(e) {}
             }
 
-            stopBGM() {
-                if (this.bgmTimer) {
-                    clearInterval(this.bgmTimer);
-                    this.bgmTimer = null;
+            playShoot() {
+                this.playTone(520, 'square', 0.08, 0.12);
+            }
+
+            playJump() {
+                if (!this.enabled || !this.ctx) return;
+                try {
+                    const now = this.ctx.currentTime;
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(220, now);
+                    osc.frequency.exponentialRampToValueAtTime(600, now + 0.15);
+                    gain.gain.setValueAtTime(0.15, now);
+                    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.15);
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.start();
+                    osc.stop(now + 0.15);
+                } catch(e) {}
+            }
+
+            playExplode() {
+                this.playTone(100, 'sawtooth', 0.2, 0.2);
+            }
+
+            playItem() {
+                this.playTone(600, 'sine', 0.1, 0.15);
+                setTimeout(() => this.playTone(880, 'sine', 0.15, 0.15), 50);
+            }
+
+            playShield() {
+                this.playTone(400, 'sine', 0.25, 0.2);
+            }
+
+            playHit() {
+                if (!this.enabled) return "이게 뭐야!";
+
+                this.playTone(180, 'sawtooth', 0.15, 0.3);
+
+                // Alternating Voice Sound Speech
+                const currentText = this.hitToggle === 0 ? '이게 뭐야!' : '치킨 머그까!';
+                this.hitToggle = 1 - this.hitToggle;
+
+                try {
+                    if ('speechSynthesis' in window) {
+                        window.speechSynthesis.cancel();
+                        const utterance = new SpeechSynthesisUtterance(currentText);
+                        utterance.lang = 'ko-KR';
+                        utterance.pitch = 1.4;
+                        utterance.rate = 1.5;
+                        utterance.volume = 1.0;
+                        window.speechSynthesis.speak(utterance);
+                    }
+                } catch (e) {
+                    console.log('Speech bypassed');
+                }
+
+                return currentText;
+            }
+
+            playGameOverVoice() {
+                if (!this.enabled) return;
+
+                if (this.ctx) {
+                    this.playTone(80, 'sawtooth', 1.0, 0.5);
+                }
+
+                try {
+                    if ('speechSynthesis' in window) {
+                        window.speechSynthesis.cancel();
+                        const phrase = '피자먹고! 얼굴피자!';
+                        
+                        const ut1 = new SpeechSynthesisUtterance(phrase);
+                        ut1.lang = 'ko-KR';
+                        ut1.pitch = 1.3;
+                        ut1.rate = 1.0;
+                        ut1.volume = 1.0;
+
+                        window.speechSynthesis.speak(ut1);
+                    }
+                } catch (e) {
+                    console.log('GameOver speech bypassed');
                 }
             }
         }
 
-        const audio = new SoundEngine();
-
-        // --- Character Definitions ---
-        const CHARACTERS = [
-            {
-                id: 'neon-runner',
-                name: '네온 랜서',
-                icon: 'fa-shuttle-space',
-                color: 0x00f0ff,
-                emissive: 0x004466,
-                accentColor: '#00f0ff',
-                desc: '밸런스형 표준 기체',
-                speedMultiplier: 1.0,
-                jumpForce: 0.48,
-                scoreMultiplier: 1.0,
-                perkText: '특성: 올라운더 표준 스펙'
-            },
-            {
-                id: 'speed-phantom',
-                name: '팬텀 블레이드',
-                icon: 'fa-bolt',
-                color: 0xff0055,
-                emissive: 0x660022,
-                accentColor: '#ff0055',
-                desc: '초고속 & 고득점 기체',
-                speedMultiplier: 1.2,
-                jumpForce: 0.46,
-                scoreMultiplier: 1.5,
-                perkText: '특성: 속도 +20%, 스코어 +50%'
-            },
-            {
-                id: 'gravity-hopper',
-                name: '그라비티 호퍼',
-                icon: 'fa-angles-up',
-                color: 0x00ff88,
-                emissive: 0x004422,
-                accentColor: '#00ff88',
-                desc: '고점프 & 하이테크 기체',
-                speedMultiplier: 0.95,
-                jumpForce: 0.58,
-                scoreMultiplier: 1.0,
-                perkText: '특성: 높은 점프 및 체공시간'
-            },
-            {
-                id: 'heavy-titan',
-                name: '타이탄 아머',
-                icon: 'fa-shield-halved',
-                color: 0xffaa00,
-                emissive: 0x664400,
-                accentColor: '#ffaa00',
-                desc: '중장갑 & 보너스 기체',
-                speedMultiplier: 0.9,
-                jumpForce: 0.45,
-                scoreMultiplier: 1.25,
-                perkText: '특성: 안정적 조작감 & 스코어 +25%'
-            },
-            {
-                id: 'quantum-glider',
-                name: '퀀텀 글라이더',
-                icon: 'fa-paper-plane',
-                color: 0xcc00ff,
-                emissive: 0x550066,
-                accentColor: '#cc00ff',
-                desc: '경량형 곡예 기체',
-                speedMultiplier: 1.1,
-                jumpForce: 0.52,
-                scoreMultiplier: 1.2,
-                perkText: '특성: 빠른 반응속도 & 유연한 점프'
-            },
-            {
-                id: 'solar-phoenix',
-                name: '솔라 피닉스',
-                icon: 'fa-fire-flame-curved',
-                color: 0xff5500,
-                emissive: 0x662200,
-                accentColor: '#ff5500',
-                desc: '에너지 차장 기체',
-                speedMultiplier: 1.05,
-                jumpForce: 0.50,
-                scoreMultiplier: 1.3,
-                perkText: '특성: 화려한 광원 & 스코어 +30%'
-            },
-            {
-                id: 'cyber-plasma',
-                name: '플라즈마 드론',
-                icon: 'fa-atom',
-                color: 0xffff00,
-                emissive: 0x666600,
-                accentColor: '#ffff00',
-                desc: '에너지 테크 기체',
-                speedMultiplier: 1.02,
-                jumpForce: 0.49,
-                scoreMultiplier: 1.15,
-                perkText: '특성: 높은 가시성 & 제어력'
-            },
-            {
-                id: 'vortex-striker',
-                name: '볼텍스 스트라이커',
-                icon: 'fa-meteor',
-                color: 0x00ffff,
-                emissive: 0x006666,
-                accentColor: '#00ffff',
-                desc: '공격형 추진 기체',
-                speedMultiplier: 1.15,
-                jumpForce: 0.47,
-                scoreMultiplier: 1.35,
-                perkText: '특성: 고속 비행 & 높은 점수율'
-            }
-        ];
-
-        let selectedCharIndex = 0;
-
-        // --- Game Logic & 3D Variables ---
-        let scene, camera, renderer;
-        let player, playerBox;
-        let obstacles = [];
-        let particles = [];
-        let roadGrid;
-
-        // Config & State
-        const LANE_WIDTH = 3.2; // Width of movement range
-        const MAX_X = LANE_WIDTH * 1.5;
-        
-        let gameState = 'MENU'; // 'MENU', 'PLAYING', 'GAMEOVER'
-        let score = 0;
-        let speed = 0.8; // Hard mode initial speed
-        const maxSpeed = 1.6;
-        
-        // Player Physics
-        let playerPos = { x: 0, y: 0, z: 0 };
-        let playerVelY = 0;
-        const GRAVITY = -0.022;
-        let currentJumpForce = 0.48;
-        let isGrounded = true;
-
-        // Keys state
-        const keys = { a: false, d: false, left: false, right: false, space: false };
-
-        // Obstacle Spawn Timers
-        let lastSpawnZ = -50;
-        const SPAWN_INTERVAL_Z = 22; // Harder mode: obstacles closer together
-
-        // --- Character UI Setup ---
-        function setupCharacterSelector() {
-            const container = document.getElementById('character-selector');
-            container.innerHTML = '';
-
-            CHARACTERS.forEach((char, idx) => {
-                const card = document.createElement('div');
-                card.className = `character-card p-3 rounded-xl border border-slate-700 bg-slate-900/80 flex flex-col items-center gap-1.5 text-center ${idx === selectedCharIndex ? 'selected' : ''}`;
-                card.onclick = () => selectCharacter(idx);
-
-                card.innerHTML = `
-                    <div class="text-2xl my-1" style="color: ${char.accentColor};">
-                        <i class="fas ${char.icon}"></i>
-                    </div>
-                    <div class="font-bold text-xs text-white">${char.name}</div>
-                    <div class="text-[10px] text-gray-400 line-clamp-1">${char.desc}</div>
-                `;
-                container.appendChild(card);
-            });
-
-            updateCharInfo();
-        }
-
-        function selectCharacter(index) {
-            selectedCharIndex = index;
-            const cards = document.querySelectorAll('.character-card');
-            cards.forEach((card, idx) => {
-                if (idx === index) {
-                    card.classList.add('selected');
-                } else {
-                    card.classList.remove('selected');
-                }
-            });
-            updateCharInfo();
-            createPlayer(); // Re-create player preview
-        }
-
-        function updateCharInfo() {
-            const currentChar = CHARACTERS[selectedCharIndex];
-            document.getElementById('char-desc-type').innerText = currentChar.desc;
-            document.getElementById('char-perk').innerText = currentChar.perkText;
-            document.getElementById('active-char-badge').innerHTML = `<i class="fas ${currentChar.icon} mr-2" style="color: ${currentChar.accentColor}"></i> ${currentChar.name}`;
-        }
-
-        // --- Initialization ---
-        function initThree() {
-            const container = document.getElementById('game-canvas');
-            
-            // Scene
-            scene = new THREE.Scene();
-            scene.background = new THREE.Color(0x050510);
-            scene.fog = new THREE.FogExp2(0x050510, 0.018);
-
-            // Camera
-            camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
-            camera.position.set(0, 4, 9);
-            camera.lookAt(0, 1.5, -5);
-
-            // Renderer
-            renderer = new THREE.WebGLRenderer({ canvas: container, antialias: true });
-            renderer.setSize(window.innerWidth, window.innerHeight);
-            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-            renderer.shadowMap.enabled = true;
-
-            // Lights
-            const ambientLight = new THREE.AmbientLight(0xffffff, 0.4);
-            scene.add(ambientLight);
-
-            const dirLight = new THREE.DirectionalLight(0xff007f, 0.8);
-            dirLight.position.set(10, 20, 10);
-            scene.add(dirLight);
-
-            const pointLight = new THREE.PointLight(0x00f0ff, 1.5, 30);
-            pointLight.position.set(0, 5, 0);
-            scene.add(pointLight);
-
-            // Environment: Infinite Road Grid
-            createRoad();
-
-            // Player Creation
-            createPlayer();
-
-            // Handle Resize
-            window.addEventListener('resize', onWindowResize);
-        }
-
-        // Road & Cyber Grid
-        function createRoad() {
-            const roadGeo = new THREE.PlaneGeometry(12, 300);
-            const roadMat = new THREE.MeshStandardMaterial({ 
-                color: 0x0a0a16, 
-                roughness: 0.2, 
-                metalness: 0.8 
-            });
-            const road = new THREE.Mesh(roadGeo, roadMat);
-            road.rotation.x = -Math.PI / 2;
-            road.position.z = -100;
-            scene.add(road);
-
-            // Side Glowing Rails
-            const railGeo = new THREE.BoxGeometry(0.3, 0.3, 300);
-            const railMat = new THREE.MeshBasicMaterial({ color: 0x00f0ff });
-            
-            const leftRail = new THREE.Mesh(railGeo, railMat);
-            leftRail.position.set(-6, 0.15, -100);
-            scene.add(leftRail);
-
-            const rightRail = new THREE.Mesh(railGeo, railMat);
-            rightRail.position.set(6, 0.15, -100);
-            scene.add(rightRail);
-
-            // Grid Lines texture simulation
-            roadGrid = new THREE.GridHelper(300, 60, 0xff0055, 0x1a1a3a);
-            roadGrid.position.set(0, 0.01, -100);
-            scene.add(roadGrid);
-        }
-
-        // Distinct Player Models based on selected Character
-        function createPlayer() {
-            if (player) {
-                scene.remove(player);
-            }
-
-            player = new THREE.Group();
-            const char = CHARACTERS[selectedCharIndex];
-
-            if (char.id === 'neon-runner') {
-                // Sleek jet shape
-                const bodyGeo = new THREE.ConeGeometry(0.7, 2, 4);
-                const bodyMat = new THREE.MeshStandardMaterial({ 
-                    color: char.color, roughness: 0.1, metalness: 0.9, emissive: char.emissive 
-                });
-                const body = new THREE.Mesh(bodyGeo, bodyMat);
-                body.rotation.x = Math.PI / 2;
-                body.rotation.z = Math.PI;
-                player.add(body);
-
-                const wingGeo = new THREE.BoxGeometry(1.8, 0.1, 0.8);
-                const wingMat = new THREE.MeshBasicMaterial({ color: 0xff0055 });
-                const wings = new THREE.Mesh(wingGeo, wingMat);
-                wings.position.set(0, 0, 0.2);
-                player.add(wings);
-
-            } else if (char.id === 'speed-phantom') {
-                // Sharp Needle shape
-                const bodyGeo = new THREE.ConeGeometry(0.4, 2.6, 3);
-                const bodyMat = new THREE.MeshStandardMaterial({ 
-                    color: char.color, roughness: 0.1, metalness: 0.9, emissive: char.emissive 
-                });
-                const body = new THREE.Mesh(bodyGeo, bodyMat);
-                body.rotation.x = Math.PI / 2;
-                player.add(body);
-
-                const ringGeo = new THREE.TorusGeometry(0.8, 0.05, 8, 16);
-                const ringMat = new THREE.MeshBasicMaterial({ color: 0x00f0ff });
-                const ring = new THREE.Mesh(ringGeo, ringMat);
-                ring.position.set(0, 0, 0.3);
-                player.add(ring);
-
-            } else if (char.id === 'gravity-hopper') {
-                // UFO / Disk like shape
-                const discGeo = new THREE.CylinderGeometry(1.1, 1.1, 0.3, 8);
-                const discMat = new THREE.MeshStandardMaterial({ 
-                    color: char.color, roughness: 0.2, metalness: 0.8, emissive: char.emissive 
-                });
-                const disc = new THREE.Mesh(discGeo, discMat);
-                player.add(disc);
-
-                const topGeo = new THREE.SphereGeometry(0.5, 8, 8);
-                const topMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
-                const topDome = new THREE.Mesh(topGeo, topMat);
-                topDome.position.set(0, 0.2, 0);
-                player.add(topDome);
-
-            } else if (char.id === 'heavy-titan') {
-                // Bulky Blocky Mecha shape
-                const coreGeo = new THREE.BoxGeometry(1.4, 0.8, 1.8);
-                const coreMat = new THREE.MeshStandardMaterial({ 
-                    color: char.color, roughness: 0.3, metalness: 0.7, emissive: char.emissive 
-                });
-                const core = new THREE.Mesh(coreGeo, coreMat);
-                player.add(core);
-
-                const sideGeo = new THREE.BoxGeometry(0.4, 0.9, 2.2);
-                const sideMat = new THREE.MeshStandardMaterial({ color: 0x333344 });
-                const leftSide = new THREE.Mesh(sideGeo, sideMat);
-                leftSide.position.set(-0.9, 0, 0);
-                const rightSide = leftSide.clone();
-                rightSide.position.set(0.9, 0, 0);
-                player.add(leftSide);
-                player.add(rightSide);
-
-            } else if (char.id === 'quantum-glider') {
-                // Tri-wing glider shape
-                const bodyGeo = new THREE.ConeGeometry(0.6, 2.2, 3);
-                const bodyMat = new THREE.MeshStandardMaterial({ color: char.color, emissive: char.emissive, roughness: 0.2 });
-                const body = new THREE.Mesh(bodyGeo, bodyMat);
-                body.rotation.x = Math.PI / 2;
-                player.add(body);
-
-                const ringGeo = new THREE.TorusGeometry(0.9, 0.04, 8, 16);
-                const ringMat = new THREE.MeshBasicMaterial({ color: 0xff00ff });
-                const ring = new THREE.Mesh(ringGeo, ringMat);
-                ring.position.set(0, 0, -0.2);
-                player.add(ring);
-
-            } else if (char.id === 'solar-phoenix') {
-                // Diamond Arrow Fighter
-                const bodyGeo = new THREE.OctahedronGeometry(0.9);
-                const bodyMat = new THREE.MeshStandardMaterial({ color: char.color, emissive: char.emissive, metalness: 0.8 });
-                const body = new THREE.Mesh(bodyGeo, bodyMat);
-                body.scale.set(0.7, 0.4, 1.8);
-                player.add(body);
-
-                const flameGeo = new THREE.ConeGeometry(0.3, 1.2, 4);
-                const flameMat = new THREE.MeshBasicMaterial({ color: 0xffff00 });
-                const flame = new THREE.Mesh(flameGeo, flameMat);
-                flame.rotation.x = -Math.PI / 2;
-                flame.position.set(0, 0, 1.2);
-                player.add(flame);
-
-            } else if (char.id === 'cyber-plasma') {
-                // Spherical Orb Carrier
-                const orbGeo = new THREE.SphereGeometry(0.8, 16, 16);
-                const orbMat = new THREE.MeshStandardMaterial({ color: char.color, emissive: char.emissive, roughness: 0.1 });
-                const orb = new THREE.Mesh(orbGeo, orbMat);
-                player.add(orb);
-
-                const ringGeo = new THREE.TorusGeometry(1.2, 0.08, 8, 24);
-                const ringMat = new THREE.MeshBasicMaterial({ color: 0xff0055 });
-                const ring = new THREE.Mesh(ringGeo, ringMat);
-                ring.rotation.x = Math.PI / 3;
-                player.add(ring);
-
-            } else if (char.id === 'vortex-striker') {
-                // Twin-engine Jet
-                const bodyGeo = new THREE.BoxGeometry(0.6, 0.5, 2.0);
-                const bodyMat = new THREE.MeshStandardMaterial({ color: char.color, emissive: char.emissive });
-                const body = new THREE.Mesh(bodyGeo, bodyMat);
-                player.add(body);
-
-                const engGeo = new THREE.CylinderGeometry(0.25, 0.25, 1.8, 8);
-                const engMat = new THREE.MeshStandardMaterial({ color: 0x111122, metalness: 0.9 });
-                const leftEng = new THREE.Mesh(engGeo, engMat);
-                leftEng.rotation.x = Math.PI / 2;
-                leftEng.position.set(-0.6, 0, 0);
-                const rightEng = leftEng.clone();
-                rightEng.position.set(0.6, 0, 0);
-                player.add(leftEng);
-                player.add(rightEng);
-            }
-
-            // Thruster Light
-            const light = new THREE.PointLight(char.color, 2, 5);
-            light.position.set(0, 0, 1);
-            player.add(light);
-
-            player.position.set(playerPos.x, playerPos.y || 0.8, playerPos.z);
-            scene.add(player);
-
-            // Bounding Box for Collision
-            playerBox = new THREE.Box3();
-        }
-
-        // --- Expanded Obstacle Spawner (New Obstacle Types Added) ---
-        // Types:
-        // 1. 'LONG_WALL': Wide and low wall (Must Jump OVER)
-        // 2. 'HIGH_WALL': Tall narrow pillar (Must Dodge Left/Right)
-        // 3. 'HIGH_GATE': Suspended Overhead Gate (Must stay low / Cannot jump into)
-        // 4. 'MOVING_BLOCK': Block moving horizontally back and forth
-        // 5. 'LASER_GRID': High-contrast neon double barrier
-        // 6. 'PYRAMID_BLOCK': Sharp geometric spike block
-        function spawnObstacle(zPos) {
-            const typeRandom = Math.random();
-            let obstacle, type;
-
-            if (typeRandom < 0.22) {
-                // TYPE 1: LONG LOW WALL (Spans horizontally - Requires JUMP)
-                type = 'LONG_WALL';
-                const geo = new THREE.BoxGeometry(10.5, 1.2, 0.8);
-                const mat = new THREE.MeshStandardMaterial({ 
-                    color: 0xff0055, 
-                    emissive: 0x660022, 
-                    roughness: 0.3 
-                });
-                obstacle = new THREE.Mesh(geo, mat);
-                obstacle.position.set(0, 0.6, zPos);
-
-                // Top Glowing Neon Trim
-                const edgeGeo = new THREE.BoxGeometry(10.6, 0.12, 0.9);
-                const edgeMat = new THREE.MeshBasicMaterial({ color: 0xffff00 });
-                const edge = new THREE.Mesh(edgeGeo, edgeMat);
-                edge.position.set(0, 0.6, 0);
-                obstacle.add(edge);
-
-            } else if (typeRandom < 0.42) {
-                // TYPE 2: TALL NARROW WALL (Dodge Left or Right)
-                type = 'HIGH_WALL';
-                const geo = new THREE.BoxGeometry(3.4, 6.5, 0.8);
-                const mat = new THREE.MeshStandardMaterial({ 
-                    color: 0x00f0ff, 
-                    emissive: 0x004466, 
-                    roughness: 0.2 
-                });
-                obstacle = new THREE.Mesh(geo, mat);
-        // --- Balanced Obstacle Spawner ---
-        // Spawn distance interval tuned for fair, moderate difficulty
-        const SPAWN_INTERVAL_Z = 28; // Increased gap so players have time to react
-
-        function spawnObstacle(zPos) {
-            const typeRandom = Math.random();
-            let obstacle, type;
-
-            if (typeRandom < 0.35) {
-                // TYPE 1: LONG LOW WALL (Spans horizontally - Requires JUMP)
-                type = 'LONG_WALL';
-                const geo = new THREE.BoxGeometry(10.5, 1.2, 0.8);
-                const mat = new THREE.MeshStandardMaterial({ 
-                    color: 0xff0055, 
-                    emissive: 0x660022, 
-                    roughness: 0.3 
-                });
-                obstacle = new THREE.Mesh(geo, mat);
-                obstacle.position.set(0, 0.6, zPos);
-
-                // Top Glowing Neon Trim
-                const edgeGeo = new THREE.BoxGeometry(10.6, 0.12, 0.9);
-                const edgeMat = new THREE.MeshBasicMaterial({ color: 0xffff00 });
-                const edge = new THREE.Mesh(edgeGeo, edgeMat);
-                edge.position.set(0, 0.6, 0);
-                obstacle.add(edge);
-
-            } else if (typeRandom < 0.65) {
-                // TYPE 2: TALL NARROW WALL (Dodge Left or Right)
-                type = 'HIGH_WALL';
-                const geo = new THREE.BoxGeometry(3.2, 6.5, 0.8);
-                const mat = new THREE.MeshStandardMaterial({ 
-                    color: 0x00f0ff, 
-                    emissive: 0x004466, 
-                    roughness: 0.2 
-                });
-                obstacle = new THREE.Mesh(geo, mat);
-                
-                const lanes = [-LANE_WIDTH, 0, LANE_WIDTH];
-                const xPos = lanes[Math.floor(Math.random() * lanes.length)];
-                obstacle.position.set(xPos, 3.25, zPos);
-
-            } else if (typeRandom < 0.82) {
-                // TYPE 3: HIGH OVERHEAD GATE (Do NOT Jump / Stay Grounded)
-                type = 'HIGH_GATE';
-                const geo = new THREE.BoxGeometry(11, 3.5, 0.8);
-                const mat = new THREE.MeshStandardMaterial({ 
-                    color: 0xffaa00, 
-                    emissive: 0x664400, 
-                    roughness: 0.3 
-                });
-                obstacle = new THREE.Mesh(geo, mat);
-                obstacle.position.set(0, 3.8, zPos);
-
-                const stripeGeo = new THREE.BoxGeometry(11.1, 0.15, 0.9);
-                const stripeMat = new THREE.MeshBasicMaterial({ color: 0xff0055 });
-                const stripe = new THREE.Mesh(stripeGeo, stripeMat);
-                stripe.position.set(0, -1.6, 0);
-                obstacle.add(stripe);
-
-            } else {
-                // TYPE 4: HORIZONTALLY MOVING BLOCK (Predictable moderate speed)
-                type = 'MOVING_BLOCK';
-                const geo = new THREE.BoxGeometry(3.0, 2.2, 1.2);
-                const mat = new THREE.MeshStandardMaterial({ 
-                    color: 0xaa00ff, 
-                    emissive: 0x440066 
-                });
-                obstacle = new THREE.Mesh(geo, mat);
-                obstacle.position.set(0, 1.1, zPos);
-                obstacle.userData.moveDirection = Math.random() > 0.5 ? 1 : -1;
-                obstacle.userData.moveSpeed = 0.05; // Moderate movement speed
-            }
-
-            obstacle.userData = Object.assign(obstacle.userData || {}, { type: type, box: new THREE.Box3() });
-            scene.add(obstacle);
-            obstacles.push(obstacle);
-        }
-
-        // Spawns explosion particles on collision
-        function createExplosion(pos) {
-            for (let i = 0; i < 30; i++) {
-                const pGeo = new THREE.BoxGeometry(0.2, 0.2, 0.2);
-                const pMat = new THREE.MeshBasicMaterial({ 
-                    color: Math.random() > 0.5 ? 0xff0055 : 0x00f0ff 
-                });
-                const particle = new THREE.Mesh(pGeo, pMat);
-                particle.position.copy(pos);
-                
-                particle.userData = {
-                    vel: new THREE.Vector3(
-                        (Math.random() - 0.5) * 0.8,
-                        (Math.random() - 0.5) * 0.8 + 0.3,
-                        (Math.random() - 0.5) * 0.8
-                    )
-                };
-                
-                scene.add(particle);
-                particles.push(particle);
-            }
-        }
-
-        // --- Controls Handlers ---
-        function setupControls() {
-            setupCharacterSelector();
-
-            // Keyboard
-            window.addEventListener('keydown', (e) => {
-                if (gameState !== 'PLAYING') return;
-                const code = e.code;
-                if (code === 'KeyA' || code === 'ArrowLeft') keys.a = true;
-                if (code === 'KeyD' || code === 'ArrowRight') keys.d = true;
-                if (code === 'Space') {
-                    e.preventDefault();
-                    triggerJump();
-                }
-            });
-
-            window.addEventListener('keyup', (e) => {
-                const code = e.code;
-                if (code === 'KeyA' || code === 'ArrowLeft') keys.a = false;
-                if (code === 'KeyD' || code === 'ArrowRight') keys.d = false;
-            });
-
-            // Touch UI Buttons
-            const btnLeft = document.getElementById('btn-left');
-            const btnRight = document.getElementById('btn-right');
-            const btnJump = document.getElementById('btn-jump');
-
-            const bindTouch = (elem, keyName) => {
-                elem.addEventListener('touchstart', (e) => { e.preventDefault(); keys[keyName] = true; });
-                elem.addEventListener('touchend', (e) => { e.preventDefault(); keys[keyName] = false; });
-            };
-
-            bindTouch(btnLeft, 'left');
-            bindTouch(btnRight, 'right');
-            
-            btnJump.addEventListener('touchstart', (e) => {
+        const audio = new RetroAudio();
+
+        // UI References
+        const hpBar = document.getElementById('hp-bar');
+        const hpText = document.getElementById('hp-text');
+        const spBar = document.getElementById('sp-bar');
+        const scoreVal = document.getElementById('score-val');
+        const stageVal = document.getElementById('stage-val');
+        const comboVal = document.getElementById('combo-val');
+        const bossHpContainer = document.getElementById('boss-hp-container');
+        const bossHpBar = document.getElementById('boss-hp-bar');
+        const bossHpText = document.getElementById('boss-hp-text');
+        const dialogueBox = document.getElementById('dialogue-box');
+        const dialogueSpeaker = document.getElementById('dialogue-speaker');
+        const dialogueText = document.getElementById('dialogue-text');
+
+        const keys = {};
+        let touchVector = { x: 0, y: 0 };
+
+        // Keyboard Event Listeners
+        window.addEventListener('keydown', e => {
+            keys[e.code] = true;
+            // 게임 점프/공격 기본 키 동작 차단 방지 (스크롤 방지)
+            if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.code)) {
                 e.preventDefault();
-                if (gameState === 'PLAYING') triggerJump();
-            });
+            }
+            if (gameState === 'PLAYING') {
+                if (e.code === 'KeyJ' || e.code === 'KeyZ') player.shoot();
+                if (e.code === 'KeyK' || e.code === 'ShiftLeft') player.activateShield();
+                if (e.code === 'KeyL') player.activateRage();
+            }
+        }, { passive: false });
+        window.addEventListener('keyup', e => keys[e.code] = false);
 
-            // UI Buttons
-            document.getElementById('start-btn').addEventListener('click', startGame);
-            
-            document.getElementById('audio-toggle-btn').addEventListener('click', () => {
-                const muted = audio.toggleMute();
-                document.getElementById('audio-icon').className = muted ? 'fas fa-volume-mute text-red-400' : 'fas fa-volume-up text-cyan-400';
-            });
+        // Mobile Touch Joystick
+        const joystick = document.getElementById('touch-joystick');
+        const stick = document.getElementById('joystick-stick');
+        let joystickActive = false;
+        let joystickCenter = { x: 0, y: 0 };
+
+        joystick.addEventListener('touchstart', e => {
+            e.preventDefault();
+            const rect = joystick.getBoundingClientRect();
+            joystickCenter = { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+            joystickActive = true;
+            updateJoystick(e.touches[0]);
+        }, { passive: false });
+
+        window.addEventListener('touchmove', e => {
+            if (joystickActive) updateJoystick(e.touches[0]);
+        }, { passive: false });
+
+        window.addEventListener('touchend', () => {
+            joystickActive = false;
+            stick.style.transform = `translate(0px, 0px)`;
+            touchVector = { x: 0, y: 0 };
+        });
+
+        function updateJoystick(touch) {
+            const maxRadius = 35;
+            let dx = touch.clientX - joystickCenter.x;
+            let dy = touch.clientY - joystickCenter.y;
+            let dist = Math.hypot(dx, dy);
+
+            if (dist > maxRadius) {
+                dx = (dx / dist) * maxRadius;
+                dy = (dy / dist) * maxRadius;
+            }
+            stick.style.transform = `translate(${dx}px, ${dy}px)`;
+            touchVector = { x: dx / maxRadius, y: dy / maxRadius };
         }
 
-        function triggerJump() {
-            if (isGrounded) {
-                playerVelY = currentJumpForce;
-                isGrounded = false;
-                audio.playJump();
+        document.getElementById('btn-touch-attack').addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            if (gameState === 'PLAYING') player.shoot();
+        });
+        document.getElementById('btn-touch-shield').addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            if (gameState === 'PLAYING') player.activateShield();
+        });
+        document.getElementById('btn-touch-rage').addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            if (gameState === 'PLAYING') player.activateRage();
+        });
+
+        // Game Entities
+        class Player {
+            constructor() {
+                this.x = 100;
+                this.y = 300;
+                this.width = 46;
+                this.height = 48;
+                this.vx = 0;
+                this.vy = 0;
+                this.speed = 5;
+                this.jumpPower = -12.5;
+                this.grounded = false;
+                this.maxHp = 100;
+                this.hp = 100;
+                this.sp = 100;
+                this.shieldActive = false;
+                this.shieldTimer = 0;
+                this.rageActive = false;
+                this.rageTimer = 0;
+                this.facingRight = true;
+                this.invincibleTimer = 0;
+            }
+
+            update(platforms) {
+                let moveX = 0;
+                if (keys['ArrowLeft'] || keys['KeyA']) moveX -= 1;
+                if (keys['ArrowRight'] || keys['KeyD']) moveX += 1;
+                if (touchVector.x !== 0) moveX = touchVector.x;
+
+                this.vx = moveX * (this.rageActive ? this.speed * 1.5 : this.speed);
+                if (moveX > 0) this.facingRight = true;
+                if (moveX < 0) this.facingRight = false;
+
+                if ((keys['ArrowUp'] || keys['KeyW'] || keys['Space'] || keys['KeyK'] || touchVector.y < -0.5) && this.grounded) {
+                    this.vy = this.jumpPower;
+                    this.grounded = false;
+                    audio.playJump();
+                    createParticles(this.x + this.width / 2, this.y + this.height, '#fef08a', 8);
+                }
+
+                this.vy += 0.65; // 중력
+                this.x += this.vx;
+                this.y += this.vy;
+
+                // 바닥 및 공중 발판 충돌 판정
+                this.grounded = false;
+                for (let plat of platforms) {
+                    if (this.x + this.width > plat.x &&
+                        this.x < plat.x + plat.w &&
+                        this.y + this.height >= plat.y &&
+                        this.y + this.height - this.vy <= plat.y + 14 &&
+                        this.vy >= 0) {
+                        this.y = plat.y - this.height;
+                        this.vy = 0;
+                        this.grounded = true;
+                    }
+                }
+
+                // 추락 방지 한계선 (지면 최하단에 닿으면 복구)
+                if (this.y > 450) {
+                    this.y = 350;
+                    this.vy = 0;
+                    this.grounded = true;
+                }
+
+                // 카메라는 플레이어 따라가기
+                this.x = Math.max(cameraX, Math.min(cameraX + canvas.width - this.width, this.x));
+
+                if (this.shieldTimer > 0) {
+                    this.shieldTimer--;
+                    if (this.shieldTimer <= 0) this.shieldActive = false;
+                }
+                if (this.rageTimer > 0) {
+                    this.rageTimer--;
+                    if (this.rageTimer <= 0) this.rageActive = false;
+                }
+                if (this.invincibleTimer > 0) this.invincibleTimer--;
+                if (this.sp < 100) this.sp += 0.15;
+            }
+
+            draw() {
+                ctx.save();
+                ctx.translate(this.x - cameraX + this.width / 2, this.y + this.height / 2);
+                if (!this.facingRight) ctx.scale(-1, 1);
+
+                if (this.invincibleTimer > 0 && Math.floor(Date.now() / 80) % 2 === 0) {
+                    ctx.globalAlpha = 0.4;
+                }
+
+                // Pizza Prince Visual Model
+                ctx.fillStyle = this.rageActive ? '#ef4444' : '#f59e0b';
+                ctx.beginPath();
+                ctx.arc(0, 0, 22, 0, Math.PI * 2);
+                ctx.fill();
+
+                ctx.fillStyle = '#fef08a';
+                ctx.beginPath();
+                ctx.arc(0, 0, 16, 0, Math.PI * 2);
+                ctx.fill();
+
+                ctx.fillStyle = '#dc2626';
+                ctx.beginPath();
+                ctx.arc(-6, -6, 4, 0, Math.PI * 2);
+                ctx.arc(8, 2, 5, 0, Math.PI * 2);
+                ctx.arc(-4, 8, 4, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Crown
+                ctx.fillStyle = '#facc15';
+                ctx.beginPath();
+                ctx.moveTo(-10, -18);
+                ctx.lineTo(-5, -28);
+                ctx.lineTo(0, -18);
+                ctx.lineTo(5, -28);
+                ctx.lineTo(10, -18);
+                ctx.closePath();
+                ctx.fill();
+
+                ctx.fillStyle = '#000';
+                ctx.fillRect(4, -4, 4, 4);
+                ctx.fillRect(12, -4, 4, 4);
+
+                if (this.shieldActive) {
+                    ctx.strokeStyle = '#60a5fa';
+                    ctx.lineWidth = 4;
+                    ctx.beginPath();
+                    ctx.arc(0, 0, 30, 0, Math.PI * 2);
+                    ctx.stroke();
+                    ctx.fillStyle = 'rgba(96, 165, 250, 0.25)';
+                    ctx.fill();
+                }
+
+                if (this.rageActive) {
+                    ctx.fillStyle = 'rgba(239, 68, 68, 0.4)';
+                    ctx.beginPath();
+                    ctx.arc(0, 0, 28 + Math.sin(Date.now() * 0.02) * 4, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+
+                ctx.restore();
+            }
+
+            shoot() {
+                audio.playShoot();
+                const dir = this.facingRight ? 1 : -1;
+                const startX = this.x + (this.facingRight ? this.width : 0);
+                const startY = this.y + this.height / 2;
+
+                bullets.push(new Bullet(startX, startY, dir * 12, 0, this.rageActive));
+            }
+
+            activateShield() {
+                if (this.sp >= 30 && !this.shieldActive) {
+                    this.sp -= 30;
+                    this.shieldActive = true;
+                    this.shieldTimer = 180; // 약 3초
+                    audio.playShield();
+                    createParticles(this.x + this.width / 2, this.y + this.height / 2, '#60a5fa', 15);
+                }
+            }
+
+            activateRage() {
+                if (this.sp >= 50 && !this.rageActive) {
+                    this.sp -= 50;
+                    this.rageActive = true;
+                    this.rageTimer = 300; // 약 5초
+                    audio.playShield();
+                    createParticles(this.x + this.width / 2, this.y + this.height / 2, '#ef4444', 20);
+                }
+            }
+
+            takeDamage(amount) {
+                if (this.shieldActive || this.invincibleTimer > 0) return;
+
+                this.hp -= amount;
+                this.invincibleTimer = 45; // 무적 시간
+                screenShake = 12;
+
+                if (this.hp <= 0) {
+                    this.hp = 0;
+                    audio.playGameOverVoice();
+                    floatingTexts.push(new FloatingText(this.x, this.y - 30, '🍕 피자먹고! 얼굴피자! 🍕', '#facc15', 24));
+                    gameOver();
+                } else {
+                    const soundText = audio.playHit();
+                    floatingTexts.push(new FloatingText(this.x, this.y - 10, soundText, soundText === '이게 뭐야!' ? '#ef4444' : '#facc15', 18));
+                }
             }
         }
 
-        // --- Game Loop & Logic ---
-        function startGame() {
-            audio.init();
-            audio.startBGM();
-
-            // Clear Existing Obstacles
-            obstacles.forEach(obs => scene.remove(obs));
-            obstacles = [];
-            particles.forEach(p => scene.remove(p));
-            particles = [];
-
-            // Apply selected character stats
-            const char = CHARACTERS[selectedCharIndex];
-            speed = 0.85 * char.speedMultiplier; 
-            currentJumpForce = char.jumpForce;
-
-            // Reset Stats
-            score = 0;
-            playerPos = { x: 0, y: 0.8, z: 0 };
-            playerVelY = 0;
-            isGrounded = true;
-            lastSpawnZ = -30;
-
-            // Re-create player model for selected character
-            createPlayer();
-
-            // Pre-spawn initial obstacles ahead
-            for (let z = -40; z > -150; z -= SPAWN_INTERVAL_Z) {
-                spawnObstacle(z);
-                lastSpawnZ = z;
+        class Bullet {
+            constructor(x, y, vx, vy, isRage) {
+                this.x = x;
+                this.y = y;
+                this.vx = vx;
+                this.vy = vy;
+                this.isRage = isRage;
+                this.radius = isRage ? 9 : 6;
             }
 
-            // Update UI
-            document.getElementById('menu-overlay').classList.add('hidden');
-            document.getElementById('hud').classList.remove('hidden');
-            document.getElementById('controls-hint').classList.remove('hidden');
-            document.getElementById('touch-controls').classList.remove('hidden');
+            update() {
+                this.x += this.vx;
+                this.y += this.vy;
+            }
 
-            gameState = 'PLAYING';
+            draw() {
+                ctx.save();
+                ctx.translate(this.x - cameraX, this.y);
+                ctx.fillStyle = this.isRage ? '#ef4444' : '#f59e0b';
+                ctx.beginPath();
+                ctx.arc(0, 0, this.radius, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.fillStyle = '#fef08a';
+                ctx.beginPath();
+                ctx.arc(-2, -2, this.radius * 0.5, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+            }
+        }
+
+        class Enemy {
+            constructor(x, type) {
+                this.x = x;
+                this.y = 350;
+                this.type = type;
+                this.hp = type === 'BURGER' ? 3 : type === 'ARCHER' ? 4 : 2;
+                this.width = 40;
+                this.height = 40;
+                this.vx = -1.5;
+                this.timer = 0;
+            }
+
+            update() {
+                this.x += this.vx;
+                this.timer++;
+
+                if (this.type === 'SODA') {
+                    this.y = 350 + Math.sin(this.timer * 0.1) * 20;
+                } else if (this.type === 'ARCHER' && this.timer % 110 === 0) {
+                    enemyBullets.push(new EnemyBullet(this.x, this.y + 10, -5, 0));
+                }
+            }
+
+            draw() {
+                ctx.save();
+                ctx.translate(this.x - cameraX + this.width / 2, this.y + this.height / 2);
+
+                if (this.type === 'BURGER') {
+                    ctx.fillStyle = '#b45309';
+                    ctx.beginPath();
+                    ctx.arc(0, -4, 18, Math.PI, 0);
+                    ctx.fill();
+                    ctx.fillStyle = '#451a03';
+                    ctx.fillRect(-18, -4, 36, 6);
+                    ctx.fillStyle = '#facc15';
+                    ctx.fillRect(-16, 2, 32, 4);
+                    ctx.fillStyle = '#b45309';
+                    ctx.fillRect(-18, 6, 36, 6);
+                } else if (this.type === 'SODA') {
+                    ctx.fillStyle = '#2563eb';
+                    ctx.fillRect(-12, -16, 24, 32);
+                    ctx.fillStyle = '#ef4444';
+                    ctx.fillRect(-2, -24, 4, 10);
+                } else {
+                    ctx.fillStyle = '#dc2626';
+                    ctx.fillRect(-12, -10, 24, 28);
+                    ctx.fillStyle = '#facc15';
+                    ctx.fillRect(-10, -22, 5, 14);
+                    ctx.fillRect(-2, -26, 5, 18);
+                    ctx.fillRect(6, -20, 5, 12);
+                }
+
+                ctx.fillStyle = '#000';
+                ctx.fillRect(-8, -2, 4, 4);
+                ctx.fillRect(4, -2, 4, 4);
+                ctx.restore();
+            }
+        }
+
+        class EnemyBullet {
+            constructor(x, y, vx, vy) {
+                this.x = x;
+                this.y = y;
+                this.vx = vx;
+                this.vy = vy;
+            }
+            update() {
+                this.x += this.vx;
+                this.y += this.vy;
+            }
+            draw() {
+                ctx.fillStyle = '#facc15';
+                ctx.fillRect(this.x - cameraX, this.y, 12, 4);
+            }
+        }
+
+        class Boss {
+            constructor() {
+                this.x = cameraX + canvas.width + 100;
+                this.targetX = cameraX + canvas.width - 200;
+                this.y = 260;
+                this.width = 120;
+                this.height = 140;
+                this.maxHp = 400 * currentStage;
+                this.hp = this.maxHp;
+                this.timer = 0;
+            }
+
+            update() {
+                if (this.x > this.targetX) {
+                    this.x -= 2;
+                } else {
+                    this.y = 260 + Math.sin(this.timer * 0.05) * 30;
+                }
+                this.timer++;
+
+                if (this.timer % 90 === 0) {
+                    enemyBullets.push(new EnemyBullet(this.x, this.y + 40, -6, 0));
+                    enemyBullets.push(new EnemyBullet(this.x, this.y + 70, -6, 1));
+                }
+            }
+
+            draw() {
+                ctx.save();
+                ctx.translate(this.x - cameraX, this.y);
+
+                ctx.fillStyle = '#78350f';
+                ctx.fillRect(10, 30, 100, 90);
+                ctx.fillStyle = '#451a03';
+                ctx.fillRect(0, 50, 120, 20);
+
+                ctx.fillStyle = '#facc15';
+                ctx.beginPath();
+                ctx.moveTo(10, 30);
+                ctx.lineTo(30, 0);
+                ctx.lineTo(60, 20);
+                ctx.lineTo(90, 0);
+                ctx.lineTo(110, 30);
+                ctx.fill();
+
+                ctx.fillStyle = '#ef4444';
+                ctx.fillRect(25, 50, 18, 10);
+                ctx.fillRect(75, 50, 18, 10);
+
+                ctx.restore();
+            }
+        }
+
+        class Item {
+            constructor(x, y, type) {
+                this.x = x;
+                this.y = y;
+                this.type = type;
+                this.width = 24;
+                this.height = 24;
+            }
+            update() {
+                this.y += Math.sin(Date.now() * 0.005) * 0.5;
+            }
+            draw() {
+                ctx.save();
+                ctx.translate(this.x - cameraX + 12, this.y + 12);
+                ctx.fillStyle = this.type === 'PICKLE' ? '#22c55e' : '#fef08a';
+                ctx.beginPath();
+                ctx.arc(0, 0, 10, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+            }
+        }
+
+        class FloatingText {
+            constructor(x, y, text, color, size = 18) {
+                this.x = x;
+                this.y = y;
+                this.text = text;
+                this.color = color;
+                this.size = size;
+                this.life = 60;
+            }
+            update() {
+                this.y -= 1.2;
+                this.life--;
+            }
+            draw() {
+                ctx.save();
+                ctx.font = `bold ${this.size}px "Neo Dunggeunmo", sans-serif`;
+                ctx.fillStyle = this.color;
+                ctx.strokeStyle = '#000000';
+                ctx.lineWidth = 4;
+                ctx.strokeText(this.text, this.x - cameraX, this.y);
+                ctx.fillText(this.text, this.x - cameraX, this.y);
+                ctx.restore();
+            }
+        }
+
+        class Particle {
+            constructor(x, y, color) {
+                this.x = x;
+                this.y = y;
+                this.color = color;
+                this.vx = (Math.random() - 0.5) * 8;
+                this.vy = (Math.random() - 0.5) * 8;
+                this.life = 30;
+            }
+            update() {
+                this.x += this.vx;
+                this.y += this.vy;
+                this.life--;
+            }
+            draw() {
+                ctx.fillStyle = this.color;
+                ctx.fillRect(this.x - cameraX, this.y, 4, 4);
+            }
+        }
+
+        // Global Containers
+        let player = new Player();
+        let bullets = [];
+        let enemyBullets = [];
+        let enemies = [];
+        let boss = null;
+        let items = [];
+        let particles = [];
+        let floatingTexts = [];
+        let screenShake = 0;
+
+        function createParticles(x, y, color, count = 10) {
+            for (let i = 0; i < count; i++) {
+                particles.push(new Particle(x, y, color));
+            }
+        }
+
+        // Parallax Background Renderer
+        function drawParallaxBG() {
+            // Dark night sky gradient
+            const skyGrad = ctx.createLinearGradient(0, 0, 0, canvas.height);
+            skyGrad.addColorStop(0, '#0b0517');
+            skyGrad.addColorStop(0.7, '#240d2e');
+            skyGrad.addColorStop(1, '#3b182e');
+            ctx.fillStyle = skyGrad;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Far stars layer
+            ctx.fillStyle = '#fef08a';
+            for (let i = 0; i < 35; i++) {
+                const starX = (i * 120 - cameraX * 0.15) % canvas.width;
+                const starY = (i * 37) % 280;
+                const adjustedX = starX < 0 ? starX + canvas.width : starX;
+                ctx.fillRect(adjustedX, starY, (i % 2 === 0 ? 2 : 3), (i % 2 === 0 ? 2 : 3));
+            }
+
+            // Distant Pizza Mountain / Cheese layer
+            ctx.fillStyle = '#1c0a22';
+            ctx.beginPath();
+            ctx.moveTo(0, canvas.height);
+            for (let x = 0; x <= canvas.width; x += 80) {
+                const bgX = x - (cameraX * 0.3) % 80;
+                const bgY = 320 + Math.sin((x + cameraX * 0.3) * 0.01) * 25;
+                ctx.lineTo(bgX, bgY);
+            }
+            ctx.lineTo(canvas.width, canvas.height);
+            ctx.closePath();
+            ctx.fill();
+        }
+
+        function showDialogue(speaker, text, duration = 3000) {
+            dialogueSpeaker.innerText = speaker;
+            dialogueText.innerText = text;
+            dialogueBox.classList.remove('hidden');
+            setTimeout(() => dialogueBox.classList.add('hidden'), duration);
         }
 
         function gameOver() {
             gameState = 'GAMEOVER';
-            audio.stopBGM();
-            audio.playCrash();
-
-            createExplosion(player.position);
-
-            // Update Overlay UI
-            document.getElementById('final-score').innerText = Math.floor(score);
-            document.getElementById('game-over-info').classList.remove('hidden');
-            document.getElementById('start-btn').innerText = '다시 시도 (RETRY)';
-            document.getElementById('menu-overlay').classList.remove('hidden');
-            document.getElementById('controls-hint').classList.add('hidden');
-            document.getElementById('touch-controls').classList.add('hidden');
+            setTimeout(() => {
+                document.getElementById('final-score').innerText = String(score).padStart(6, '0');
+                document.getElementById('gameover-screen').classList.remove('hidden');
+            }, 1500);
         }
 
-        function update() {
+        function initGame() {
+            player = new Player();
+            bullets = [];
+            enemyBullets = [];
+            enemies = [];
+            items = [];
+            particles = [];
+            floatingTexts = [];
+            boss = null;
+            score = 0;
+            combo = 0;
+            currentStage = 1;
+            cameraX = 0;
+            screenShake = 0;
+            bossHpContainer.classList.add('hidden');
+            updateUI();
+            showDialogue("피자왕자", "치킨공주님, 기다리세요! 제가 구하러 갑니다!");
+        }
+
+        function updateUI() {
+            hpBar.style.width = `${(player.hp / player.maxHp) * 100}%`;
+            hpText.innerText = `${Math.ceil(player.hp)}/${player.maxHp}`;
+            spBar.style.width = `${player.sp}%`;
+            scoreVal.innerText = String(score).padStart(6, '0');
+            stageVal.innerText = currentStage;
+            comboVal.innerText = `x${combo}`;
+
+            if (boss) {
+                bossHpContainer.classList.remove('hidden');
+                bossHpBar.style.width = `${Math.max(0, (boss.hp / boss.maxHp) * 100)}%`;
+                bossHpText.innerText = `${Math.ceil(Math.max(0, boss.hp))}/${boss.maxHp}`;
+            } else {
+                bossHpContainer.classList.add('hidden');
+            }
+        }
+
+        // Platforms Level Layout
+        function getStagePlatforms() {
+            return [
+                { x: -500, y: 420, w: 100000, h: 120 }, // 끝없이 길게 확장된 메인 지면
+                { x: 200, y: 320, w: 180, h: 20 },      // 공중 발판 1
+                { x: 480, y: 240, w: 180, h: 20 },      // 공중 발판 2
+                { x: 750, y: 320, w: 180, h: 20 },      // 공중 발판 3
+                { x: 1050, y: 250, w: 180, h: 20 },     // 공중 발판 4
+                { x: 1350, y: 320, w: 180, h: 20 }      // 공중 발판 5
+            ];
+        }
+
+        // Main Loop
+        function gameLoop() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            ctx.save();
+            if (screenShake > 0) {
+                const sx = (Math.random() - 0.5) * screenShake;
+                const sy = (Math.random() - 0.5) * screenShake;
+                ctx.translate(sx, sy);
+                screenShake *= 0.88;
+            }
+
+            const platforms = getStagePlatforms();
+
+            // Background & Platforms Rendering
+            drawParallaxBG();
+            ctx.fillStyle = '#b45309';
+            for (let plat of platforms) {
+                ctx.fillRect(plat.x - cameraX, plat.y, plat.w, plat.h);
+                ctx.fillStyle = '#fef08a';
+                ctx.fillRect(plat.x - cameraX, plat.y, plat.w, 4);
+                ctx.fillStyle = '#b45309';
+            }
+
+            // 동적 공중 발판 무한 생성 (플레이어 이동에 맞춰 생성)
+            const currentChunk = Math.floor(player.x / 300);
+            for (let i = currentChunk - 2; i <= currentChunk + 5; i++) {
+                if (i > 4) {
+                    const px = i * 300;
+                    const py = 240 + Math.sin(i * 1.5) * 60;
+                    ctx.fillStyle = '#b45309';
+                    ctx.fillRect(px - cameraX, py, 160, 20);
+                    ctx.fillStyle = '#fef08a';
+                    ctx.fillRect(px - cameraX, py, 160, 4);
+                    platforms.push({ x: px, y: py, w: 160, h: 20 });
+                }
+            }
+
             if (gameState === 'PLAYING') {
-                const char = CHARACTERS[selectedCharIndex];
-                
-                // 1. Score & Speed Progression
-                score += speed * 0.5 * char.scoreMultiplier;
-                document.getElementById('score-text').innerText = Math.floor(score);
-                
-                // Hard mode gets progressively faster up to maxSpeed
-                if (speed < maxSpeed * char.speedMultiplier) speed += 0.0003;
+                // 플레이어가 화면 중앙을 넘어갈 때만 카메라 스크롤
+                cameraX = Math.max(0, player.x - canvas.width / 3);
 
-                // 2. Horizontal Movement Logic (A/D or Touch)
-                const moveSpeed = 0.22;
-                if ((keys.a || keys.left) && playerPos.x > -MAX_X) {
-                    playerPos.x -= moveSpeed;
-                }
-                if ((keys.d || keys.right) && playerPos.x < MAX_X) {
-                    playerPos.x += moveSpeed;
+                // 플레이어가 계속 전진해도 적들이 끊임없이 계속 생성
+                if (Math.random() < 0.035 && !boss) {
+                    const types = ['BURGER', 'SODA', 'ARCHER'];
+                    const spawnX = cameraX + canvas.width + 50 + Math.random() * 200;
+                    enemies.push(new Enemy(spawnX, types[Math.floor(Math.random() * types.length)]));
                 }
 
-                // Smooth Bank/Tilt Angle when turning
-                const targetTilt = (keys.a || keys.left) ? 0.4 : ((keys.d || keys.right) ? -0.4 : 0);
-                player.rotation.z += (targetTilt - player.rotation.z) * 0.15;
-
-                // 3. Jump Physics
-                playerPos.y += playerVelY;
-                playerVelY += GRAVITY;
-
-                if (playerPos.y <= 0.8) {
-                    playerPos.y = 0.8;
-                    playerVelY = 0;
-                    isGrounded = true;
+                // 보스는 충분히 전진한 스테이지 극후반(x > 6000 * currentStage)에 마지막으로 출현
+                const bossSpawnX = 6000 * currentStage;
+                if (player.x > bossSpawnX && !boss) {
+                    boss = new Boss();
+                    screenShake = 20;
+                    showDialogue("⚠️ WARNING ⚠️", "대마왕 버거킹이 나타났습니다! 치킨공주를 구하세요!", 4000);
                 }
 
-                // Update Player Model Position
-                player.position.set(playerPos.x, playerPos.y, playerPos.z);
-                
-                // Update Player Collision Box (Slightly smaller than mesh for forgiving gameplay)
-                playerBox.setFromObject(player);
-                playerBox.expandByScalar(-0.15); 
+                player.update(platforms);
+                player.draw();
 
-                // 4. Move Road Grid to give illusion of speed
-                roadGrid.position.z += speed;
-                if (roadGrid.position.z > 5) roadGrid.position.z = 0;
+                // Bullets update & draw
+                for (let i = bullets.length - 1; i >= 0; i--) {
+                    const b = bullets[i];
+                    b.update();
+                    b.draw();
 
-                // 5. Update & Spawn Obstacles
-                for (let i = obstacles.length - 1; i >= 0; i--) {
-                    const obs = obstacles[i];
-                    obs.position.z += speed;
+                    // Bullets out of screen
+                    if (b.x - cameraX > canvas.width + 100 || b.x - cameraX < -100) {
+                        bullets.splice(i, 1);
+                        continue;
+                    }
 
-                    // Moving obstacle special logic
-                    if (obs.userData.type === 'MOVING_BLOCK') {
-                        obs.position.x += obs.userData.moveDirection * obs.userData.moveSpeed;
-                        if (obs.position.x > MAX_X) {
-                            obs.position.x = MAX_X;
-                            obs.userData.moveDirection = -1;
-                        } else if (obs.position.x < -MAX_X) {
-                            obs.position.x = -MAX_X;
-                            obs.userData.moveDirection = 1;
+                    // Bullet hit Enemy
+                    for (let j = enemies.length - 1; j >= 0; j--) {
+                        const e = enemies[j];
+                        if (Math.abs(b.x - (e.x + e.width / 2)) < e.width / 2 + b.radius &&
+                            Math.abs(b.y - (e.y + e.height / 2)) < e.height / 2 + b.radius) {
+                            e.hp -= b.isRage ? 2 : 1;
+                            createParticles(b.x, b.y, '#fef08a', 5);
+                            bullets.splice(i, 1);
+
+                            if (e.hp <= 0) {
+                                score += 100;
+                                combo++;
+                                audio.playExplode();
+                                createParticles(e.x + e.width / 2, e.y + e.height / 2, '#ef4444', 12);
+                                floatingTexts.push(new FloatingText(e.x, e.y, '+100', '#facc15', 16));
+                                if (Math.random() < 0.3) {
+                                    items.push(new Item(e.x, e.y, Math.random() < 0.5 ? 'PICKLE' : 'DIPPING'));
+                                }
+                                enemies.splice(j, 1);
+                            }
+                            break;
                         }
                     }
 
-                    // Collision Detection
-                    obs.userData.box.setFromObject(obs);
-                    if (playerBox.intersectsBox(obs.userData.box)) {
-                        gameOver();
-                        return;
+                    // Bullet hit Boss
+                    if (boss && b) {
+                        if (b.x > boss.x && b.x < boss.x + boss.width &&
+                            b.y > boss.y && b.y < boss.y + boss.height) {
+                            boss.hp -= b.isRage ? 3 : 1;
+                            createParticles(b.x, b.y, '#ef4444', 6);
+                            bullets.splice(i, 1);
+
+                            if (boss.hp <= 0) {
+                                score += 5000;
+                                audio.playExplode();
+                                createParticles(boss.x + boss.width / 2, boss.y + boss.height / 2, '#f59e0b', 30);
+                                boss = null;
+                                currentStage++;
+                                showDialogue("피자왕자", "치킨공주님! 악당을 물리쳤습니다!");
+                                setTimeout(() => {
+                                    gameState = 'VICTORY';
+                                    document.getElementById('victory-score').innerText = String(score).padStart(6, '0');
+                                    document.getElementById('victory-screen').classList.remove('hidden');
+                                }, 1500);
+                            }
+                        }
+                    }
+                }
+
+                // Enemy Bullets update & draw
+                for (let i = enemyBullets.length - 1; i >= 0; i--) {
+                    const eb = enemyBullets[i];
+                    eb.update();
+                    eb.draw();
+
+                    if (eb.x - cameraX < -50 || eb.x - cameraX > canvas.width + 50) {
+                        enemyBullets.splice(i, 1);
+                        continue;
                     }
 
-                    // Remove off-screen obstacles
-                    if (obs.position.z > 10) {
-                        scene.remove(obs);
-                        obstacles.splice(i, 1);
+                    // Enemy Bullet hit Player
+                    if (Math.abs(eb.x - (player.x + player.width / 2)) < player.width / 2 &&
+                        Math.abs(eb.y - (player.y + player.height / 2)) < player.height / 2) {
+                        player.takeDamage(10);
+                        enemyBullets.splice(i, 1);
                     }
                 }
 
-                // Spawn New Obstacles ahead (Fair progression rate)
-                const currentSpawnInterval = Math.max(20, SPAWN_INTERVAL_Z - Math.floor(score / 600));
-                if (lastSpawnZ + speed > -160) {
-                    lastSpawnZ -= currentSpawnInterval;
-                    spawnObstacle(lastSpawnZ);
+                // Enemies update, draw & player collision
+                for (let i = enemies.length - 1; i >= 0; i--) {
+                    const e = enemies[i];
+                    e.update();
+                    e.draw();
+
+                    // Player hit enemy
+                    if (Math.abs((player.x + player.width / 2) - (e.x + e.width / 2)) < (player.width + e.width) / 3 &&
+                        Math.abs((player.y + player.height / 2) - (e.y + e.height / 2)) < (player.height + e.height) / 3) {
+                        player.takeDamage(15);
+                    }
+
+                    if (e.x - cameraX < -150) {
+                        enemies.splice(i, 1);
+                    }
                 }
+
+                // Boss update & draw
+                if (boss) {
+                    boss.update();
+                    boss.draw();
+                }
+
+                // Items update & collect
+                for (let i = items.length - 1; i >= 0; i--) {
+                    const it = items[i];
+                    it.update();
+                    it.draw();
+
+                    if (Math.abs((player.x + player.width / 2) - (it.x + 12)) < 30 &&
+                        Math.abs((player.y + player.height / 2) - (it.y + 12)) < 30) {
+                        audio.playItem();
+                        if (it.type === 'PICKLE') {
+                            player.hp = Math.min(player.maxHp, player.hp + 25);
+                            floatingTexts.push(new FloatingText(player.x, player.y - 10, 'HP +25', '#22c55e', 18));
+                        } else {
+                            player.sp = Math.min(100, player.sp + 40);
+                            floatingTexts.push(new FloatingText(player.x, player.y - 10, 'SP +40', '#fef08a', 18));
+                        }
+                        items.splice(i, 1);
+                    }
+                }
+
+                // Particles update & draw
+                for (let i = particles.length - 1; i >= 0; i--) {
+                    const p = particles[i];
+                    p.update();
+                    p.draw();
+                    if (p.life <= 0) particles.splice(i, 1);
+                }
+
+                // Floating Texts update & draw
+                for (let i = floatingTexts.length - 1; i >= 0; i--) {
+                    const ft = floatingTexts[i];
+                    ft.update();
+                    ft.draw();
+                    if (ft.life <= 0) floatingTexts.splice(i, 1);
+                }
+
+                updateUI();
             }
 
-            // Update Explosion Particle FX
-            for (let i = particles.length - 1; i >= 0; i--) {
-                const p = particles[i];
-                p.position.add(p.userData.vel);
-                p.scale.multiplyScalar(0.95); // shrink
-                if (p.scale.x < 0.01) {
-                    scene.remove(p);
-                    particles.splice(i, 1);
-                }
-            }
+            requestAnimationFrame(gameLoop);
         }
 
-        function render() {
-            requestAnimationFrame(render);
-            update();
-            renderer.render(scene, camera);
-        }
+        // Setup Event Handlers
+        document.getElementById('start-btn').addEventListener('click', () => {
+            audio.init();
+            document.getElementById('menu-screen').classList.add('hidden');
+            initGame();
+            gameState = 'PLAYING';
+        });
 
-        function onWindowResize() {
-            camera.aspect = window.innerWidth / window.innerHeight;
-            camera.updateProjectionMatrix();
-            renderer.setSize(window.innerWidth, window.innerHeight);
-        }
+        document.getElementById('restart-btn').addEventListener('click', () => {
+            document.getElementById('gameover-screen').classList.add('hidden');
+            initGame();
+            gameState = 'PLAYING';
+        });
 
-        // --- Start Application ---
-        window.onload = () => {
-            initThree();
-            setupControls();
-            render();
-        };
+        document.getElementById('victory-btn').addEventListener('click', () => {
+            document.getElementById('victory-screen').classList.add('hidden');
+            document.getElementById('menu-screen').classList.remove('hidden');
+            gameState = 'MENU';
+        });
+
+        document.getElementById('audio-toggle').addEventListener('click', (e) => {
+            audio.enabled = !audio.enabled;
+            e.target.innerText = audio.enabled ? '🔊 SOUND' : '🔇 MUTE';
+        });
+
+        document.getElementById('crt-toggle').addEventListener('click', (e) => {
+            const wrapper = document.getElementById('canvas-wrapper');
+            wrapper.classList.toggle('crt-overlay');
+            e.target.innerText = wrapper.classList.contains('crt-overlay') ? '📺 CRT: ON' : '📺 CRT: OFF';
+        });
+
+        // Start Loop
+        requestAnimationFrame(gameLoop);
     </script>
 </body>
 </html>
