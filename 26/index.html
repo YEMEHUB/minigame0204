@@ -1,1357 +1,662 @@
-
 <!DOCTYPE html>
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>VALORANT 3D Tactical FPS Arena</title>
+    <title>3D Flight Simulator - AeroSim</title>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Three.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <!-- FontAwesome Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <!-- Google Fonts -->
-    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Pretendard:wght@400;600;800&display=swap" rel="stylesheet">
-    <!-- Three.js and PointerLockControls -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/PointerLockControls.js"></script>
-    <!-- Canvas Confetti -->
-    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
-
-    <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    fontFamily: {
-                        orbitron: ['Orbitron', 'sans-serif'],
-                        pretendard: ['Pretendard', 'sans-serif'],
-                    },
-                    colors: {
-                        valRed: '#ff4655',
-                        valDark: '#0f1923',
-                        valCyan: '#00f3ff',
-                        valYellow: '#ece8e1',
-                        valGold: '#ffd700'
-                    }
-                }
-            }
-        }
-    </script>
-
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Noto+Sans+KR:wght@400;700&display=swap" rel="stylesheet">
     <style>
         * {
-            font-family: 'Pretendard', sans-serif;
             user-select: none;
             -webkit-user-select: none;
         }
-
-        body, html {
-            margin: 0;
-            padding: 0;
-            width: 100%;
-            height: 100%;
+        body {
+            font-family: 'Orbitron', 'Noto Sans KR', sans-serif;
             overflow: hidden;
-            background-color: #0f1923;
+            background-color: #030712;
+            color: #fff;
         }
-
-        /* Glassmorphism Panel */
-        .val-panel {
-            background: rgba(15, 25, 35, 0.88);
-            backdrop-filter: blur(16px);
-            border: 1px solid rgba(255, 70, 85, 0.3);
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.8);
+        .hud-glass {
+            background: rgba(10, 16, 30, 0.75);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(0, 240, 255, 0.3);
+            box-shadow: 0 0 20px rgba(0, 240, 255, 0.15);
         }
-
-        .val-btn {
+        .flight-indicator {
             position: relative;
-            background: #ff4655;
-            color: #ffffff;
-            font-family: 'Orbitron', sans-serif;
-            font-weight: 700;
-            clip-path: polygon(12px 0, 100% 0, 100% calc(100% - 12px), calc(100% - 12px) 100%, 0 100%, 0 12px);
-            transition: all 0.2s ease;
+            width: 120px;
+            height: 120px;
+            border-radius: 50%;
+            border: 2px solid rgba(0, 240, 255, 0.6);
+            background: rgba(4, 8, 20, 0.6);
+            overflow: hidden;
         }
-
-        .val-btn:hover {
-            background: #00f3ff;
-            color: #0f1923;
-            transform: translateY(-2px);
-            box-shadow: 0 0 20px rgba(0, 243, 255, 0.6);
+        /* Minimap Canvas */
+        #minimap {
+            border: 2px solid rgba(0, 240, 255, 0.5);
+            border-radius: 50%;
+            background: rgba(5, 12, 24, 0.85);
         }
-
-        .val-btn-secondary {
-            background: rgba(255, 255, 255, 0.08);
-            border: 1px solid rgba(255, 255, 255, 0.2);
-            clip-path: polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px);
-        }
-
-        .val-btn-secondary:hover {
-            background: rgba(255, 70, 85, 0.2);
-            border-color: #ff4655;
-            color: #ff4655;
-        }
-
-        /* Kill Feed Banner Animations */
-        @keyframes killBannerPop {
-            0% { transform: scale(0.6) translateY(-20px); opacity: 0; }
-            50% { transform: scale(1.1) translateY(0); opacity: 1; }
-            100% { transform: scale(1) translateY(0); opacity: 1; }
-        }
-
-        .kill-banner-anim {
-            animation: killBannerPop 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
-        }
-
-        /* Headshot & Damage Screen Effects */
-        @keyframes headshotTint {
-            0% { background-color: rgba(255, 70, 85, 0.4); }
-            100% { background-color: rgba(255, 70, 85, 0); }
-        }
-
-        .headshot-tint-active {
-            animation: headshotTint 0.25s ease-out forwards;
-        }
-
-        @keyframes damageFlash {
-            0% { box-shadow: inset 0 0 50px rgba(255, 0, 0, 0.8); }
-            100% { box-shadow: inset 0 0 0px rgba(255, 0, 0, 0); }
-        }
-
-        .damage-flash-active {
-            animation: damageFlash 0.3s ease-out forwards;
-        }
-
-        /* Respawn Overlay Pulse */
-        @keyframes respawnPulse {
-            0% { opacity: 0.8; transform: scale(1); }
-            50% { opacity: 1; transform: scale(1.05); }
-            100% { opacity: 0.8; transform: scale(1); }
-        }
-
-        .respawn-pulse-anim {
-            animation: respawnPulse 1.5s infinite ease-in-out;
-        }
-
-        /* Damage Text Floating */
-        @keyframes floatDamage {
-            0% { transform: translate(-50%, -50%) scale(0.8); opacity: 1; }
-            100% { transform: translate(-50%, -140%) scale(1.3); opacity: 0; }
-        }
-
-        .damage-popup {
+        .vignette {
             position: absolute;
+            inset: 0;
+            background: radial-gradient(circle at center, transparent 60%, rgba(2, 6, 16, 0.8) 100%);
             pointer-events: none;
-            animation: floatDamage 0.6s ease-out forwards;
-            font-family: 'Orbitron', sans-serif;
-            font-weight: 900;
-            text-shadow: 0 0 8px rgba(0,0,0,0.9);
+            z-index: 5;
         }
-
-        /* Custom Scrollbar */
-        ::-webkit-scrollbar { width: 4px; }
-        ::-webkit-scrollbar-track { background: rgba(15, 25, 35, 0.8); }
-        ::-webkit-scrollbar-thumb { background: #ff4655; border-radius: 2px; }
     </style>
 </head>
-<body class="w-full h-full text-white overflow-hidden select-none bg-valDark">
+<body class="w-screen h-screen relative">
 
-    <!-- 3D CANVAS CONTAINER -->
-    <div id="gameCanvasContainer" class="absolute inset-0 w-full h-full z-0"></div>
+    <!-- 3D Viewport -->
+    <div id="game-container" class="w-full h-full absolute inset-0"></div>
 
-    <!-- HEADSHOT / DAMAGE FLASH OVERLAYS -->
-    <div id="headshotFlash" class="absolute inset-0 pointer-events-none z-10"></div>
-    <div id="damageFlash" class="absolute inset-0 pointer-events-none z-10"></div>
+    <div class="vignette"></div>
 
-    <!-- HUD OVERLAY (In-Game UI) -->
-    <div id="hudOverlay" class="absolute inset-0 z-20 pointer-events-none flex flex-col justify-between p-6 hidden">
-        
-        <!-- TOP HUD: Timer, Score, Kill Feed -->
-        <div class="w-full flex justify-between items-start">
-            
-            <!-- Mode Info & Match Timer -->
-            <div class="flex flex-col gap-1">
-                <div class="flex items-center gap-2">
-                    <span id="hudModeBadge" class="px-3 py-1 bg-valRed/90 text-white font-orbitron font-extrabold text-xs tracking-wider uppercase border-l-4 border-valCyan">
-                        AIM LAB PRACTICE
-                    </span>
-                    <span id="hudDifficultyBadge" class="px-2 py-1 bg-slate-800/90 text-valCyan font-orbitron text-xs font-semibold border border-valCyan/30">
-                        HARDCORE
-                    </span>
+    <!-- Cockpit / Flight HUD Overlay -->
+    <div id="hud-layer" class="absolute inset-0 pointer-events-none p-6 flex flex-col justify-between z-10 hidden">
+        <!-- Top HUD Info -->
+        <div class="flex justify-between items-start">
+            <!-- Flight Instruments Panel -->
+            <div class="hud-glass p-4 rounded-2xl flex items-center gap-6">
+                <!-- Airspeed -->
+                <div class="text-center">
+                    <div class="text-[10px] text-cyan-400 font-bold tracking-wider">AIRSPEED</div>
+                    <div id="hud-speed" class="text-2xl font-black text-white">0 <span class="text-xs text-gray-400">KTS</span></div>
                 </div>
-                <div class="text-3xl font-orbitron font-black text-white text-shadow-lg tracking-wider" id="hudTimer">
-                    01:00
+                <div class="h-8 w-[1px] bg-cyan-500/30"></div>
+                <!-- Altitude -->
+                <div class="text-center">
+                    <div class="text-[10px] text-cyan-400 font-bold tracking-wider">ALTITUDE</div>
+                    <div id="hud-alt" class="text-2xl font-black text-yellow-400">0 <span class="text-xs text-gray-400">FT</span></div>
+                </div>
+                <div class="h-8 w-[1px] bg-cyan-500/30"></div>
+                <!-- Throttle Power -->
+                <div class="text-center">
+                    <div class="text-[10px] text-cyan-400 font-bold tracking-wider">THROTTLE</div>
+                    <div id="hud-throttle" class="text-2xl font-black text-emerald-400">0%</div>
                 </div>
             </div>
 
-            <!-- KILL FEED BANNER NOTIFICATIONS -->
-            <div id="killFeedContainer" class="flex flex-col items-center gap-2 mt-2">
-                <!-- Dynamic Kill Banner Inserts Here -->
+            <!-- Mission Status -->
+            <div class="hud-glass px-6 py-3 rounded-2xl text-center">
+                <div class="text-xs text-gray-400 font-semibold tracking-widest">MISSION STATUS</div>
+                <div id="mission-status" class="text-lg font-black text-cyan-300 drop-shadow-[0_0_8px_rgba(0,240,255,0.5)]">
+                    이륙 준비 (엔진 출력을 올리세요)
+                </div>
+                <div class="text-xs text-yellow-400 mt-1">통과 링: <span id="ring-count" class="font-bold text-white">0 / 5</span></div>
             </div>
 
-            <!-- Stats Real-time Overlay -->
-            <div class="val-panel p-3.5 rounded-none flex items-center gap-5 border-r-2 border-r-valRed">
-                <div class="flex flex-col items-center">
-                    <span class="text-[10px] text-slate-400 font-orbitron uppercase">SCORE</span>
-                    <span id="hudScore" class="text-xl font-orbitron font-bold text-valCyan">0</span>
-                </div>
-                <div class="h-6 w-px bg-slate-700"></div>
-                <div class="flex flex-col items-center">
-                    <span class="text-[10px] text-slate-400 font-orbitron uppercase">HEADSHOTS</span>
-                    <span id="hudHeadshotPct" class="text-xl font-orbitron font-bold text-valRed">0%</span>
-                </div>
-                <div class="h-6 w-px bg-slate-700"></div>
-                <div class="flex flex-col items-center">
-                    <span class="text-[10px] text-slate-400 font-orbitron uppercase">ACCURACY</span>
-                    <span id="hudAccuracyPct" class="text-xl font-orbitron font-bold text-valYellow">100%</span>
-                </div>
+            <!-- Radar Minimap -->
+            <div class="hud-glass p-2 rounded-full relative">
+                <canvas id="minimap" width="110" height="110"></canvas>
             </div>
         </div>
 
-        <!-- CENTER CROSSHAIR & DAMAGE POPUPS CONTAINER -->
-        <div class="absolute inset-0 flex items-center justify-center pointer-events-none" id="crosshairArea">
-            <!-- Dynamic Canvas Crosshair -->
-            <div id="crosshairContainer" class="relative w-12 h-12 flex items-center justify-center transition-transform duration-75">
-                <!-- Center Dot / Reticle generated in JS -->
-            </div>
-            <!-- Damage Numbers Spawn Here -->
-            <div id="damagePopupsContainer" class="absolute inset-0 pointer-events-none"></div>
-        </div>
-
-        <!-- BOTTOM HUD: Ammo, Agent Skills, Health -->
-        <div class="w-full flex justify-between items-end pb-2">
-            
-            <!-- Health Bar -->
-            <div class="flex flex-col gap-1.5 w-64">
-                <div class="flex justify-between items-center text-xs font-orbitron font-bold text-slate-300">
-                    <span class="flex items-center gap-1.5"><i class="fa-solid fa-shield-halved text-valCyan"></i> SHIELD / HP</span>
-                    <span id="hudHealthText" class="text-white text-base">100</span>
-                </div>
-                <div class="w-full h-3 bg-slate-900 border border-slate-700/80 p-0.5">
-                    <div id="hudHealthBar" class="h-full bg-gradient-to-r from-valRed to-rose-400 w-full transition-all duration-200"></div>
-                </div>
-            </div>
-
-            <!-- Agent Jett Skillset (Q Updraft, E Dash, C Smoke, X Ult) -->
-            <div class="flex items-center gap-3">
-                
-                <!-- Skill C: CLOUD BURST SMOKE -->
-                <div class="flex flex-col items-center">
-                    <div id="skillCBox" class="w-11 h-11 bg-slate-900/90 border-2 border-valCyan flex flex-col items-center justify-center relative font-orbitron transition-all">
-                        <i class="fa-solid fa-smog text-valCyan text-base"></i>
-                        <span class="absolute bottom-0.5 right-1 text-[8px] font-bold text-white">C</span>
-                        <div id="skillCCooldown" class="absolute inset-0 bg-slate-950/80 hidden flex items-center justify-center text-xs font-bold text-slate-400"></div>
-                    </div>
-                    <span class="text-[8px] font-orbitron text-slate-300 mt-1 uppercase">SMOKE</span>
-                </div>
-
-                <!-- Skill Q: UPDRAFT JUMP -->
-                <div class="flex flex-col items-center">
-                    <div id="skillQBox" class="w-11 h-11 bg-slate-900/90 border-2 border-valCyan flex flex-col items-center justify-center relative font-orbitron transition-all">
-                        <i class="fa-solid fa-angles-up text-valCyan text-base"></i>
-                        <span class="absolute bottom-0.5 right-1 text-[8px] font-bold text-white">Q</span>
-                        <div id="skillQCooldown" class="absolute inset-0 bg-slate-950/80 hidden flex items-center justify-center text-xs font-bold text-slate-400"></div>
-                    </div>
-                    <span class="text-[8px] font-orbitron text-slate-300 mt-1 uppercase">UPDRAFT</span>
-                </div>
-
-                <!-- Skill E: TAILWIND DASH -->
-                <div class="flex flex-col items-center">
-                    <div id="skillEBox" class="w-11 h-11 bg-slate-900/90 border-2 border-valCyan flex flex-col items-center justify-center relative font-orbitron transition-all">
-                        <i class="fa-solid fa-bolt text-valCyan text-base"></i>
-                        <span class="absolute bottom-0.5 right-1 text-[8px] font-bold text-white">E</span>
-                        <div id="skillECooldown" class="absolute inset-0 bg-slate-950/80 hidden flex items-center justify-center text-xs font-bold text-slate-400"></div>
-                    </div>
-                    <span class="text-[8px] font-orbitron text-slate-300 mt-1 uppercase">DASH</span>
-                </div>
-
-                <!-- Skill X: BLADE STORM ULTIMATE -->
-                <div class="flex flex-col items-center">
-                    <div id="skillXBox" class="w-12 h-12 bg-valRed/20 border-2 border-valRed flex flex-col items-center justify-center relative font-orbitron transition-all">
-                        <i class="fa-solid fa-hand-sparkles text-valRed text-lg"></i>
-                        <span class="absolute bottom-0.5 right-1 text-[8px] font-bold text-white">X</span>
-                        <div id="skillXCooldown" class="absolute inset-0 bg-slate-950/80 hidden flex items-center justify-center text-xs font-bold text-valRed"></div>
-                    </div>
-                    <span class="text-[8px] font-orbitron text-valRed font-bold mt-1 uppercase">BLADES</span>
-                </div>
-
-            </div>
-
-            <!-- Ammo & Weapon Display -->
-            <div class="flex items-end gap-4 val-panel px-5 py-3 border-l-2 border-l-valCyan">
-                <div class="flex flex-col items-end">
-                    <div id="hudWeaponName" class="text-xs text-valCyan font-orbitron font-bold uppercase tracking-wider">VANDAL RIFLE</div>
-                    <div class="flex items-baseline gap-1 font-orbitron font-black">
-                        <span id="hudAmmoCurrent" class="text-4xl text-white">25</span>
-                        <span class="text-xl text-slate-500">/</span>
-                        <span id="hudAmmoReserve" class="text-xl text-slate-400">75</span>
-                    </div>
-                </div>
-                <i id="hudWeaponIcon" class="fa-solid fa-gun text-2xl text-slate-400 mb-1"></i>
+        <!-- Center Artificial Horizon Crosshair (Attitude Indicator) -->
+        <div id="attitude-indicator" class="self-center flex flex-col items-center opacity-80">
+            <div class="w-16 h-16 border-2 border-cyan-400/60 rounded-full flex items-center justify-center relative">
+                <div id="horizon-line" class="w-12 h-[2px] bg-amber-400 transition-transform duration-75"></div>
+                <div class="w-2 h-2 bg-cyan-400 rounded-full absolute"></div>
             </div>
         </div>
-    </div>
 
+        <!-- Bottom Controls & Camera Info -->
+        <div class="flex justify-between items-end">
+            <!-- Flight Control Hints -->
+            <div class="hud-glass p-3.5 rounded-2xl text-[11px] text-gray-200 space-y-1">
+                <div><span class="text-cyan-400 font-bold">Shift / Ctrl</span> : 출력 증가/감소 | <span class="text-cyan-400 font-bold">W / S</span> : 피치 (하강/상승)</div>
+                <div><span class="text-cyan-400 font-bold">A / D</span> : 롤 (좌우 회전) | <span class="text-cyan-400 font-bold">Q / E</span> : 야우 (수평 회전)</div>
+                <div><span class="text-cyan-400 font-bold">B</span> : 에어 브레이크 | <span class="text-yellow-400 font-bold">V</span> : 카메라 시점 변경</div>
+            </div>
 
-    <!-- MAIN MENU OVERLAY -->
-    <div id="mainMenu" class="absolute inset-0 z-30 flex items-center justify-center p-6 bg-slate-950/85 backdrop-blur-md">
-        <div class="val-panel w-full max-w-4xl p-8 rounded-none border border-valRed/40 relative overflow-hidden flex flex-col gap-6">
-            
-            <div class="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-valRed via-valCyan to-valRed"></div>
-
-            <!-- Title & Subtitle -->
-            <div class="flex justify-between items-center border-b border-slate-800 pb-4">
+            <!-- Camera View State -->
+            <div class="hud-glass px-5 py-3 rounded-2xl flex items-center gap-3">
+                <i class="fa-solid fa-video text-cyan-400 text-xl"></i>
                 <div>
-                    <h1 class="text-4xl font-black font-orbitron tracking-wider text-white flex items-center gap-3">
-                        <span class="w-3 h-8 bg-valRed inline-block"></span>
-                        VALORANT <span class="text-valRed">TACTICAL ARENA 2.0</span>
-                    </h1>
-                    <p class="text-xs text-slate-400 font-medium tracking-widest mt-1 uppercase">
-                        고품질 3D 타격대(Jett) 전술 스킬 & 헤드샷 사격 훈련장
-                    </p>
+                    <div class="text-[10px] text-gray-400 font-bold">CAMERA MODE</div>
+                    <div id="camera-mode-text" class="text-xs font-bold text-yellow-400">3인칭 추적 시점</div>
                 </div>
-                <div class="flex items-center gap-2">
-                    <button id="menuSettingsBtn" class="val-btn-secondary px-4 py-2.5 text-xs font-orbitron font-bold text-white hover:text-valCyan">
-                        <i class="fa-solid fa-gear mr-1.5"></i> SETTINGS
-                    </button>
-                </div>
-            </div>
-
-            <!-- Game Mode Cards Selection -->
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                
-                <!-- Mode 1: Aim Lab / Target Bot Practice -->
-                <div class="bg-slate-900/90 border border-slate-800 p-5 hover:border-valRed transition-all duration-200 group flex flex-col justify-between cursor-pointer" id="cardModeAimLab">
-                    <div>
-                        <div class="flex justify-between items-center mb-3">
-                            <i class="fa-solid fa-crosshairs text-3xl text-valRed group-hover:scale-110 transition-transform"></i>
-                            <span class="text-[10px] font-orbitron font-bold px-2 py-0.5 bg-valRed/20 text-valRed border border-valRed/40">TRAINING</span>
-                        </div>
-                        <h3 class="text-lg font-bold font-orbitron text-white group-hover:text-valRed transition-colors">AIM BOT PRACTICE</h3>
-                        <p class="text-xs text-slate-400 mt-2 leading-relaxed">
-                            사격장에서 무한 스폰되는 AI 봇의 헤드(150dmg) 원탭 정밀 조준 스킬을 연마합니다.
-                        </p>
-                    </div>
-
-                    <div class="mt-4 pt-3 border-t border-slate-800 flex flex-col gap-2">
-                        <div class="flex justify-between text-xs text-slate-300 font-orbitron">
-                            <span>DIFFICULTY:</span>
-                            <select id="selectDifficulty" class="bg-slate-950 text-valCyan font-bold px-2 py-0.5 border border-slate-700 text-xs">
-                                <option value="EASY">EASY (Static)</option>
-                                <option value="MEDIUM" selected>NORMAL (Moving)</option>
-                                <option value="HARD">HARD (Strafe & Shoot)</option>
-                            </select>
-                        </div>
-                        <button class="val-btn w-full py-2.5 text-xs mt-1 start-game-btn" data-mode="AIM_LAB">
-                            START AIM PRACTICE
-                        </button>
-                    </div>
-                </div>
-
-                <!-- Mode 2: Defuse / Plant Rush Scenario -->
-                <div class="bg-slate-900/90 border border-slate-800 p-5 hover:border-valCyan transition-all duration-200 group flex flex-col justify-between cursor-pointer" id="cardModeDefuse">
-                    <div>
-                        <div class="flex justify-between items-center mb-3">
-                            <i class="fa-solid fa-robot text-3xl text-valCyan group-hover:scale-110 transition-transform"></i>
-                            <span class="text-[10px] font-orbitron font-bold px-2 py-0.5 bg-valCyan/20 text-valCyan border border-valCyan/40">COMBAT</span>
-                        </div>
-                        <h3 class="text-lg font-bold font-orbitron text-white group-hover:text-valCyan transition-colors">AI COMBAT ARENA</h3>
-                        <p class="text-xs text-slate-400 mt-2 leading-relaxed">
-                            실시간 반격 사격 및 측면 엄폐 이동을 수행하는 적 Bot들과 무제한 데스매치 교전을 벌입니다.
-                        </p>
-                    </div>
-
-                    <div class="mt-4 pt-3 border-t border-slate-800">
-                        <button class="val-btn w-full py-2.5 text-xs start-game-btn" data-mode="DEFUSE">
-                            START COMBAT ARENA
-                        </button>
-                    </div>
-                </div>
-
             </div>
         </div>
     </div>
 
-
-    <!-- DEATH & RESPAWN OVERLAY -->
-    <div id="respawnModal" class="absolute inset-0 z-40 flex items-center justify-center bg-red-950/80 backdrop-blur-md hidden">
-        <div class="val-panel p-8 max-w-md border-2 border-valRed text-center flex flex-col items-center gap-4">
-            <i class="fa-solid fa-skull text-5xl text-valRed respawn-pulse-anim"></i>
-            <h2 class="text-3xl font-black font-orbitron text-white">YOU DIED</h2>
-            <p class="text-sm font-orbitron text-slate-300">적에게 처치당했습니다!</p>
-            <div class="mt-2 text-xs font-orbitron text-valCyan tracking-widest bg-slate-900/90 px-4 py-2 border border-valCyan/40">
-                [ R ] 키를 누르면 즉시 부활합니다
+    <!-- Main Menu & Result Modal -->
+    <div id="menu-modal" class="absolute inset-0 bg-black/80 backdrop-blur-lg z-30 flex items-center justify-center p-4">
+        <div class="max-w-md w-full hud-glass p-8 rounded-3xl text-center shadow-2xl border border-cyan-500/40 relative overflow-hidden">
+            <div class="w-20 h-20 bg-gradient-to-br from-cyan-500/20 to-blue-600/30 text-cyan-400 rounded-3xl flex items-center justify-center text-4xl mx-auto mb-4 border border-cyan-400/50 shadow-[0_0_25px_rgba(0,240,255,0.3)]">
+                <i class="fa-solid fa-plane-departure animate-pulse"></i>
             </div>
-            <button id="respawnBtn" class="val-btn w-full py-3 text-xs mt-2">
-                RESPAWN NOW (부활하기)
-            </button>
-        </div>
-    </div>
-
-
-    <!-- SETTINGS MODAL DIALOG -->
-    <div id="settingsModal" class="absolute inset-0 z-40 flex items-center justify-center p-6 bg-slate-950/90 backdrop-blur-md hidden">
-        <div class="val-panel w-full max-w-lg p-6 rounded-none border border-valCyan/50 flex flex-col gap-5">
-            <div class="flex justify-between items-center border-b border-slate-800 pb-3">
-                <h2 class="text-xl font-bold font-orbitron text-valCyan flex items-center gap-2">
-                    <i class="fa-solid fa-sliders"></i> GAME SETTINGS
-                </h2>
-                <button id="closeSettingsBtn" class="text-slate-400 hover:text-white text-lg">
-                    <i class="fa-solid fa-xmark"></i>
-                </button>
-            </div>
-
-            <div class="flex flex-col gap-2">
-                <div class="flex justify-between text-xs font-orbitron">
-                    <span class="text-slate-300">MOUSE SENSITIVITY (Valorant eDPI Scale)</span>
-                    <span id="sensValText" class="text-valCyan font-bold">0.45</span>
-                </div>
-                <input type="range" id="sensSlider" min="0.05" max="2.0" step="0.01" value="0.45" class="accent-valCyan cursor-pointer">
-            </div>
-
-            <div class="flex flex-col gap-3 pt-2 border-t border-slate-800">
-                <span class="text-xs font-orbitron font-bold text-valRed uppercase">CROSSHAIR CUSTOMIZER</span>
-                
-                <div class="grid grid-cols-2 gap-3 text-xs">
-                    <div class="flex flex-col gap-1">
-                        <label class="text-slate-400">Color Accent</label>
-                        <select id="crosshairColorSelect" class="bg-slate-900 border border-slate-700 text-white p-1.5 font-orbitron">
-                            <option value="#00f3ff" selected>Cyan (#00F3FF)</option>
-                            <option value="#ff4655">Valorant Red (#FF4655)</option>
-                            <option value="#00ff66">Green (#00FF66)</option>
-                            <option value="#ffffff">White (#FFFFFF)</option>
-                            <option value="#ffd700">Yellow (#FFD700)</option>
-                        </select>
-                    </div>
-                    <div class="flex flex-col gap-1">
-                        <label class="text-slate-400">Center Dot</label>
-                        <select id="crosshairDotSelect" class="bg-slate-900 border border-slate-700 text-white p-1.5 font-orbitron">
-                            <option value="ON" selected>ON</option>
-                            <option value="OFF">OFF</option>
-                        </select>
-                    </div>
-                </div>
-
-                <div class="flex flex-col gap-1">
-                    <div class="flex justify-between text-xs">
-                        <span class="text-slate-400">Inner Line Gap</span>
-                        <span id="gapValText" class="text-slate-200">4px</span>
-                    </div>
-                    <input type="range" id="gapSlider" min="0" max="12" step="1" value="4" class="accent-valCyan">
-                </div>
-            </div>
-
-            <button id="saveSettingsBtn" class="val-btn w-full py-3 text-xs font-orbitron font-bold mt-2">
-                SAVE & CLOSE
-            </button>
-        </div>
-    </div>
-
-
-    <!-- GAME OVER / RESULTS MODAL -->
-    <div id="resultsModal" class="absolute inset-0 z-40 flex items-center justify-center p-6 bg-slate-950/90 backdrop-blur-lg hidden">
-        <div class="val-panel w-full max-w-md p-8 rounded-none border-2 border-valRed flex flex-col items-center text-center gap-5 relative">
             
-            <div id="resultRankEmblem" class="w-20 h-20 rounded-none bg-gradient-to-br from-valRed to-purple-800 flex items-center justify-center text-2xl font-black font-orbitron border-2 border-valCyan shadow-2xl text-white">
-                RADIANT
+            <h1 id="menu-title" class="text-3xl font-black tracking-wider text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-teal-200 to-indigo-400 mb-2">
+                AEROSIM 3D FLIGHT
+            </h1>
+            <p id="menu-desc" class="text-xs text-cyan-200/70 mb-6 font-medium">
+                안전하게 활주로에서 이륙하여 공중 ring을 모두 통과한 뒤 목표 활주로에 무사히 착륙하세요!
+            </p>
+
+            <div id="flight-stats" class="hidden mb-6 p-4 bg-black/60 rounded-xl border border-cyan-500/20 text-sm space-y-2">
+                <div class="flex justify-between text-gray-400"><span>비행 시간:</span> <span id="stat-time" class="font-bold text-cyan-400">0초</span></div>
+                <div class="flex justify-between text-gray-400"><span>링 통과 점수:</span> <span id="stat-rings" class="font-bold text-yellow-400">0 / 5</span></div>
+                <div class="flex justify-between text-gray-400"><span>최종 비행 점수:</span> <span id="stat-score" class="font-bold text-emerald-400">0</span></div>
             </div>
 
-            <div>
-                <h2 id="resultRankTitle" class="text-2xl font-black font-orbitron text-white">RADIANT PERFORMANCE</h2>
-                <p id="resultRankSub" class="text-xs text-slate-400 mt-1">세계 최고 수준의 에임과 헤드샷 정밀도입니다!</p>
-            </div>
-
-            <div class="w-full bg-slate-900/90 p-4 border border-slate-800 grid grid-cols-2 gap-3 text-left">
-                <div class="flex flex-col">
-                    <span class="text-[10px] text-slate-400 font-orbitron">FINAL SCORE</span>
-                    <span id="resScore" class="text-lg font-black font-orbitron text-valCyan">0</span>
-                </div>
-                <div class="flex flex-col">
-                    <span class="text-[10px] text-slate-400 font-orbitron">HEADSHOT ACCURACY</span>
-                    <span id="resHeadshot" class="text-lg font-black font-orbitron text-valRed">0%</span>
-                </div>
-                <div class="flex flex-col">
-                    <span class="text-[10px] text-slate-400 font-orbitron">TOTAL SHOTS</span>
-                    <span id="resShots" class="text-lg font-black font-orbitron text-white">0</span>
-                </div>
-                <div class="flex flex-col">
-                    <span class="text-[10px] text-slate-400 font-orbitron">BEST REACTION</span>
-                    <span id="resReaction" class="text-lg font-black font-orbitron text-valYellow">0ms</span>
-                </div>
-            </div>
-
-            <div class="flex gap-3 w-full">
-                <button id="resultMenuBtn" class="val-btn-secondary w-1/2 py-3 text-xs font-orbitron font-bold">
-                    MAIN MENU
-                </button>
-                <button id="resultRestartBtn" class="val-btn w-1/2 py-3 text-xs font-orbitron font-bold">
-                    PLAY AGAIN
-                </button>
-            </div>
+            <button id="btn-start" class="w-full py-4 bg-gradient-to-r from-cyan-400 via-teal-400 to-blue-600 hover:from-cyan-300 hover:to-blue-500 text-slate-950 font-black text-lg rounded-xl shadow-[0_0_25px_rgba(0,240,255,0.4)] transition transform hover:scale-[1.02] active:scale-95 cursor-pointer tracking-wider">
+                비행 시작 (TAKEOFF)
+            </button>
         </div>
     </div>
 
-
-    <!-- JAVASCRIPT GAME LOGIC & THREE.JS ENGINE -->
     <script>
-        /* --- WEB AUDIO SYNTHESIZER ENGINE (VALORANT AUDIO) --- */
-        class ValorantAudioEngine {
+        // --- Web Audio Sound Engine ---
+        class SoundEngine {
             constructor() {
                 this.ctx = null;
+                this.engineOsc = null;
+                this.engineGain = null;
             }
-
             init() {
                 if (!this.ctx) {
-                    const AudioContext = window.AudioContext || window.webkitAudioContext;
-                    this.ctx = new AudioContext();
-                }
-                if (this.ctx.state === 'suspended') {
-                    this.ctx.resume();
+                    this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+                    
+                    // Engine Noise Synth
+                    this.engineOsc = this.ctx.createOscillator();
+                    this.engineGain = this.ctx.createGain();
+                    
+                    this.engineOsc.type = 'sawtooth';
+                    this.engineOsc.frequency.setValueAtTime(60, this.ctx.currentTime);
+                    this.engineGain.gain.setValueAtTime(0.05, this.ctx.currentTime);
+                    
+                    this.engineOsc.connect(this.engineGain);
+                    this.engineGain.connect(this.ctx.destination);
+                    this.engineOsc.start();
                 }
             }
-
-            // Punchy Vandal Fire SFX
-            playGunshot() {
-                this.init();
-                const now = this.ctx.currentTime;
-
-                const bufferSize = this.ctx.sampleRate * 0.12;
-                const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
-                const data = buffer.getChannelData(0);
-                for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
-
-                const noise = this.ctx.createBufferSource();
-                noise.buffer = buffer;
-
-                const filter = this.ctx.createBiquadFilter();
-                filter.type = 'lowpass';
-                filter.frequency.setValueAtTime(3500, now);
-                filter.frequency.exponentialRampToValueAtTime(250, now + 0.11);
-
-                const gain = this.ctx.createGain();
-                gain.gain.setValueAtTime(0.45, now);
-                gain.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
-
-                noise.connect(filter);
-                filter.connect(gain);
-                gain.connect(this.ctx.destination);
-                noise.start(now);
-
-                const osc = this.ctx.createOscillator();
-                const oscGain = this.ctx.createGain();
-                osc.type = 'sawtooth';
-                osc.frequency.setValueAtTime(200, now);
-                osc.frequency.exponentialRampToValueAtTime(40, now + 0.08);
-
-                oscGain.gain.setValueAtTime(0.4, now);
-                oscGain.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
-
-                osc.connect(oscGain);
-                oscGain.connect(this.ctx.destination);
-                osc.start(now);
-                osc.stop(now + 0.08);
+            updateEngineSound(throttlePercent, speed) {
+                if (!this.ctx || !this.engineOsc) return;
+                const freq = 50 + (throttlePercent * 2.5) + (speed * 0.8);
+                const vol = 0.03 + (throttlePercent / 100) * 0.15;
+                this.engineOsc.frequency.setTargetAtTime(freq, this.ctx.currentTime, 0.1);
+                this.engineGain.gain.setTargetAtTime(vol, this.ctx.currentTime, 0.1);
             }
-
-            // Ultimate Blade Storm Throw Sound
-            playBladeThrow() {
-                this.init();
+            playPassRing() {
+                if (!this.ctx) return;
                 const now = this.ctx.currentTime;
                 const osc = this.ctx.createOscillator();
                 const gain = this.ctx.createGain();
                 osc.type = 'sine';
-                osc.frequency.setValueAtTime(1800, now);
-                osc.frequency.exponentialRampToValueAtTime(600, now + 0.08);
-
+                osc.frequency.setValueAtTime(523.25, now); // C5
+                osc.frequency.setValueAtTime(659.25, now + 0.1); // E5
+                osc.frequency.setValueAtTime(783.99, now + 0.2); // G5
                 gain.gain.setValueAtTime(0.3, now);
-                gain.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
-
-                osc.connect(gain);
-                gain.connect(this.ctx.destination);
-                osc.start(now);
-                osc.stop(now + 0.08);
-            }
-
-            // Signature Valorant Headshot "DINK" Metallic Chime
-            playHeadshotDink() {
-                this.init();
-                const now = this.ctx.currentTime;
-
-                const osc1 = this.ctx.createOscillator();
-                const gain1 = this.ctx.createGain();
-                osc1.type = 'sine';
-                osc1.frequency.setValueAtTime(2900, now);
-                osc1.frequency.exponentialRampToValueAtTime(1700, now + 0.16);
-
-                gain1.gain.setValueAtTime(0.6, now);
-                gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.18);
-
-                osc1.connect(gain1);
-                gain1.connect(this.ctx.destination);
-                osc1.start(now);
-                osc1.stop(now + 0.18);
-
-                const osc2 = this.ctx.createOscillator();
-                const gain2 = this.ctx.createGain();
-                osc2.type = 'triangle';
-                osc2.frequency.setValueAtTime(4300, now);
-                gain2.gain.setValueAtTime(0.35, now);
-                gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
-
-                osc2.connect(gain2);
-                gain2.connect(this.ctx.destination);
-                osc2.start(now);
-                osc2.stop(now + 0.12);
-            }
-
-            playBodyHit() {
-                this.init();
-                const now = this.ctx.currentTime;
-                const osc = this.ctx.createOscillator();
-                const gain = this.ctx.createGain();
-                osc.type = 'sine';
-                osc.frequency.setValueAtTime(380, now);
-                osc.frequency.exponentialRampToValueAtTime(110, now + 0.07);
-
-                gain.gain.setValueAtTime(0.3, now);
-                gain.gain.exponentialRampToValueAtTime(0.001, now + 0.07);
-
-                osc.connect(gain);
-                gain.connect(this.ctx.destination);
-                osc.start(now);
-                osc.stop(now + 0.07);
-            }
-
-            // Killstreak Chime (Single, Double, Triple, Quad, ACE!)
-            playKillStreakSound(streak) {
-                this.init();
-                const now = this.ctx.currentTime;
-                const notes = [523.25, 659.25, 783.99, 1046.50, 1318.51]; // C5, E5, G5, C6, E6
-                const pitch = notes[Math.min(streak - 1, 4)];
-
-                const osc = this.ctx.createOscillator();
-                const gain = this.ctx.createGain();
-                osc.type = 'sawtooth';
-                osc.frequency.setValueAtTime(pitch, now);
-                osc.frequency.exponentialRampToValueAtTime(pitch * 1.35, now + 0.3);
-
-                gain.gain.setValueAtTime(0.35, now);
-                gain.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
-
+                gain.gain.linearRampToValueAtTime(0, now + 0.35);
                 osc.connect(gain);
                 gain.connect(this.ctx.destination);
                 osc.start(now);
                 osc.stop(now + 0.35);
             }
-
-            playReload() {
-                this.init();
+            playCrash() {
+                if (!this.ctx) return;
                 const now = this.ctx.currentTime;
-                const osc1 = this.ctx.createOscillator();
-                const gain1 = this.ctx.createGain();
-                osc1.type = 'square';
-                osc1.frequency.setValueAtTime(850, now);
-                gain1.gain.setValueAtTime(0.12, now);
-                gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.06);
-                osc1.connect(gain1);
-                gain1.connect(this.ctx.destination);
-                osc1.start(now);
-                osc1.stop(now + 0.06);
-
-                const osc2 = this.ctx.createOscillator();
-                const gain2 = this.ctx.createGain();
-                osc2.type = 'sine';
-                osc2.frequency.setValueAtTime(1300, now + 0.35);
-                gain2.gain.setValueAtTime(0.18, now + 0.35);
-                gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.42);
-                osc2.connect(gain2);
-                gain2.connect(this.ctx.destination);
-                osc2.start(now + 0.35);
-                osc2.stop(now + 0.42);
-            }
-
-            playDash() {
-                this.init();
-                const now = this.ctx.currentTime;
-                const bufferSize = this.ctx.sampleRate * 0.25;
-                const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
-                const data = buffer.getChannelData(0);
-                for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
-
-                const noise = this.ctx.createBufferSource();
-                noise.buffer = buffer;
-                const filter = this.ctx.createBiquadFilter();
-                filter.type = 'bandpass';
-                filter.frequency.setValueAtTime(700, now);
-                filter.frequency.exponentialRampToValueAtTime(2600, now + 0.22);
-
+                const osc = this.ctx.createOscillator();
                 const gain = this.ctx.createGain();
-                gain.gain.setValueAtTime(0.35, now);
-                gain.gain.exponentialRampToValueAtTime(0.001, now + 0.25);
-
-                noise.connect(filter);
-                filter.connect(gain);
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(100, now);
+                osc.frequency.exponentialRampToValueAtTime(20, now + 0.6);
+                gain.gain.setValueAtTime(0.6, now);
+                gain.gain.linearRampToValueAtTime(0, now + 0.6);
+                osc.connect(gain);
                 gain.connect(this.ctx.destination);
-                noise.start(now);
+                osc.start(now);
+                osc.stop(now + 0.6);
             }
         }
 
-        const audioEngine = new ValorantAudioEngine();
+        const soundFx = new SoundEngine();
 
+        // --- Game World Variables ---
+        let scene, camera, renderer;
+        let isGameRunning = false;
+        let flightTime = 0;
 
-        /* --- THREE.JS SCENE SETUP & GAME ENGINE --- */
-        let scene, camera, renderer, controls;
-        let mapGroup, botGroup, bulletDecalsGroup, projectilesGroup;
-        let weaponMesh, muzzleFlashLight, weaponGroup;
+        // Airplane Physics & State
+        let planeGroup, propellorMesh;
+        let planePos = new THREE.Vector3(0, 1.3, 0);
+        let planeRot = new THREE.Euler(0, 0, 0, 'YXZ');
+        let speed = 0; // Airspeed
+        let throttle = 0; // 0 ~ 100
+        let airBrake = false;
+        
+        // Control Rotations
+        let pitchRate = 0, rollRate = 0, yawRate = 0;
 
-        let gameMode = 'AIM_LAB'; 
-        let difficulty = 'MEDIUM';
-        let mouseSensitivity = 0.45;
-        let isPlaying = false;
-        let isPlayerDead = false;
+        // Camera Modes: 0: 3rd Follow, 1: Cockpit, 2: Free Orbit
+        let cameraMode = 0;
+        const cameraModesText = ["3인칭 추적 시점", "조종석 1인칭 시점", "사이드 오프셋 시점"];
 
-        // Player physics & movement state
-        let moveForward = false, moveBackward = false, moveLeft = false, moveRight = false, isWalking = false;
-        let velocity = new THREE.Vector3();
-        let direction = new THREE.Vector3();
-        let canJump = true;
-        let playerHealth = 100;
+        // Mission Objects
+        let rings = [];
+        let passedRingCount = 0;
+        let targetRunwayBox;
 
-        // Gun Ammo & Recoil State
-        let currentAmmo = 25, reserveAmmo = 75, maxMag = 25;
-        let isReloading = false;
-        let isADS = false;
-        let isUltActive = false;
-        let ultKnivesCount = 5;
-        let lastShotTime = 0;
-        let recoilBloom = 0;
+        const keys = {};
 
-        // Abilities Cooldowns
-        let canDash = true, canSmoke = true, canUpdraft = true, canUlt = true;
+        // Minimap
+        const minimapCanvas = document.getElementById('minimap');
+        const minimapCtx = minimapCanvas.getContext('2d');
 
-        // Statistics & Scoring
-        let totalScore = 0;
-        let totalShots = 0;
-        let headshotsCount = 0;
-        let bodyShotsCount = 0;
-        let killStreak = 0;
-        let matchTimeRemaining = 60;
-        let timerInterval = null;
-
-        // Reaction Mode
-        let reactionStartTime = 0;
-        let bestReactionTime = Infinity;
-
-        // Crosshair Config
-        let crosshairConfig = { color: '#00f3ff', dot: true, gap: 4 };
-
-        function initThree() {
-            const container = document.getElementById('gameCanvasContainer');
+        // --- Initialize Engine ---
+        function initEngine() {
+            const container = document.getElementById('game-container');
 
             scene = new THREE.Scene();
-            scene.background = new THREE.Color(0x0f1923);
-            scene.fog = new THREE.FogExp2(0x0f1923, 0.012);
+            scene.background = new THREE.Color(0x87ceeb); // Sky blue
+            scene.fog = new THREE.FogExp2(0x87ceeb, 0.0003);
 
-            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-            camera.position.set(0, 1.6, 0);
+            camera = new THREE.PerspectiveCamera(65, window.innerWidth / window.innerHeight, 0.1, 8000);
 
-            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
             renderer.setSize(window.innerWidth, window.innerHeight);
             renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
             renderer.shadowMap.enabled = true;
             renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+            renderer.toneMapping = THREE.ACESFilmicToneMapping;
             container.appendChild(renderer.domElement);
 
-            controls = new THREE.PointerLockControls(camera, document.body);
-
-            // Dynamic Ambient & Directional Lighting
-            const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
+            // Sunlight & Atmosphere
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.8);
             scene.add(ambientLight);
 
-            const dirLight = new THREE.DirectionalLight(0xffffff, 0.9);
-            dirLight.position.set(25, 45, 20);
-            dirLight.castShadow = true;
-            dirLight.shadow.mapSize.width = 2048;
-            dirLight.shadow.mapSize.height = 2048;
-            scene.add(dirLight);
+            const sunLight = new THREE.DirectionalLight(0xfff8e7, 1.6);
+            sunLight.position.set(200, 500, 300);
+            sunLight.castShadow = true;
+            sunLight.shadow.mapSize.width = 2048;
+            sunLight.shadow.mapSize.height = 2048;
+            sunLight.shadow.camera.near = 10;
+            sunLight.shadow.camera.far = 2000;
+            sunLight.shadow.camera.left = -500;
+            sunLight.shadow.camera.right = 500;
+            sunLight.shadow.camera.top = 500;
+            sunLight.shadow.camera.bottom = -500;
+            scene.add(sunLight);
 
-            mapGroup = new THREE.Group();
-            botGroup = new THREE.Group();
-            bulletDecalsGroup = new THREE.Group();
-            projectilesGroup = new THREE.Group();
-            scene.add(mapGroup);
-            scene.add(botGroup);
-            scene.add(bulletDecalsGroup);
-            scene.add(projectilesGroup);
+            // World Terrain & Airfield
+            buildTerrainAndRunway();
 
-            buildTacticalMap();
-            buildVandalWeaponModel();
-            createCrosshairHUD();
+            // Airplane Model
+            createAirplaneMesh();
 
+            // Spawn Checkpoint Rings
+            createCheckpointRings();
+
+            // Key Events
             window.addEventListener('resize', onWindowResize);
+            window.addEventListener('keydown', (e) => {
+                keys[e.code] = true;
+                if (e.code === 'KeyV' && isGameRunning) {
+                    cameraMode = (cameraMode + 1) % 3;
+                    document.getElementById('camera-mode-text').innerText = cameraModesText[cameraMode];
+                }
+            });
+            window.addEventListener('keyup', (e) => keys[e.code] = false);
+
+            document.getElementById('btn-start').addEventListener('click', () => {
+                soundFx.init();
+                resetGame();
+                document.getElementById('menu-modal').classList.add('hidden');
+                document.getElementById('hud-layer').classList.remove('hidden');
+                isGameRunning = true;
+            });
         }
 
-        /* --- TACTICAL ARENA MAP BUILDER --- */
-        function buildTacticalMap() {
-            // Main Floor
-            const floorGeo = new THREE.PlaneGeometry(80, 80);
-            const floorMat = new THREE.MeshStandardMaterial({ color: 0x1a2332, roughness: 0.4, metalness: 0.2 });
-            const floor = new THREE.Mesh(floorGeo, floorMat);
-            floor.rotation.x = -Math.PI / 2;
-            floor.receiveShadow = true;
-            mapGroup.add(floor);
+        // --- Build Terrain & Runway ---
+        function buildTerrainAndRunway() {
+            // Ocean Base
+            const oceanGeo = new THREE.PlaneGeometry(10000, 10000);
+            const oceanMat = new THREE.MeshStandardMaterial({ color: 0x0f4c81, roughness: 0.1, metalness: 0.8 });
+            const ocean = new THREE.Mesh(oceanGeo, oceanMat);
+            ocean.rotation.x = -Math.PI / 2;
+            ocean.position.y = -2;
+            scene.add(ocean);
 
-            const gridHelper = new THREE.GridHelper(80, 40, 0xff4655, 0x1e2d3d);
-            gridHelper.position.y = 0.01;
-            mapGroup.add(gridHelper);
+            // Island Main Land
+            const islandGeo = new THREE.CylinderGeometry(1400, 1600, 30, 32);
+            const islandMat = new THREE.MeshStandardMaterial({ color: 0x2e6f40, roughness: 0.9 });
+            const island = new THREE.Mesh(islandGeo, islandMat);
+            island.position.set(0, -13, 0);
+            island.receiveShadow = true;
+            scene.add(island);
 
-            // Barrier Walls
-            const wallMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.8 });
-            const wallHeight = 12;
+            // Main Runway (Departure)
+            const runwayGeo = new THREE.PlaneGeometry(80, 1200);
+            const runwayMat = new THREE.MeshStandardMaterial({ color: 0x1f2937, roughness: 0.7 });
+            const runway = new THREE.Mesh(runwayGeo, runwayMat);
+            runway.rotation.x = -Math.PI / 2;
+            runway.position.set(0, 0.1, 0);
+            runway.receiveShadow = true;
+            scene.add(runway);
 
-            const northWall = new THREE.Mesh(new THREE.BoxGeometry(80, wallHeight, 2), wallMat);
-            northWall.position.set(0, wallHeight/2, -40);
-            mapGroup.add(northWall);
+            // Runway Markings
+            const stripeGeo = new THREE.PlaneGeometry(4, 40);
+            const stripeMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+            for (let z = -500; z <= 500; z += 100) {
+                const stripe = new THREE.Mesh(stripeGeo, stripeMat);
+                stripe.rotation.x = -Math.PI / 2;
+                stripe.position.set(0, 0.15, z);
+                scene.add(stripe);
+            }
 
-            const southWall = new THREE.Mesh(new THREE.BoxGeometry(80, wallHeight, 2), wallMat);
-            southWall.position.set(0, wallHeight/2, 40);
-            mapGroup.add(southWall);
+            // Target Landing Runway (Destination Island)
+            const targetIsland = new THREE.Mesh(islandGeo, islandMat);
+            targetIsland.position.set(0, -13, -3500);
+            scene.add(targetIsland);
 
-            const eastWall = new THREE.Mesh(new THREE.BoxGeometry(2, wallHeight, 80), wallMat);
-            eastWall.position.set(40, wallHeight/2, 0);
-            mapGroup.add(eastWall);
+            const destRunway = new THREE.Mesh(runwayGeo, runwayMat);
+            destRunway.rotation.x = -Math.PI / 2;
+            destRunway.position.set(0, 0.1, -3500);
+            destRunway.receiveShadow = true;
+            scene.add(destRunway);
 
-            const westWall = new THREE.Mesh(new THREE.BoxGeometry(2, wallHeight, 80), wallMat);
-            westWall.position.set(-40, wallHeight/2, 0);
-            mapGroup.add(westWall);
+            targetRunwayBox = destRunway;
 
-            // Tactical Radianite Boxes
-            createCrate(-8, 1.25, -12, 2.5, 2.5, 2.5, 0x223046);
-            createCrate(8, 1.25, -12, 2.5, 2.5, 2.5, 0x223046);
-            createCrate(-15, 2, -5, 3, 4, 3, 0xff4655);
-            createCrate(15, 2, -5, 3, 4, 3, 0x00f3ff);
-
-            // Practice Range Posts
-            for (let x = -12; x <= 12; x += 6) {
-                const pillarGeo = new THREE.CylinderGeometry(0.5, 0.6, 1.2, 16);
-                const pillarMat = new THREE.MeshStandardMaterial({ color: 0x334155 });
-                const pillar = new THREE.Mesh(pillarGeo, pillarMat);
-                pillar.position.set(x, 0.6, -20);
-                mapGroup.add(pillar);
+            // Simple Clouds
+            const cloudGeo = new THREE.DodecahedronGeometry(60, 1);
+            const cloudMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 1.0, transparent: true, opacity: 0.85 });
+            for (let i = 0; i < 60; i++) {
+                const cloud = new THREE.Mesh(cloudGeo, cloudMat);
+                cloud.position.set(
+                    (Math.random() - 0.5) * 4000,
+                    250 + Math.random() * 400,
+                    (Math.random() - 0.5) * 5000
+                );
+                cloud.scale.set(1 + Math.random() * 2, 0.6 + Math.random(), 1 + Math.random() * 2);
+                scene.add(cloud);
             }
         }
 
-        function createCrate(x, y, z, w, h, d, colorHex) {
-            const geo = new THREE.BoxGeometry(w, h, d);
-            const mat = new THREE.MeshStandardMaterial({ color: colorHex, roughness: 0.5 });
-            const crate = new THREE.Mesh(geo, mat);
-            crate.position.set(x, y, z);
-            crate.castShadow = true;
-            crate.receiveShadow = true;
-            mapGroup.add(crate);
+        // --- Create High-Detail Aeroplane Mesh ---
+        function createAirplaneMesh() {
+            planeGroup = new THREE.Group();
+
+            const bodyMat = new THREE.MeshStandardMaterial({ color: 0xe2e8f0, roughness: 0.3, metalness: 0.7 });
+            const wingMat = new THREE.MeshStandardMaterial({ color: 0x0284c7, roughness: 0.4, metalness: 0.5 });
+            const glassMat = new THREE.MeshStandardMaterial({ color: 0x38bdf8, roughness: 0.1, transparent: true, opacity: 0.6 });
+
+            // Fuselage
+            const fuselage = new THREE.Mesh(new THREE.CylinderGeometry(0.8, 0.6, 7.5, 16), bodyMat);
+            fuselage.rotation.x = Math.PI / 2;
+            fuselage.castShadow = true;
+            planeGroup.add(fuselage);
+
+            // Cockpit Canopy
+            const canopy = new THREE.Mesh(new THREE.SphereGeometry(0.8, 16, 16, 0, Math.PI * 2, 0, Math.PI / 2), glassMat);
+            canopy.position.set(0, 0.5, 0.5);
+            canopy.scale.set(0.9, 0.8, 1.8);
+            planeGroup.add(canopy);
+
+            // Wings
+            const mainWing = new THREE.Mesh(new THREE.BoxGeometry(11, 0.15, 1.8), wingMat);
+            mainWing.position.set(0, 0.2, 0.2);
+            mainWing.castShadow = true;
+            planeGroup.add(mainWing);
+
+            // Tail Wings
+            const tailWing = new THREE.Mesh(new THREE.BoxGeometry(3.6, 0.12, 0.9), wingMat);
+            tailWing.position.set(0, 0.4, -3.2);
+            planeGroup.add(tailWing);
+
+            const verticalFin = new THREE.Mesh(new THREE.BoxGeometry(0.12, 1.6, 1.1), wingMat);
+            verticalFin.position.set(0, 1.1, -3.2);
+            planeGroup.add(verticalFin);
+
+            // Propeller
+            propellorMesh = new THREE.Mesh(new THREE.BoxGeometry(2.4, 0.2, 0.05), new THREE.MeshBasicMaterial({ color: 0x111111 }));
+            propellorMesh.position.set(0, 0, 3.8);
+            planeGroup.add(propellorMesh);
+
+            scene.add(planeGroup);
         }
 
-        /* --- VANDAL WEAPON 3D MODEL --- */
-        function buildVandalWeaponModel() {
-            weaponGroup = new THREE.Group();
+        // --- Create Air Checkpoint Rings ---
+        function createCheckpointRings() {
+            const ringGeo = new THREE.TorusGeometry(22, 1.2, 16, 32);
+            const ringMat = new THREE.MeshStandardMaterial({ color: 0xfacc15, emissive: 0xeab308, emissiveIntensity: 0.8 });
 
-            const bodyGeo = new THREE.BoxGeometry(0.08, 0.12, 0.6);
-            const bodyMat = new THREE.MeshStandardMaterial({ color: 0x111827, roughness: 0.3, metalness: 0.8 });
-            const body = new THREE.Mesh(bodyGeo, bodyMat);
-            weaponGroup.add(body);
+            const ringPositions = [
+                { x: 0, y: 120, z: -600 },
+                { x: 150, y: 220, z: -1200 },
+                { x: -100, y: 280, z: -1800 },
+                { x: 80, y: 200, z: -2500 },
+                { x: 0, y: 80, z: -3000 }
+            ];
 
-            const barrelGeo = new THREE.CylinderGeometry(0.015, 0.015, 0.4, 8);
-            const barrelMat = new THREE.MeshStandardMaterial({ color: 0x374151, metalness: 0.9 });
-            const barrel = new THREE.Mesh(barrelGeo, barrelMat);
-            barrel.rotation.x = Math.PI / 2;
-            barrel.position.set(0, 0.02, -0.45);
-            weaponGroup.add(barrel);
-
-            const magGeo = new THREE.BoxGeometry(0.05, 0.22, 0.1);
-            const magMat = new THREE.MeshStandardMaterial({ color: 0xff4655 });
-            const mag = new THREE.Mesh(magGeo, magMat);
-            mag.position.set(0, -0.12, -0.05);
-            mag.rotation.x = 0.2;
-            weaponGroup.add(mag);
-
-            muzzleFlashLight = new THREE.PointLight(0xffcc00, 0, 4);
-            muzzleFlashLight.position.set(0, 0.02, -0.7);
-            weaponGroup.add(muzzleFlashLight);
-
-            weaponGroup.position.set(0.22, -0.22, -0.45);
-            camera.add(weaponGroup);
-            scene.add(camera);
+            ringPositions.forEach((pos, idx) => {
+                const ring = new THREE.Mesh(ringGeo, ringMat);
+                ring.position.set(pos.x, pos.y, pos.z);
+                scene.add(ring);
+                rings.push({ mesh: ring, passed: false, id: idx });
+            });
         }
 
+        // --- Reset Game State ---
+        function resetGame() {
+            planePos.set(0, 1.3, 500);
+            planeRot.set(0, 0, 0);
+            speed = 0;
+            throttle = 0;
+            flightTime = 0;
+            passedRingCount = 0;
 
-        /* --- ADVANCED HUMANOID RADIANITE BOT CLASS --- */
-        class RadianiteBot {
-            constructor(x, y, z, isCombatAI = true) {
-                this.group = new THREE.Group();
-                this.isCombatAI = isCombatAI;
-                this.health = 150;
-                this.isDead = false;
-                this.moveDirection = (Math.random() > 0.5 ? 1 : -1);
-                this.lastAttackTime = performance.now() + Math.random() * 1000;
-                this.shootInterval = difficulty === 'HARD' ? 1000 : (difficulty === 'EASY' ? 2200 : 1500);
+            rings.forEach(r => {
+                r.passed = false;
+                r.mesh.material.color.setHex(0xfacc15);
+            });
 
-                // Pelvis / Torso Group
-                this.torsoGroup = new THREE.Group();
-                const chestGeo = new THREE.BoxGeometry(0.6, 0.8, 0.35);
-                const chestMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.4 });
-                this.chestMesh = new THREE.Mesh(chestGeo, chestMat);
-                this.chestMesh.position.y = 1.1;
-                this.chestMesh.castShadow = true;
-                this.chestMesh.userData = { type: 'BODY', parentBot: this };
-                this.torsoGroup.add(this.chestMesh);
+            document.getElementById('ring-count').innerText = `0 / ${rings.length}`;
+            document.getElementById('mission-status').innerText = "이륙 준비 (엔진 출력을 올리세요)";
+        }
 
-                // Head Sphere (150 HD Target Zone)
-                const headGeo = new THREE.SphereGeometry(0.24, 16, 16);
-                const headMat = new THREE.MeshStandardMaterial({ color: 0xff4655, emissive: 0xaa0011, emissiveIntensity: 0.6 });
-                this.headMesh = new THREE.Mesh(headGeo, headMat);
-                this.headMesh.position.y = 1.75;
-                this.headMesh.castShadow = true;
-                this.headMesh.userData = { type: 'HEAD', parentBot: this };
-                this.torsoGroup.add(this.headMesh);
+        // --- Main Flight Physics Engine Update ---
+        function updateFlightPhysics(delta) {
+            flightTime += delta;
 
-                // Visor & Guns setup...
-                const visorGeo = new THREE.BoxGeometry(0.22, 0.06, 0.12);
-                const visorMat = new THREE.MeshBasicMaterial({ color: 0x00f3ff });
-                const visor = new THREE.Mesh(visorGeo, visorMat);
-                visor.position.set(0, 1.78, -0.18);
-                this.torsoGroup.add(visor);
+            // Controls Input Handling
+            if (keys['ShiftLeft'] || keys['ShiftRight']) throttle = Math.min(100, throttle + delta * 40);
+            if (keys['ControlLeft'] || keys['ControlRight']) throttle = Math.max(0, throttle - delta * 40);
 
-                const botGunGeo = new THREE.BoxGeometry(0.08, 0.08, 0.5);
-                const botGunMat = new THREE.MeshBasicMaterial({ color: 0xff4655 });
-                this.botGun = new THREE.Mesh(botGunGeo, botGunMat);
-                this.botGun.position.set(0.3, 1.1, -0.3);
-                this.torsoGroup.add(this.botGun);
+            airBrake = keys['KeyB'] || false;
 
-                const armGeo = new THREE.CylinderGeometry(0.08, 0.08, 0.7);
-                const armMat = new THREE.MeshStandardMaterial({ color: 0x334155 });
-                this.leftArm = new THREE.Mesh(armGeo, armMat);
-                this.leftArm.position.set(-0.42, 1.1, 0);
-                this.torsoGroup.add(this.leftArm);
+            // Throttle & Drag Dynamics
+            const maxEngineSpeed = (throttle / 100) * 160;
+            const brakeDrag = airBrake ? 30 : 0;
+            speed += (maxEngineSpeed - speed - brakeDrag) * delta * 0.8;
+            speed = Math.max(0, speed);
 
-                this.rightArm = new THREE.Mesh(armGeo, armMat);
-                this.rightArm.position.set(0.42, 1.1, 0);
-                this.torsoGroup.add(this.rightArm);
+            soundFx.updateEngineSound(throttle, speed);
 
-                // Set parentBot pointer on outer group as well
-                this.group.userData = { parentBot: this };
-                this.group.add(this.torsoGroup);
-                this.group.position.set(x, y, z);
-                botGroup.add(this.group);
+            // Rotate Propeller
+            propellorMesh.rotation.z += (speed + 10) * delta * 0.8;
+
+            // Lift Logic
+            const minTakeoffSpeed = 45;
+            const isFlying = planePos.y > 1.5 || speed > minTakeoffSpeed;
+
+            if (isFlying) {
+                // Pitch Control (W/S)
+                if (keys['KeyW'] || keys['ArrowUp']) pitchRate = -1.2;
+                else if (keys['KeyS'] || keys['ArrowDown']) pitchRate = 1.2;
+                else pitchRate *= 0.9;
+
+                // Roll Control (A/D)
+                if (keys['KeyA'] || keys['ArrowLeft']) rollRate = 1.8;
+                else if (keys['KeyD'] || keys['ArrowRight']) rollRate = -1.8;
+                else rollRate *= 0.9;
+
+                // Yaw Control (Q/E)
+                if (keys['KeyQ']) yawRate = 0.8;
+                else if (keys['KeyE']) yawRate = -0.8;
+                else yawRate *= 0.9;
+
+                // Apply Rotations
+                planeRot.x += pitchRate * delta;
+                planeRot.z += rollRate * delta;
+                planeRot.y += yawRate * delta;
+
+                // Gravity & Stall
+                if (speed < minTakeoffSpeed) {
+                    planePos.y -= (minTakeoffSpeed - speed) * delta * 0.8;
+                    planeRot.x -= delta * 0.4; // Pitch down on stall
+                }
+            } else {
+                // On Ground Runway Taxi
+                planeRot.x = 0;
+                planeRot.z = 0;
+
+                if (keys['KeyA']) planeRot.y += delta * 0.6;
+                if (keys['KeyD']) planeRot.y -= delta * 0.6;
+
+                // Takeoff Rotation Lift
+                if (speed > minTakeoffSpeed && (keys['KeyS'] || keys['ArrowDown'])) {
+                    planePos.y += 2.0 * delta;
+                }
             }
 
-            update(delta, playerPos) {
-                if (this.isDead) return;
+            // Move Plane in Facing Direction
+            const forwardVector = new THREE.Vector3(0, 0, -1).applyEuler(planeRot);
+            planePos.addScaledVector(forwardVector, speed * delta * 2.2);
 
-                // Look towards player
-                this.group.lookAt(playerPos.x, this.group.position.y, playerPos.z);
+            // Ground Collision / Crash Check
+            if (planePos.y < 1.2) {
+                if (speed > 80 || Math.abs(planeRot.z) > 0.5) {
+                    triggerCrash();
+                    return;
+                }
+                planePos.y = 1.2;
+            }
 
-                // Strafe movement
-                if (difficulty !== 'EASY' || this.isCombatAI) {
-                    const strafeSpeed = difficulty === 'HARD' ? 3.8 : 2.0;
-                    this.group.position.x += this.moveDirection * strafeSpeed * delta;
+            planeGroup.position.copy(planePos);
+            planeGroup.rotation.copy(planeRot);
 
-                    if (Math.abs(this.group.position.x) > 18) {
-                        this.moveDirection *= -1;
+            // Check Ring Collisions
+            rings.forEach(r => {
+                if (!r.passed) {
+                    const dist = planePos.distanceTo(r.mesh.position);
+                    if (dist < 26) {
+                        r.passed = true;
+                        r.mesh.material.color.setHex(0x10b981); // Emerald green
+                        passedRingCount++;
+                        soundFx.playPassRing();
+                        document.getElementById('ring-count').innerText = `${passedRingCount} / ${rings.length}`;
                     }
                 }
-
-                // Combat AI Fire Logic (Enabled across all modes now)
-                if (isPlaying && !isPlayerDead && playerHealth > 0) {
-                    const now = performance.now();
-                    if (now - this.lastAttackTime > this.shootInterval) {
-                        this.lastAttackTime = now;
-                        this.firePlasmaAtPlayer(playerPos);
-                    }
-                }
-            }
-
-            firePlasmaAtPlayer(playerPos) {
-                const projGeo = new THREE.SphereGeometry(0.18, 8, 8);
-                const projMat = new THREE.MeshBasicMaterial({ color: 0xff4655 });
-                const proj = new THREE.Mesh(projGeo, projMat);
-
-                // Start from Bot's Gun tip
-                const gunWorldPos = new THREE.Vector3();
-                this.botGun.getWorldPosition(gunWorldPos);
-                proj.position.copy(gunWorldPos);
-                
-                // Add slight recoil accuracy error based on difficulty
-                const spreadFactor = difficulty === 'HARD' ? 0.08 : 0.22;
-                const targetPoint = playerPos.clone().add(new THREE.Vector3(
-                    (Math.random() - 0.5) * spreadFactor * 8,
-                    (Math.random() - 0.5) * spreadFactor * 4,
-                    (Math.random() - 0.5) * spreadFactor * 8
-                ));
-
-                const dir = new THREE.Vector3().subVectors(targetPoint, proj.position).normalize();
-                proj.userData = { dir: dir, speed: 24, damage: difficulty === 'HARD' ? 25 : 15 };
-
-                projectilesGroup.add(proj);
-                audioEngine.playBodyHit();
-            }
-
-            takeDamage(damage, isHeadshot, hitPoint) {
-                if (this.isDead) return;
-
-                this.health -= damage;
-                spawnHitDecal(hitPoint, isHeadshot);
-
-                if (this.health <= 0) {
-                    this.die(isHeadshot);
-                }
-            }
-
-            die(isHeadshot) {
-                this.isDead = true;
-                botGroup.remove(this.group);
-                spawnDeathExplosion(this.group.position);
-                onBotKilled(isHeadshot);
-            }
-        }
-
-        function spawnBotRandomly() {
-            let x = (Math.random() - 0.5) * 28;
-            let y = 0;
-            let z = -10 - Math.random() * 16;
-
-            new RadianiteBot(x, y, z, true);
-        }
-
-        function handlePlayerDeath() {
-            isPlayerDead = true;
-            controls.unlock();
-            document.getElementById('respawnModal').classList.remove('hidden');
-        }
-
-        function respawnPlayer() {
-            isPlayerDead = false;
-            playerHealth = 100;
-            currentAmmo = 25;
-            reserveAmmo = 75;
-
-            // Reset Player Position to spawn point
-            camera.position.set(0, 1.6, 0);
-            velocity.set(0, 0, 0);
-
-            // Update UI
-            document.getElementById('hudHealthText').textContent = "100";
-            document.getElementById('hudHealthBar').style.width = "100%";
-            updateAmmoHUD();
-
-            document.getElementById('respawnModal').classList.add('hidden');
-            controls.lock();
-        }
-
-        function onPlayerHitByPlasma(damageAmount = 15) {
-            if (isPlayerDead) return;
-
-            playerHealth = Math.max(0, playerHealth - damageAmount);
-            document.getElementById('hudHealthText').textContent = playerHealth;
-            document.getElementById('hudHealthBar').style.width = `${playerHealth}%`;
-
-            const flash = document.getElementById('damageFlash');
-            flash.className = 'absolute inset-0 pointer-events-none z-10 damage-flash-active';
-            setTimeout(() => flash.className = 'absolute inset-0 pointer-events-none z-10', 300);
-
-            if (playerHealth <= 0) {
-                handlePlayerDeath();
-            }
-        }
-
-
-        /* --- HUD & UI UPDATES --- */
-        function triggerHeadshotTintUI() {
-            const flash = document.getElementById('headshotFlash');
-            flash.className = 'absolute inset-0 pointer-events-none z-10 headshot-tint-active';
-            setTimeout(() => flash.className = 'absolute inset-0 pointer-events-none z-10', 250);
-        }
-
-        function showDamagePopup(text, worldPos, colorHex) {
-            const container = document.getElementById('damagePopupsContainer');
-            const popup = document.createElement('div');
-            popup.className = 'damage-popup text-xl font-black';
-            popup.style.color = colorHex;
-            popup.textContent = text;
-
-            const tempV = worldPos.clone();
-            tempV.project(camera);
-
-            const x = (tempV.x * .5 + .5) * window.innerWidth;
-            const y = (-(tempV.y * .5) + .5) * window.innerHeight;
-
-            popup.style.left = `${x}px`;
-            popup.style.top = `${y}px`;
-
-            container.appendChild(popup);
-            setTimeout(() => popup.remove(), 600);
-        }
-
-        function showKillBanner(title, sub) {
-            const container = document.getElementById('killFeedContainer');
-            const banner = document.createElement('div');
-            banner.className = 'kill-banner-anim val-panel px-4 py-1.5 border-l-4 border-l-valRed flex items-center gap-3 shadow-2xl';
-            banner.innerHTML = `
-                <i class="fa-solid fa-crosshairs text-valRed text-base"></i>
-                <div class="flex flex-col">
-                    <span class="text-xs font-black font-orbitron text-white tracking-wider">${title}</span>
-                    <span class="text-[9px] font-orbitron text-valCyan">${sub}</span>
-                </div>
-            `;
-
-            container.appendChild(banner);
-            setTimeout(() => banner.remove(), 2000);
-        }
-
-        function updateAmmoHUD() {
-            document.getElementById('hudAmmoCurrent').textContent = currentAmmo;
-            document.getElementById('hudAmmoReserve').textContent = reserveAmmo;
-        }
-
-        function updateHUDStats() {
-            document.getElementById('hudScore').textContent = totalScore;
-
-            const accuracy = totalShots > 0 ? Math.round(((headshotsCount + bodyShotsCount) / totalShots) * 100) : 100;
-            document.getElementById('hudAccuracyPct').textContent = `${accuracy}%`;
-
-            const headshotPct = (headshotsCount + bodyShotsCount) > 0 ? Math.round((headshotsCount / (headshotsCount + bodyShotsCount)) * 100) : 0;
-            document.getElementById('hudHeadshotPct').textContent = `${headshotPct}%`;
-        }
-
-        function createCrosshairHUD() {
-            const container = document.getElementById('crosshairContainer');
-            const gap = crosshairConfig.gap;
-            const col = crosshairConfig.color;
-
-            container.innerHTML = `
-                <svg width="32" height="32" viewBox="0 0 32 32" class="pointer-events-none">
-                    ${crosshairConfig.dot ? `<circle cx="16" cy="16" r="1.5" fill="${col}" />` : ''}
-                    <line x1="16" y1="${16 - gap - 6}" x2="16" y2="${16 - gap}" stroke="${col}" stroke-width="2" />
-                    <line x1="16" y1="${16 + gap}" x2="16" y2="${16 + gap + 6}" stroke="${col}" stroke-width="2" />
-                    <line x1="${16 - gap - 6}" y1="16" x2="${16 - gap}" y2="16" stroke="${col}" stroke-width="2" />
-                    <line x1="${16 + gap}" y1="16" x2="${16 + gap + 6}" y2="16" stroke="${col}" stroke-width="2" />
-                </svg>
-            `;
-        }
-
-
-        /* --- GAME LOOP & CONTROLS --- */
-        function startMatch(selectedMode) {
-            gameMode = selectedMode;
-            isPlaying = true;
-            isPlayerDead = false;
-            playerHealth = 100;
-
-            totalScore = 0;
-            totalShots = 0;
-            headshotsCount = 0;
-            bodyShotsCount = 0;
-            killStreak = 0;
-            currentAmmo = 25;
-            reserveAmmo = 75;
-            matchTimeRemaining = 60;
-
-            while(botGroup.children.length > 0) botGroup.remove(botGroup.children[0]);
-            while(projectilesGroup.children.length > 0) projectilesGroup.remove(projectilesGroup.children[0]);
-
-            document.getElementById('mainMenu').classList.add('hidden');
-            document.getElementById('resultsModal').classList.add('hidden');
-            document.getElementById('respawnModal').classList.add('hidden');
-            document.getElementById('hudOverlay').classList.remove('hidden');
-
-            document.getElementById('hudHealthText').textContent = "100";
-            document.getElementById('hudHealthBar').style.width = "100%";
-            document.getElementById('hudModeBadge').textContent = selectedMode.replace('_', ' ');
-
-            camera.position.set(0, 1.6, 0);
-            controls.lock();
-
-            // Spawn active shooting bots
-            const spawnCount = gameMode === 'DEFUSE' ? 5 : 3;
-            for (let i = 0; i < spawnCount; i++) {
-                spawnBotRandomly();
-            }
-
-            updateAmmoHUD();
-            updateHUDStats();
-
-            if (timerInterval) clearInterval(timerInterval);
-            timerInterval = setInterval(() => {
-                matchTimeRemaining--;
-                const mins = String(Math.floor(matchTimeRemaining / 60)).padStart(2, '0');
-                const secs = String(matchTimeRemaining % 60).padStart(2, '0');
-                document.getElementById('hudTimer').textContent = `${mins}:${secs}`;
-
-                if (matchTimeRemaining <= 0) {
-                    endMatch();
-                }
-            }, 1000);
-        }
-
-        function endMatch() {
-            isPlaying = false;
-            isPlayerDead = false;
-            controls.unlock();
-            if (timerInterval) clearInterval(timerInterval);
-
-            document.getElementById('hudOverlay').classList.add('hidden');
-            document.getElementById('respawnModal').classList.add('hidden');
-            document.getElementById('resultsModal').classList.remove('hidden');
-
-            const headshotPct = (headshotsCount + bodyShotsCount) > 0 ? Math.round((headshotsCount / (headshotsCount + bodyShotsCount)) * 100) : 0;
-            
-            let rank = "BRONZE";
-            let rankSub = "사격 정확도 개선이 필요합니다.";
-
-            if (totalScore >= 2500 && headshotPct >= 60) {
-                rank = "RADIANT";
-                rankSub = "세계 최고 수준의 에임과 헤드샷 정밀도입니다!";
-                confetti({ particleCount: 150, spread: 80, origin: { y: 0.6 } });
-            } else if (totalScore >= 1800) {
-                rank = "IMMORTAL";
-                rankSub = "경이로운 타격대 사격 반응 속도입니다!";
-            } else if (totalScore >= 1200) {
-                rank = "DIAMOND";
-                rankSub = "우수한 헤드샷 원탭 스킬을 소유했습니다.";
-            } else if (totalScore >= 600) {
-                rank = "GOLD";
-                rankSub = "무난한 조준 실력입니다. 조금 더 연마하세요!";
-            }
-
-            document.getElementById('resultRankEmblem').textContent = rank;
-            document.getElementById('resultRankTitle').textContent = `${rank} PERFORMANCE`;
-            document.getElementById('resultRankSub').textContent = rankSub;
-
-            document.getElementById('resScore').textContent = totalScore;
-            document.getElementById('resHeadshot').textContent = `${headshotPct}%`;
-            document.getElementById('resShots').textContent = totalShots;
-            document.getElementById('resReaction').textContent = "-";
-        }
-
-
-        /* --- UI & INPUT HANDLERS --- */
-        function initUIEventListeners() {
-            document.querySelectorAll('.start-game-btn').forEach(btn => {
-                btn.addEventListener('click', (e) => {
-                    const mode = e.currentTarget.getAttribute('data-mode');
-                    startMatch(mode);
-                });
             });
 
-            document.getElementById('respawnBtn').addEventListener('click', () => {
-                respawnPlayer();
-            });
-
-            const resultMenuBtn = document.getElementById('resultMenuBtn');
-            if (resultMenuBtn) {
-                resultMenuBtn.addEventListener('click', () => {
-                    document.getElementById('resultsModal').classList.add('hidden');
-                    document.getElementById('mainMenu').classList.remove('hidden');
-                });
+            // Check Landing Mission Condition
+            if (planePos.z < -3000 && planePos.y <= 2.0 && speed < 30) {
+                triggerSuccessLanding();
             }
 
-            const resultRestartBtn = document.getElementById('resultRestartBtn');
-            if (resultRestartBtn) {
-                resultRestartBtn.addEventListener('click', () => {
-                    startMatch(gameMode);
-                });
+            // Update Mission Status Text
+            if (planePos.y > 20 && passedRingCount < rings.length) {
+                document.getElementById('mission-status').innerText = "공중 링을 모두 통과하세요!";
+            } else if (passedRingCount === rings.length) {
+                document.getElementById('mission-status').innerText = "목표 활주로에 감속하며 무사히 착륙하세요!";
             }
 
-            const menuSettingsBtn = document.getElementById('menuSettingsBtn');
-            if (menuSettingsBtn) {
-                menuSettingsBtn.addEventListener('click', () => {
-                    document.getElementById('settingsModal').classList.remove('hidden');
-                });
-            }
+            // Update Camera Position
+            updateCameraPosition();
 
-            const closeSettingsBtn = document.getElementById('closeSettingsBtn');
-            if (closeSettingsBtn) {
-                closeSettingsBtn.addEventListener('click', () => {
-                    document.getElementById('settingsModal').classList.add('hidden');
-                });
-            }
+            // Update HUD Info
+            updateHUDUI();
+        }
 
-            const saveSettingsBtn = document.getElementById('saveSettingsBtn');
-            if (saveSettingsBtn) {
-                saveSettingsBtn.addEventListener('click', () => {
-                    mouseSensitivity = parseFloat(document.getElementById('sensSlider').value);
-                    crosshairConfig.color = document.getElementById('crosshairColorSelect').value;
-                    crosshairConfig.dot = (document.getElementById('crosshairDotSelect').value === 'ON');
-                    crosshairConfig.gap = parseInt(document.getElementById('gapSlider').value);
-
-                    createCrosshairHUD();
-                    document.getElementById('settingsModal').classList.add('hidden');
-                });
-            }
-
-            const selectDiff = document.getElementById('selectDifficulty');
-            if (selectDiff) {
-                selectDiff.addEventListener('change', (e) => difficulty = e.target.value);
+        // --- Camera Modes Update ---
+        function updateCameraPosition() {
+            if (cameraMode === 0) { // 3rd Person Follow
+                const offset = new THREE.Vector3(0, 3.8, 16).applyEuler(planeRot);
+                camera.position.copy(planePos).add(offset);
+                camera.lookAt(planePos.clone().add(new THREE.Vector3(0, 1.2, -10).applyEuler(planeRot)));
+            } else if (cameraMode === 1) { // Cockpit View
+                const offset = new THREE.Vector3(0, 0.7, 0.6).applyEuler(planeRot);
+                camera.position.copy(planePos).add(offset);
+                camera.rotation.copy(planeRot);
+            } else if (cameraMode === 2) { // Free Side View
+                const offset = new THREE.Vector3(18, 5, 12).applyEuler(planeRot);
+                camera.position.copy(planePos).add(offset);
+                camera.lookAt(planePos);
             }
         }
 
-        function setupControlsListeners() {
-            if (!controls) return;
-            
-            controls.addEventListener('lock', () => isPlaying = true);
-            controls.addEventListener('unlock', () => {
-                if (isPlaying && matchTimeRemaining > 0 && !isPlayerDead) {
-                    document.getElementById('mainMenu').classList.remove('hidden');
-                }
-            });
+        // --- UI & HUD Updates ---
+        function updateHUDUI() {
+            document.getElementById('hud-speed').innerHTML = `${Math.round(speed * 1.8)} <span class="text-xs text-gray-400">KTS</span>`;
+            document.getElementById('hud-alt').innerHTML = `${Math.round(planePos.y * 3.2)} <span class="text-xs text-gray-400">FT</span>`;
+            document.getElementById('hud-throttle').innerText = `${Math.round(throttle)}%`;
+
+            // Attitude Indicator Roll Line Rotation
+            const line = document.getElementById('horizon-line');
+            line.style.transform = `rotate(${planeRot.z * 57.3}deg)`;
+
+            renderMinimap();
         }
 
-        const onKeyDown = function (event) {
-            if (isPlayerDead) {
-                if (event.code === 'KeyR') {
-                    respawnPlayer();
-                }
-                return;
-            }
+        // --- Minimap Radar Rendering ---
+        function renderMinimap() {
+            minimapCtx.clearRect(0, 0, 110, 110);
+            const center = 55;
+            const scale = 0.02;
 
-            switch (event.code) {
-                case 'KeyW': moveForward = true; break;
-                case 'KeyS': moveBackward = true; break;
-                case 'KeyA': moveLeft = true; break;
-                case 'KeyD': moveRight = true; break;
-                case 'ShiftLeft': isWalking = true; break;
-                case 'Space': 
-                    if (canJump) velocity.y += 8;
-                    canJump = false;
-                    break;
-                case 'KeyR': reloadWeapon(); break;
-                case 'KeyE': triggerDashAbility(); break;
-                case 'KeyQ': triggerUpdraftAbility(); break;
-                case 'KeyC': triggerSmokeAbility(); break;
-                case 'KeyX': triggerUltimateBladeStorm(); break;
-            }
-        };
+            // Draw Checkpoint Rings
+            rings.forEach(r => {
+                const relX = (r.mesh.position.x - planePos.x) * scale;
+                const relZ = (r.mesh.position.z - planePos.z) * scale;
 
-        const onKeyUp = function (event) {
-            switch (event.code) {
-                case 'KeyW': moveForward = false; break;
-                case 'KeyS': moveBackward = false; break;
-                case 'KeyA': moveLeft = false; break;
-                case 'KeyD': moveRight = false; break;
-                case 'ShiftLeft': isWalking = false; break;
-            }
-        };
+                minimapCtx.fillStyle = r.passed ? '#10b981' : '#facc15';
+                minimapCtx.beginPath();
+                minimapCtx.arc(center + relX, center + relZ, 3.5, 0, Math.PI * 2);
+                minimapCtx.fill();
+            });
 
-        document.addEventListener('keydown', onKeyDown);
-        document.addEventListener('keyup', onKeyUp);
+            // Draw Airplane Icon
+            minimapCtx.fillStyle = '#00f0ff';
+            minimapCtx.beginPath();
+            minimapCtx.arc(center, center, 4.5, 0, Math.PI * 2);
+            minimapCtx.fill();
+        }
 
-        document.addEventListener('mousedown', (e) => {
-            if (!controls.isLocked || isPlayerDead) return;
+        // --- Crash & Success End Handler ---
+        function triggerCrash() {
+            isGameRunning = false;
+            soundFx.playCrash();
 
-            if (e.button === 0) {
-                shootGun();
-            } else if (e.button === 2) {
-                isADS = !isADS;
-                camera.fov = isADS ? 45 : 75;
-                camera.updateProjectionMatrix();
-            }
-        });
+            document.getElementById('stats-summary') ? document.getElementById('stats-summary').classList.remove('hidden') : null;
+            document.getElementById('menu-title').innerText = "CRASH LANDING";
+            document.getElementById('menu-desc').innerText = "비행기가 지면에 추락했습니다. 다시 시도해 보세요!";
+            document.getElementById('btn-start').innerText = "다시 비행하기";
+            document.getElementById('menu-modal').classList.remove('hidden');
+        }
+
+        function triggerSuccessLanding() {
+            isGameRunning = false;
+
+            const score = Math.round(passedRingCount * 1000 + Math.max(0, 300 - flightTime) * 10);
+            document.getElementById('flight-stats').classList.remove('hidden');
+            document.getElementById('stat-time').innerText = `${Math.round(flightTime)}초`;
+            document.getElementById('stat-rings').innerText = `${passedRingCount} / ${rings.length}`;
+            document.getElementById('stat-score').innerText = `${score}점`;
+
+            document.getElementById('menu-title').innerText = "MISSION ACCOMPLISHED!";
+            document.getElementById('menu-desc').innerText = "성공적으로 안전하게 목적지 활주로에 착륙했습니다!";
+            document.getElementById('btn-start').innerText = "다시 재도전";
+            document.getElementById('menu-modal').classList.remove('hidden');
+        }
 
         function onWindowResize() {
             camera.aspect = window.innerWidth / window.innerHeight;
@@ -1359,399 +664,22 @@
             renderer.setSize(window.innerWidth, window.innerHeight);
         }
 
-        /* --- WEAPON & SKILL SYSTEM IMPLEMENTATIONS --- */
-        function shootGun() {
-            if (!isPlaying || isReloading || isPlayerDead) return;
-
-            if (isUltActive) {
-                throwKnife();
-                return;
-            }
-
-            if (currentAmmo <= 0) {
-                reloadWeapon();
-                return;
-            }
-
-            const now = performance.now();
-            if (now - lastShotTime < 100) return;
-            lastShotTime = now;
-
-            currentAmmo--;
-            totalShots++;
-            updateAmmoHUD();
-
-            audioEngine.playGunshot();
-
-            if (muzzleFlashLight) {
-                muzzleFlashLight.intensity = 3;
-                setTimeout(() => { if (muzzleFlashLight) muzzleFlashLight.intensity = 0; }, 40);
-            }
-
-            if (weaponGroup) {
-                weaponGroup.position.z = -0.38;
-                setTimeout(() => { if (weaponGroup) weaponGroup.position.z = -0.45; }, 60);
-            }
-
-            // Raycaster hit detection logic fix
-            const raycaster = new THREE.Raycaster();
-            const screenCenter = new THREE.Vector2(0, 0);
-
-            recoilBloom = Math.min(recoilBloom + 0.015, 0.08);
-            if (isADS) recoilBloom *= 0.5;
-
-            screenCenter.x += (Math.random() - 0.5) * recoilBloom;
-            screenCenter.y += (Math.random() - 0.5) * recoilBloom;
-
-            raycaster.setFromCamera(screenCenter, camera);
-
-            // Gather all bot sub-meshes recursively
-            const intersects = raycaster.intersectObjects(botGroup.children, true);
-
-            if (intersects.length > 0) {
-                let hitObj = intersects[0].object;
-                
-                let bot = hitObj.userData?.parentBot;
-                let hitType = hitObj.userData?.type;
-                
-                let curr = hitObj;
-                while (!bot && curr.parent) {
-                    curr = curr.parent;
-                    if (curr.userData?.parentBot) {
-                        bot = curr.userData.parentBot;
-                    }
-                }
-
-                if (bot && !bot.isDead) {
-                    const isHead = (hitType === 'HEAD' || hitObj === bot.headMesh);
-                    const damage = isHead ? 150 : 40;
-
-                    if (isHead) {
-                        headshotsCount++;
-                        audioEngine.playHeadshotDink();
-                        triggerHeadshotTintUI();
-                        showDamagePopup("150", intersects[0].point, "#ff4655");
-                    } else {
-                        bodyShotsCount++;
-                        audioEngine.playBodyHit();
-                        showDamagePopup("40", intersects[0].point, "#00f3ff");
-                    }
-
-                    bot.takeDamage(damage, isHead, intersects[0].point);
-                }
-            }
-
-            updateHUDStats();
-        }
-
-        function reloadWeapon() {
-            if (isReloading || currentAmmo === maxMag || reserveAmmo <= 0 || isUltActive || isPlayerDead) return;
-
-            isReloading = true;
-            audioEngine.playReload();
-
-            if (weaponGroup) {
-                weaponGroup.position.y = -0.45;
-            }
-
-            setTimeout(() => {
-                const needed = maxMag - currentAmmo;
-                const toReload = Math.min(needed, reserveAmmo);
-                currentAmmo += toReload;
-                reserveAmmo -= toReload;
-
-                if (weaponGroup) weaponGroup.position.y = -0.22;
-                isReloading = false;
-                updateAmmoHUD();
-            }, 1200);
-        }
-
-        function onBotKilled(isHeadshot) {
-            killStreak++;
-            totalScore += isHeadshot ? 250 : 100;
-
-            audioEngine.playKillStreakSound(killStreak);
-
-            const titles = ["ELIMINATED", "DOUBLE KILL!", "TRIPLE KILL!!", "QUADRA KILL!!!", "ACE!!!!"];
-            const title = titles[Math.min(killStreak - 1, 4)];
-            const sub = isHeadshot ? "HEADSHOT (+250 PTS)" : "BODY ELIMINATION (+100 PTS)";
-            
-            showKillBanner(title, sub);
-            updateHUDStats();
-
-            // 봇 처치 시 끊김 없는 훈련을 위해 0.8초 후 즉시 신규 봇 무한 스폰
-            setTimeout(() => {
-                if (isPlaying) spawnBotRandomly();
-            }, 800);
-        }
-
-        /* --- AGENT JETT SKILLS IMPLEMENTATIONS --- */
-        function triggerDashAbility() {
-            if (!canDash || !isPlaying || isPlayerDead) return;
-            canDash = false;
-
-            audioEngine.playDash();
-
-            const moveDir = new THREE.Vector3();
-            camera.getWorldDirection(moveDir);
-            moveDir.y = 0;
-            moveDir.normalize();
-
-            velocity.addScaledVector(moveDir, 28);
-
-            const cdBox = document.getElementById('skillECooldown');
-            cdBox.classList.remove('hidden');
-            cdBox.textContent = '8s';
-
-            let cd = 8;
-            const timer = setInterval(() => {
-                cd--;
-                if (cd > 0) {
-                    cdBox.textContent = `${cd}s`;
-                } else {
-                    clearInterval(timer);
-                    cdBox.classList.add('hidden');
-                    canDash = true;
-                }
-            }, 1000);
-        }
-
-        function triggerUpdraftAbility() {
-            if (!canUpdraft || !isPlaying || isPlayerDead) return;
-            canUpdraft = false;
-
-            audioEngine.playDash();
-            velocity.y += 18;
-
-            const cdBox = document.getElementById('skillQCooldown');
-            cdBox.classList.remove('hidden');
-            cdBox.textContent = '6s';
-
-            let cd = 6;
-            const timer = setInterval(() => {
-                cd--;
-                if (cd > 0) {
-                    cdBox.textContent = `${cd}s`;
-                } else {
-                    clearInterval(timer);
-                    cdBox.classList.add('hidden');
-                    canUpdraft = true;
-                }
-            }, 1000);
-        }
-
-        function triggerSmokeAbility() {
-            if (!canSmoke || !isPlaying || isPlayerDead) return;
-            canSmoke = false;
-
-            audioEngine.playDash();
-
-            const smokeGeo = new THREE.SphereGeometry(3.5, 16, 16);
-            const smokeMat = new THREE.MeshStandardMaterial({
-                color: 0x00f3ff,
-                transparent: true,
-                opacity: 0.7,
-                roughness: 0.9
-            });
-            const smokeMesh = new THREE.Mesh(smokeGeo, smokeMat);
-
-            const spawnPos = camera.position.clone();
-            const forward = new THREE.Vector3();
-            camera.getWorldDirection(forward);
-            spawnPos.addScaledVector(forward, 6);
-            smokeMesh.position.copy(spawnPos);
-
-            mapGroup.add(smokeMesh);
-
-            setTimeout(() => mapGroup.remove(smokeMesh), 7000);
-
-            const cdBox = document.getElementById('skillCCooldown');
-            cdBox.classList.remove('hidden');
-            cdBox.textContent = '10s';
-
-            let cd = 10;
-            const timer = setInterval(() => {
-                cd--;
-                if (cd > 0) {
-                    cdBox.textContent = `${cd}s`;
-                } else {
-                    clearInterval(timer);
-                    cdBox.classList.add('hidden');
-                    canSmoke = true;
-                }
-            }, 1000);
-        }
-
-        function triggerUltimateBladeStorm() {
-            if (!canUlt || !isPlaying || isPlayerDead) return;
-
-            isUltActive = !isUltActive;
-            ultKnivesCount = 5;
-
-            const wName = document.getElementById('hudWeaponName');
-            const wIcon = document.getElementById('hudWeaponIcon');
-
-            if (isUltActive) {
-                wName.textContent = "BLADE STORM (5/5)";
-                wName.style.color = "#ff4655";
-                wIcon.className = "fa-solid fa-hand-sparkles text-2xl text-valRed mb-1";
-                if (weaponGroup) weaponGroup.visible = false;
-            } else {
-                wName.textContent = "VANDAL RIFLE";
-                wName.style.color = "#00f3ff";
-                wIcon.className = "fa-solid fa-gun text-2xl text-slate-400 mb-1";
-                if (weaponGroup) weaponGroup.visible = true;
-            }
-        }
-
-        function throwKnife() {
-            if (ultKnivesCount <= 0 || isPlayerDead) return;
-
-            ultKnivesCount--;
-            totalShots++;
-            audioEngine.playBladeThrow();
-
-            const wName = document.getElementById('hudWeaponName');
-            wName.textContent = `BLADE STORM (${ultKnivesCount}/5)`;
-
-            const raycaster = new THREE.Raycaster();
-            raycaster.setFromCamera(new THREE.Vector2(0, 0), camera);
-
-            const hitTargets = [];
-            botGroup.children.forEach(botGroupItem => {
-                const bot = botGroupItem.children[0]?.userData?.parentBot || botGroupItem.userData?.parentBot;
-                if (bot && !bot.isDead) {
-                    hitTargets.push(bot.headMesh);
-                    hitTargets.push(bot.chestMesh);
-                }
-            });
-
-            const intersects = raycaster.intersectObjects(hitTargets);
-
-            if (intersects.length > 0) {
-                const hitObj = intersects[0].object;
-                const bot = hitObj.userData.parentBot;
-                const isHead = (hitObj.userData.type === 'HEAD');
-
-                const damage = isHead ? 150 : 50;
-
-                if (isHead) {
-                    headshotsCount++;
-                    audioEngine.playHeadshotDink();
-                    triggerHeadshotTintUI();
-                    showDamagePopup("150", intersects[0].point, "#ff4655");
-                    ultKnivesCount = 5;
-                    wName.textContent = "BLADE STORM (5/5 RESTORED!)";
-                } else {
-                    bodyShotsCount++;
-                    audioEngine.playBodyHit();
-                    showDamagePopup("50", intersects[0].point, "#00f3ff");
-                }
-
-                if (bot) bot.takeDamage(damage, isHead, intersects[0].point);
-            }
-
-            if (ultKnivesCount <= 0) {
-                setTimeout(() => triggerUltimateBladeStorm(), 300);
-            }
-
-            updateHUDStats();
-        }
-
-        function spawnHitDecal(pos, isHead) {
-            const decalGeo = new THREE.SphereGeometry(0.08, 8, 8);
-            const decalMat = new THREE.MeshBasicMaterial({ color: isHead ? 0xff4655 : 0x00f3ff });
-            const decal = new THREE.Mesh(decalGeo, decalMat);
-            decal.position.copy(pos);
-            bulletDecalsGroup.add(decal);
-
-            setTimeout(() => bulletDecalsGroup.remove(decal), 3000);
-        }
-
-        function spawnDeathExplosion(pos) {
-            for (let i = 0; i < 12; i++) {
-                const pGeo = new THREE.BoxGeometry(0.12, 0.12, 0.12);
-                const pMat = new THREE.MeshBasicMaterial({ color: Math.random() > 0.5 ? 0xff4655 : 0x00f3ff });
-                const p = new THREE.Mesh(pGeo, pMat);
-                p.position.copy(pos).add(new THREE.Vector3(
-                    (Math.random() - 0.5) * 0.8,
-                    Math.random() * 1.5,
-                    (Math.random() - 0.5) * 0.8
-                ));
-                bulletDecalsGroup.add(p);
-                setTimeout(() => bulletDecalsGroup.remove(p), 800);
-            }
-        }
-
-
-        /* --- ANIMATION TICK LOOP --- */
-        let prevTime = performance.now();
+        // --- Main Game Loop ---
+        let clock = new THREE.Clock();
 
         function animate() {
             requestAnimationFrame(animate);
+            const delta = clock.getDelta();
 
-            const time = performance.now();
-            const delta = (time - prevTime) / 1000;
-
-            if (controls.isLocked && !isPlayerDead) {
-                // Smooth recoil recovery
-                recoilBloom = Math.max(0, recoilBloom - delta * 0.1);
-
-                // Player movement physics & decay
-                velocity.x -= velocity.x * 10.0 * delta;
-                velocity.z -= velocity.z * 10.0 * delta;
-                velocity.y -= 9.8 * 2.5 * delta; // Gravity
-
-                direction.z = Number(moveForward) - Number(moveBackward);
-                direction.x = Number(moveRight) - Number(moveLeft);
-                direction.normalize();
-
-                const speed = isWalking ? 12.0 : 22.0;
-
-                if (moveForward || moveBackward) velocity.z -= direction.z * speed * delta;
-                if (moveLeft || moveRight) velocity.x -= direction.x * speed * delta;
-
-                controls.moveRight(-velocity.x * delta);
-                controls.moveForward(-velocity.z * delta);
-
-                camera.position.y += velocity.y * delta;
-
-                if (camera.position.y < 1.6) {
-                    velocity.y = 0;
-                    camera.position.y = 1.6;
-                    canJump = true;
-                }
-
-                // Update Bot AI & Plasma Projectiles
-                const playerPos = camera.position;
-                botGroup.children.forEach(botGroupItem => {
-                    const bot = botGroupItem.children[0]?.userData?.parentBot || botGroupItem.userData?.parentBot;
-                    if (bot && bot.update) bot.update(delta, playerPos);
-                });
-
-                // Plasma Projectiles movement & collision checking
-                for (let i = projectilesGroup.children.length - 1; i >= 0; i--) {
-                    const proj = projectilesGroup.children[i];
-                    proj.position.addScaledVector(proj.userData.dir, proj.userData.speed * delta);
-
-                    if (proj.position.distanceTo(playerPos) < 1.1) {
-                        onPlayerHitByPlasma(proj.userData.damage || 15);
-                        projectilesGroup.remove(proj);
-                    } else if (proj.position.distanceTo(playerPos) > 80) {
-                        projectilesGroup.remove(proj);
-                    }
-                }
+            if (isGameRunning) {
+                updateFlightPhysics(delta);
             }
 
-            prevTime = time;
             renderer.render(scene, camera);
         }
 
-
-        window.onload = () => {
-            initThree();
-            setupControlsListeners();
-            initUIEventListeners();
+        window.onload = function() {
+            initEngine();
             animate();
         };
     </script>
