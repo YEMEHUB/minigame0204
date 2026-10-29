@@ -1,0 +1,911 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>지오매트리 대쉬 사다리 게임</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Neon & Geometry Fonts -->
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Rajdhani:wght@600;700&family=Noto+Sans+KR:wght@500;700;900&display=swap">
+
+    <style>
+        body {
+            font-family: 'Rajdhani', 'Noto Sans KR', sans-serif;
+            background-color: #070913;
+            background-image: 
+                radial-gradient(circle at 50% 50%, rgba(0, 240, 255, 0.12) 0%, transparent 60%),
+                linear-gradient(rgba(0, 255, 200, 0.08) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0, 255, 200, 0.08) 1px, transparent 1px);
+            background-size: 100% 100%, 30px 30px, 30px 30px;
+            background-position: center, -1px -1px, -1px -1px;
+            color: #ffffff;
+        }
+
+        .gd-title-font {
+            font-family: 'Press Start 2P', cursive;
+            text-shadow: 0 0 10px #00f0ff, 0 0 20px #00f0ff, 3px 3px 0 #ff0077;
+        }
+
+        .gd-text-neon {
+            text-shadow: 0 0 8px rgba(0, 240, 255, 0.8);
+        }
+
+        /* Neon Geometry Dashboard Buttons & Panels */
+        .gd-panel {
+            background: rgba(12, 16, 32, 0.92);
+            border: 2px solid #00f0ff;
+            box-shadow: 0 0 15px rgba(0, 240, 255, 0.35), inset 0 0 15px rgba(0, 240, 255, 0.1);
+            backdrop-filter: blur(8px);
+        }
+
+        .gd-panel-dark {
+            background: rgba(6, 8, 18, 0.95);
+            border: 1px solid #1f2942;
+            box-shadow: inset 0 0 10px rgba(0,0,0,0.8);
+        }
+
+        .gd-button {
+            background: linear-gradient(135deg, #151b33 0%, #0c0f21 100%);
+            border: 2px solid #00f0ff;
+            color: #00f0ff;
+            text-shadow: 0 0 5px #00f0ff;
+            box-shadow: 0 0 10px rgba(0, 240, 255, 0.3);
+            transition: all 0.15s ease-in-out;
+        }
+
+        .gd-button:hover {
+            background: #00f0ff;
+            color: #070913;
+            text-shadow: none;
+            box-shadow: 0 0 20px #00f0ff, 0 0 30px #00f0ff;
+            transform: translateY(-2px);
+        }
+
+        .gd-button:active {
+            transform: translateY(1px);
+            box-shadow: 0 0 5px #00f0ff;
+        }
+
+        .gd-button-green {
+            border-color: #00ff66;
+            color: #00ff66;
+            text-shadow: 0 0 5px #00ff66;
+            box-shadow: 0 0 10px rgba(0, 255, 102, 0.3);
+        }
+
+        .gd-button-green:hover {
+            background: #00ff66;
+            color: #070913;
+            text-shadow: none;
+            box-shadow: 0 0 20px #00ff66;
+        }
+
+        .gd-button-pink {
+            border-color: #ff0077;
+            color: #ff0077;
+            text-shadow: 0 0 5px #ff0077;
+            box-shadow: 0 0 10px rgba(255, 0, 119, 0.3);
+        }
+
+        .gd-button-pink:hover {
+            background: #ff0077;
+            color: #ffffff;
+            text-shadow: none;
+            box-shadow: 0 0 20px #ff0077;
+        }
+
+        /* Pulse Animations */
+        @keyframes gdPulse {
+            0%, 100% { border-color: #00f0ff; box-shadow: 0 0 15px rgba(0, 240, 255, 0.4); }
+            50% { border-color: #ff0077; box-shadow: 0 0 20px rgba(255, 0, 119, 0.6); }
+        }
+
+        .gd-pulse-border {
+            animation: gdPulse 4s infinite ease-in-out;
+        }
+
+        /* Confetti Overlay Canvas */
+        #confetti-canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            pointer-events: none;
+            z-index: 60;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col justify-between p-2 sm:p-4 select-none">
+
+    <canvas id="confetti-canvas"></canvas>
+
+    <!-- Header / Title Banner -->
+    <header class="w-full max-w-5xl mx-auto my-2 text-center">
+        <div class="inline-block gd-panel gd-pulse-border px-6 py-4 rounded-xl relative overflow-hidden">
+            <div class="absolute -right-8 -bottom-8 opacity-10 text-8xl text-cyan-400 font-black gd-title-font">GD</div>
+            <h1 class="gd-title-font text-2xl sm:text-4xl text-cyan-300 tracking-wider flex items-center justify-center gap-3">
+                <span class="text-amber-400">⚡</span> GEOMETRY LADDER <span class="text-pink-500">📐</span>
+            </h1>
+            <p class="text-xs sm:text-sm text-pink-400 font-bold mt-2 tracking-widest flex items-center justify-center gap-2">
+                <span>DASH THROUGH SPIKES & PORTALS!</span> | 100% COMPLETE YOUR RUN!
+            </p>
+        </div>
+    </header>
+
+    <!-- Main Game Workspace -->
+    <main class="w-full max-w-5xl mx-auto flex-1 flex flex-col lg:flex-row gap-4 my-2 items-start justify-center">
+
+        <!-- Control Side Panel -->
+        <section class="w-full lg:w-80 gd-panel rounded-xl p-4 text-slate-200 flex flex-col gap-4">
+            
+            <div class="border-b border-cyan-500/30 pb-2 flex justify-between items-center">
+                <h2 class="font-bold text-lg flex items-center gap-2 text-cyan-400">
+                    <i class="fa-solid fa-shapes"></i> CUBE DASH SETTINGS
+                </h2>
+                <span id="playerCountLabel" class="font-extrabold text-2xl text-amber-400 tracking-wider">4 CUBES</span>
+            </div>
+
+            <!-- Player Count Selector -->
+            <div>
+                <label class="block text-xs font-bold text-slate-400 mb-1">참가 인원 (2명 ~ 6명)</label>
+                <div class="flex items-center gap-2">
+                    <input type="range" id="playerCountInput" min="2" max="6" value="4" class="w-full accent-cyan-400 cursor-pointer h-2 bg-slate-900 rounded-lg">
+                </div>
+            </div>
+
+            <!-- Names Input Grid -->
+            <div>
+                <label class="block text-xs font-bold text-cyan-300 mb-1">큐브 플레이어 (상단)</label>
+                <div id="namesContainer" class="grid grid-cols-2 gap-1.5">
+                    <!-- Dynamic inputs generated here -->
+                </div>
+            </div>
+
+            <!-- Rewards / Punishments Input Grid -->
+            <div>
+                <label class="block text-xs font-bold text-pink-400 mb-1">미션 & 보상 타깃 (하단)</label>
+                <div id="resultsContainer" class="grid grid-cols-2 gap-1.5">
+                    <!-- Dynamic inputs generated here -->
+                </div>
+            </div>
+
+            <!-- Special Event Toggle -->
+            <div class="gd-panel-dark p-3 rounded-lg text-xs flex flex-col gap-2 border border-cyan-900">
+                <div class="flex items-center justify-between">
+                    <span class="font-bold text-amber-300 flex items-center gap-1">
+                        <i class="fa-solid fa-bolt text-amber-400"></i> GD 인터랙티브 장애물
+                    </span>
+                    <input type="checkbox" id="enableEventsCheck" checked class="w-4 h-4 accent-pink-500 cursor-pointer">
+                </div>
+                <p class="text-[11px] text-slate-400 leading-snug">
+                    가시(Spike 🔺), 점프패드(Yellow Pad 🟡), 워프 포탈(Portal 🌀), 점프링(Orb 🔵) 장애물이 랜덤 생성됩니다!
+                </p>
+            </div>
+
+            <!-- Quick Presets -->
+            <div class="flex gap-2">
+                <button id="presetVictoryBtn" class="gd-button gd-button-green flex-1 py-2 text-xs font-bold rounded-lg">
+                    🏆 승리 파티
+                </button>
+                <button id="presetPenaltyBtn" class="gd-button gd-button-pink flex-1 py-2 text-xs font-bold rounded-lg">
+                    💀 데스 익스트림
+                </button>
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="flex flex-col gap-2 pt-2 border-t border-cyan-500/30">
+                <button id="generateBtn" class="gd-button gd-button-green w-full py-3 font-bold text-base tracking-wider rounded-lg flex items-center justify-center gap-2">
+                    <i class="fa-solid fa-diagram-project"></i> 새 레벨 지형 생성
+                </button>
+                
+                <div class="flex gap-2">
+                    <button id="startAllBtn" class="gd-button w-full py-2.5 font-bold text-sm rounded-lg flex items-center justify-center gap-1">
+                        <i class="fa-solid fa-play"></i> 전체 대쉬!
+                    </button>
+                    <button id="resetBtn" class="gd-button flex-1 py-2.5 text-slate-300 font-bold text-sm rounded-lg flex items-center justify-center gap-1">
+                        <i class="fa-solid fa-rotate-left"></i> 리셋
+                    </button>
+                </div>
+            </div>
+
+        </section>
+
+        <!-- Canvas Game Ladder Area -->
+        <section class="flex-1 w-full gd-panel rounded-xl p-4 flex flex-col items-center justify-center min-h-[520px] relative overflow-hidden">
+            
+            <!-- Item Info Header -->
+            <div class="w-full flex flex-wrap justify-between items-center gap-2 mb-2 px-2 text-xs font-bold text-slate-300 border-b border-slate-800 pb-2">
+                <div class="flex items-center gap-3 flex-wrap">
+                    <span class="flex items-center gap-1" title="가시: 튕겨나감!"><span class="text-pink-500 font-black">🔺</span> Spike</span>
+                    <span class="flex items-center gap-1" title="점프 패드: 고속점프!"><span class="text-amber-400 font-black">🟡</span> Pad</span>
+                    <span class="flex items-center gap-1" title="워프 포탈: 순간이동!"><span class="text-cyan-400 font-black">🌀</span> Portal</span>
+                    <span class="flex items-center gap-1" title="점프 링: 점프 미션!"><span class="text-purple-400 font-black">🔵</span> Orb</span>
+                </div>
+                <div class="text-cyan-400 text-xs tracking-wider">
+                    * 상단 큐브를 클릭하여 개별 대쉬할 수 있습니다.
+                </div>
+            </div>
+
+            <!-- Ladder Main Canvas Box -->
+            <div id="canvasContainer" class="relative w-full max-w-[680px] h-[450px] bg-slate-950 rounded-xl border-2 border-cyan-500/50 flex items-center justify-center shadow-2xl overflow-hidden">
+                <canvas id="ladderCanvas" class="w-full h-full block"></canvas>
+            </div>
+
+            <!-- Status Logs -->
+            <div id="statusBanner" class="w-full mt-3 p-3 gd-panel-dark rounded-lg text-center text-xs sm:text-sm font-bold text-cyan-300 min-h-[44px] flex items-center justify-center border-l-4 border-cyan-400">
+                READY TO DASH! 큐브를 클릭하거나 '전체 대쉬!' 버튼을 누르세요.
+            </div>
+
+        </section>
+
+    </main>
+
+    <!-- Modal for Geometry Orb Mission Overlay -->
+    <div id="missionModal" class="hidden fixed inset-0 bg-black/85 z-50 flex items-center justify-center p-4">
+        <div class="gd-panel p-6 max-w-sm w-full text-center rounded-2xl border-2 border-pink-500 shadow-[0_0_30px_rgba(255,0,119,0.5)]">
+            <div class="text-2xl text-amber-400 font-black tracking-wider mb-1">🔵 ORB JUMP MISSION!</div>
+            <div class="text-5xl my-3 text-cyan-400 animate-bounce">⚡</div>
+            <div id="modalPlayerName" class="font-extrabold text-lg text-pink-400 mb-1">CUBE PLAYER</div>
+            <p id="modalMissionText" class="text-sm font-bold bg-slate-900 p-3 rounded-lg border border-slate-700 my-3 text-slate-200">
+                미션 내용이 여기에 표시됩니다.
+            </p>
+            <button id="closeModalBtn" class="gd-button gd-button-green w-full py-2.5 font-bold text-sm rounded-lg">
+                MISSION COMPLETE!
+            </button>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="w-full max-w-5xl mx-auto my-2 text-center text-xs text-slate-500 font-bold tracking-widest">
+        GEOMETRY LADDER DASH EDITION &copy; 2026. PRESS START TO PLAY!
+    </footer>
+
+    <!-- Logic & Canvas Engine Script -->
+    <script>
+        // --- Sound Effects Synthesizer (Synth Wave GD Style) ---
+        class GeometryAudio {
+            constructor() {
+                this.ctx = null;
+            }
+
+            init() {
+                if (!this.ctx) {
+                    const AudioContext = window.AudioContext || window.webkitAudioContext;
+                    this.ctx = new AudioContext();
+                }
+            }
+
+            playJump() {
+                this.init();
+                try {
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.type = 'sawtooth';
+                    osc.frequency.setValueAtTime(220, this.ctx.currentTime);
+                    osc.frequency.exponentialRampToValueAtTime(880, this.ctx.currentTime + 0.12);
+                    gain.gain.setValueAtTime(0.2, this.ctx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.12);
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.start();
+                    osc.stop(this.ctx.currentTime + 0.12);
+                } catch(e){}
+            }
+
+            playSpike() {
+                this.init();
+                try {
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.type = 'square';
+                    osc.frequency.setValueAtTime(300, this.ctx.currentTime);
+                    osc.frequency.setValueAtTime(150, this.ctx.currentTime + 0.08);
+                    gain.gain.setValueAtTime(0.3, this.ctx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.2);
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.start();
+                    osc.stop(this.ctx.currentTime + 0.2);
+                } catch(e){}
+            }
+
+            playPortal() {
+                this.init();
+                try {
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(400, this.ctx.currentTime);
+                    osc.frequency.exponentialRampToValueAtTime(1200, this.ctx.currentTime + 0.25);
+                    gain.gain.setValueAtTime(0.25, this.ctx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.25);
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.start();
+                    osc.stop(this.ctx.currentTime + 0.25);
+                } catch(e){}
+            }
+
+            playWin() {
+                this.init();
+                try {
+                    const notes = [523.25, 659.25, 783.99, 1046.50, 1318.51];
+                    notes.forEach((f, i) => {
+                        setTimeout(() => {
+                            const osc = this.ctx.createOscillator();
+                            const gain = this.ctx.createGain();
+                            osc.type = 'triangle';
+                            osc.frequency.setValueAtTime(f, this.ctx.currentTime);
+                            gain.gain.setValueAtTime(0.2, this.ctx.currentTime);
+                            gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.25);
+                            osc.connect(gain);
+                            gain.connect(this.ctx.destination);
+                            osc.start();
+                            osc.stop(this.ctx.currentTime + 0.25);
+                        }, i * 70);
+                    });
+                } catch(e){}
+            }
+        }
+
+        const gdAudio = new GeometryAudio();
+
+        // --- Game Config & State ---
+        let playerCount = 4;
+        let players = [];
+        let results = [];
+        let horizontalRungs = [];
+        let specialItems = [];
+        let isAnimating = false;
+        let activeRunners = [];
+
+        const GD_COLORS = ['#00f0ff', '#ff0077', '#00ff66', '#ffaa00', '#aa00ff', '#ffff00'];
+        const GD_CHARACTERS = ['큐브 알파 🟩', '큐브 베타 🟦', '큐브 감마 🟥', '큐브 델타 🟨', '큐브 엡실론 🟪', '큐브 제타 🟧'];
+        const DEFAULT_RESULTS = ['100% STEREO MADNESS 🏆', 'BACK ON TRACK 🚀', 'POLARGEIST 👻', 'DRY OUT 🌵', 'BASE AFTER BASE 🔊', 'CAN'T LET GO 🛑'];
+
+        const GD_MISSIONS = [
+            "⚡ 지오매트리 대쉬 점프 효과음 '뿅! 뿅!' 입으로 3회 연주!",
+            "📐 손가락으로 공중에 정확한 정삼각형 5개 그리기!",
+            "🎵 빠른 비트에 맞춰 5초간 가볍게 헤드뱅잉하기!",
+            "💥 가시에 부딪힌 큐브처럼 '쿠쿵!' 모션 수행하기!",
+            "🌟 팀원에게 '너의 순발력은 DEMON 난이도야!' 칭찬하기!"
+        ];
+
+        // --- DOM Elements ---
+        const playerCountInput = document.getElementById('playerCountInput');
+        const playerCountLabel = document.getElementById('playerCountLabel');
+        const namesContainer = document.getElementById('namesContainer');
+        const resultsContainer = document.getElementById('resultsContainer');
+        const enableEventsCheck = document.getElementById('enableEventsCheck');
+        
+        const generateBtn = document.getElementById('generateBtn');
+        const startAllBtn = document.getElementById('startAllBtn');
+        const resetBtn = document.getElementById('resetBtn');
+        const presetVictoryBtn = document.getElementById('presetVictoryBtn');
+        const presetPenaltyBtn = document.getElementById('presetPenaltyBtn');
+
+        const canvas = document.getElementById('ladderCanvas');
+        const ctx = canvas.getContext('2d');
+        const statusBanner = document.getElementById('statusBanner');
+
+        const missionModal = document.getElementById('missionModal');
+        const modalPlayerName = document.getElementById('modalPlayerName');
+        const modalMissionText = document.getElementById('modalMissionText');
+        const closeModalBtn = document.getElementById('closeModalBtn');
+
+        // --- UI Dynamic Rendering ---
+        function updateInputFields() {
+            playerCount = parseInt(playerCountInput.value);
+            playerCountLabel.textContent = `${playerCount} CUBES`;
+
+            namesContainer.innerHTML = '';
+            for (let i = 0; i < playerCount; i++) {
+                const nameVal = players[i] || GD_CHARACTERS[i] || `큐브 ${i+1}`;
+                namesContainer.innerHTML += `
+                    <input type="text" data-idx="${i}" class="player-name-input gd-panel-dark px-2 py-1 text-xs text-cyan-400 font-bold rounded border border-cyan-900 focus:outline-none focus:border-cyan-400" value="${nameVal}" placeholder="큐브 ${i+1}">
+                `;
+            }
+
+            resultsContainer.innerHTML = '';
+            for (let i = 0; i < playerCount; i++) {
+                const resVal = results[i] || DEFAULT_RESULTS[i] || `타깃 ${i+1}`;
+                resultsContainer.innerHTML += `
+                    <input type="text" data-idx="${i}" class="result-value-input gd-panel-dark px-2 py-1 text-xs text-pink-400 font-bold rounded border border-pink-900 focus:outline-none focus:border-pink-400" value="${resVal}" placeholder="타깃 ${i+1}">
+                `;
+            }
+
+            readInputs();
+            generateLadderStructure();
+        }
+
+        function readInputs() {
+            players = [];
+            document.querySelectorAll('.player-name-input').forEach(input => {
+                players.push(input.value.trim() || `큐브 ${parseInt(input.dataset.idx)+1}`);
+            });
+
+            results = [];
+            document.querySelectorAll('.result-value-input').forEach(input => {
+                results.push(input.value.trim() || `타깃 ${parseInt(input.dataset.idx)+1}`);
+            });
+        }
+
+        function setupCanvas() {
+            const container = document.getElementById('canvasContainer');
+            canvas.width = container.clientWidth;
+            canvas.height = container.clientHeight;
+        }
+
+        // --- Generate Ladder Data ---
+        function generateLadderStructure() {
+            setupCanvas();
+            readInputs();
+
+            horizontalRungs = [];
+            specialItems = [];
+            activeRunners = [];
+
+            const numCols = playerCount;
+            const rowLayers = 8;
+            const layerHeight = (canvas.height - 120) / rowLayers;
+            const topMargin = 60;
+
+            for (let r = 1; r < rowLayers; r++) {
+                const yPos = topMargin + r * layerHeight;
+                for (let c = 0; c < numCols - 1; c++) {
+                    const hasLeft = horizontalRungs.some(item => item.col === c - 1 && Math.abs(item.y - yPos) < 5);
+                    if (!hasLeft && Math.random() < 0.6) {
+                        horizontalRungs.push({ col: c, y: yPos });
+                    }
+                }
+            }
+
+            // Geometry Dash Interactive Traps
+            if (enableEventsCheck.checked) {
+                const itemTypes = ['spike', 'pad', 'portal', 'orb'];
+                const numItems = Math.min(6, Math.floor(playerCount * 1.5));
+
+                for (let i = 0; i < numItems; i++) {
+                    const col = Math.floor(Math.random() * numCols);
+                    const y = topMargin + (Math.floor(Math.random() * (rowLayers - 2)) + 1.5) * layerHeight;
+
+                    if (!specialItems.some(item => item.col === col && Math.abs(item.y - y) < 25)) {
+                        const type = itemTypes[Math.floor(Math.random() * itemTypes.length)];
+                        specialItems.push({ col, y, type, triggered: false });
+                    }
+                }
+            }
+
+            drawLadder();
+            statusBanner.textContent = "GEOMETRY LEVEL LOADED! DASH THROUGH THE GRID!";
+        }
+
+        // --- Drawing Canvas (Geometry Dash Neon Style) ---
+        function drawLadder() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            const numCols = playerCount;
+            const padding = 50;
+            const colWidth = (canvas.width - padding * 2) / (numCols - 1 || 1);
+            const topY = 50;
+            const bottomY = canvas.height - 50;
+
+            // 1. Neon Grid Background
+            ctx.fillStyle = '#070913';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            ctx.strokeStyle = 'rgba(0, 240, 255, 0.08)';
+            ctx.lineWidth = 1;
+            for (let x = 0; x < canvas.width; x += 25) {
+                ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height); ctx.stroke();
+            }
+            for (let y = 0; y < canvas.height; y += 25) {
+                ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(canvas.width, y); ctx.stroke();
+            }
+
+            // 2. Vertical Laser Lines
+            for (let i = 0; i < numCols; i++) {
+                const x = padding + i * colWidth;
+
+                ctx.strokeStyle = '#00f0ff';
+                ctx.shadowColor = '#00f0ff';
+                ctx.shadowBlur = 8;
+                ctx.lineWidth = 3;
+                ctx.beginPath();
+                ctx.moveTo(x, topY);
+                ctx.lineTo(x, bottomY);
+                ctx.stroke();
+                ctx.shadowBlur = 0; // Reset shadow
+            }
+
+            // 3. Horizontal Neon Laser Rungs
+            horizontalRungs.forEach(rung => {
+                const x1 = padding + rung.col * colWidth;
+                const x2 = padding + (rung.col + 1) * colWidth;
+                const y = rung.y;
+
+                ctx.strokeStyle = '#ff0077';
+                ctx.shadowColor = '#ff0077';
+                ctx.shadowBlur = 10;
+                ctx.lineWidth = 4;
+                ctx.beginPath();
+                ctx.moveTo(x1, y);
+                ctx.lineTo(x2, y);
+                ctx.stroke();
+                ctx.shadowBlur = 0;
+            });
+
+            // 4. Draw Geometry Dash Traps & Items
+            specialItems.forEach(item => {
+                const x = padding + item.col * colWidth;
+                const y = item.y;
+
+                ctx.save();
+                ctx.translate(x, y);
+
+                if (item.type === 'spike') {
+                    // Spike Triangle
+                    ctx.fillStyle = '#ff0055';
+                    ctx.shadowColor = '#ff0055'; ctx.shadowBlur = 10;
+                    ctx.beginPath();
+                    ctx.moveTo(0, -12); ctx.lineTo(10, 10); ctx.lineTo(-10, 10);
+                    ctx.closePath(); ctx.fill();
+                } else if (item.type === 'pad') {
+                    // Yellow Jump Pad
+                    ctx.fillStyle = '#ffcc00';
+                    ctx.shadowColor = '#ffcc00'; ctx.shadowBlur = 10;
+                    ctx.fillRect(-12, -4, 24, 8);
+                } else if (item.type === 'portal') {
+                    // Portal Oval Ring
+                    ctx.strokeStyle = '#00f0ff';
+                    ctx.shadowColor = '#00f0ff'; ctx.shadowBlur = 12;
+                    ctx.lineWidth = 3;
+                    ctx.beginPath(); ctx.ellipse(0, 0, 8, 14, 0, 0, Math.PI * 2); ctx.stroke();
+                } else if (item.type === 'orb') {
+                    // Jump Orb
+                    ctx.fillStyle = '#aa00ff';
+                    ctx.shadowColor = '#aa00ff'; ctx.shadowBlur = 12;
+                    ctx.beginPath(); ctx.arc(0, 0, 8, 0, Math.PI * 2); ctx.fill();
+                }
+
+                ctx.restore();
+            });
+
+            // 5. Draw Player Cube Avatars (Top)
+            for (let i = 0; i < numCols; i++) {
+                const x = padding + i * colWidth;
+                const pName = players[i] || `C${i+1}`;
+                const color = GD_COLORS[i % GD_COLORS.length];
+
+                // Geometry Cube Body
+                ctx.save();
+                ctx.translate(x, topY - 20);
+
+                ctx.fillStyle = color;
+                ctx.shadowColor = color;
+                ctx.shadowBlur = 12;
+                ctx.fillRect(-14, -14, 28, 28);
+
+                // Inner Cube Eye Design
+                ctx.fillStyle = '#070913';
+                ctx.fillRect(-8, -8, 16, 16);
+                ctx.fillStyle = '#ffffff';
+                ctx.fillRect(-4, -4, 8, 8);
+
+                ctx.restore();
+
+                // Player Tag Text
+                ctx.fillStyle = '#00f0ff';
+                ctx.font = 'bold 12px "Rajdhani", sans-serif';
+                ctx.textAlign = 'center';
+                ctx.fillText(pName, x, topY - 40);
+            }
+
+            // 6. Draw Bottom Goal Targets
+            for (let i = 0; i < numCols; i++) {
+                const x = padding + i * colWidth;
+                const rVal = results[i] || `R${i+1}`;
+
+                ctx.fillStyle = 'rgba(255, 0, 119, 0.15)';
+                ctx.strokeStyle = '#ff0077';
+                ctx.lineWidth = 2;
+                ctx.fillRect(x - 38, bottomY + 8, 76, 28);
+                ctx.strokeRect(x - 38, bottomY + 8, 76, 28);
+
+                ctx.fillStyle = '#ffffff';
+                ctx.font = 'bold 11px "Noto Sans KR", sans-serif';
+                ctx.textAlign = 'center';
+                ctx.fillText(rVal, x, bottomY + 26);
+            }
+
+            // 7. Active Dropping Player Cubes (Animated)
+            activeRunners.forEach(runner => {
+                ctx.save();
+                ctx.translate(runner.currentX, runner.currentY);
+                ctx.rotate(runner.rotation || 0);
+
+                // Animated Cube Body
+                ctx.fillStyle = runner.color;
+                ctx.shadowColor = runner.color;
+                ctx.shadowBlur = 15;
+                ctx.fillRect(-12, -12, 24, 24);
+
+                ctx.fillStyle = '#070913';
+                ctx.fillRect(-6, -6, 12, 12);
+                ctx.fillStyle = '#ffffff';
+                ctx.fillRect(-3, -3, 6, 6);
+
+                ctx.restore();
+            });
+        }
+
+        // --- Path Finding & Animation Logic ---
+        function calculatePath(startCol) {
+            const numCols = playerCount;
+            const padding = 50;
+            const colWidth = (canvas.width - padding * 2) / (numCols - 1 || 1);
+            const topY = 50;
+            const bottomY = canvas.height - 50;
+
+            let col = startCol;
+            let y = topY;
+            const path = [{ x: padding + col * colWidth, y: topY, col: col }];
+
+            let rungs = [...horizontalRungs].sort((a, b) => a.y - b.y);
+
+            while (y < bottomY) {
+                const nextRung = rungs.find(r => r.y > y + 2 && (r.col === col || r.col === col - 1));
+
+                if (nextRung) {
+                    y = nextRung.y;
+                    path.push({ x: padding + col * colWidth, y: y, col: col });
+
+                    if (nextRung.col === col) {
+                        col += 1;
+                    } else {
+                        col -= 1;
+                    }
+                    path.push({ x: padding + col * colWidth, y: y, col: col });
+                } else {
+                    y = bottomY;
+                    path.push({ x: padding + col * colWidth, y: bottomY, col: col });
+                }
+            }
+
+            return { path, finalCol: col };
+        }
+
+        function startPlayerAnimation(startColIndex) {
+            readInputs();
+            if (activeRunners.some(r => r.playerIndex === startColIndex)) return;
+
+            const { path, finalCol } = calculatePath(startColIndex);
+            const color = GD_COLORS[startColIndex % GD_COLORS.length];
+            const pName = players[startColIndex] || `큐브 ${startColIndex+1}`;
+
+            const runner = {
+                playerIndex: startColIndex,
+                name: pName,
+                color: color,
+                path: path,
+                pathIndex: 0,
+                progress: 0,
+                currentX: path[0].x,
+                currentY: path[0].y,
+                speed: 0.08,
+                rotation: 0,
+                finalCol: finalCol,
+                finished: false
+            };
+
+            activeRunners.push(runner);
+
+            if (!isAnimating) {
+                isAnimating = true;
+                requestAnimationFrame(animateLoop);
+            }
+        }
+
+        function animateLoop() {
+            let allDone = true;
+
+            activeRunners.forEach(runner => {
+                if (runner.finished) return;
+                allDone = false;
+
+                const p1 = runner.path[runner.pathIndex];
+                const p2 = runner.path[runner.pathIndex + 1];
+
+                if (p2) {
+                    runner.progress += runner.speed;
+                    runner.currentX = p1.x + (p2.x - p1.x) * runner.progress;
+                    runner.currentY = p1.y + (p2.y - p1.y) * runner.progress;
+
+                    // Cube Rotation Dash Motion
+                    runner.rotation += 0.2;
+
+                    if (Math.random() < 0.15) gdAudio.playJump();
+
+                    checkTrapCollision(runner);
+
+                    if (runner.progress >= 1) {
+                        runner.progress = 0;
+                        runner.pathIndex++;
+                    }
+                } else {
+                    runner.finished = true;
+                    onRunnerFinish(runner);
+                }
+            });
+
+            drawLadder();
+
+            if (!allDone) {
+                requestAnimationFrame(animateLoop);
+            } else {
+                isAnimating = false;
+            }
+        }
+
+        function checkTrapCollision(runner) {
+            specialItems.forEach(item => {
+                if (!item.triggered && Math.abs(runner.currentX - (50 + item.col * ((canvas.width - 100)/(playerCount-1||1)))) < 14 && Math.abs(runner.currentY - item.y) < 14) {
+                    item.triggered = true;
+
+                    if (item.type === 'spike') {
+                        gdAudio.playSpike();
+                        statusBanner.innerHTML = `<span class="text-pink-500 font-extrabold">🔺 SPIKE HIT! ${runner.name}가 가시에 튕겼습니다!</span>`;
+                    } else if (item.type === 'pad') {
+                        gdAudio.playJump();
+                        runner.speed = 0.15; // Fast Speed Boost
+                        statusBanner.innerHTML = `<span class="text-amber-400 font-extrabold">🟡 YELLOW PAD BOOST! 초고속 대쉬!</span>`;
+                    } else if (item.type === 'portal') {
+                        gdAudio.playPortal();
+                        statusBanner.innerHTML = `<span class="text-cyan-400 font-extrabold">🌀 PORTAL WARP! 공간 순간이동!</span>`;
+                    } else if (item.type === 'orb') {
+                        triggerMissionModal(runner.name);
+                    }
+                }
+            });
+        }
+
+        function onRunnerFinish(runner) {
+            const finalReward = results[runner.finalCol] || `타깃 ${runner.finalCol + 1}`;
+            gdAudio.playWin();
+            statusBanner.innerHTML = `<span class="text-emerald-400">⚡ [${runner.name}] 100% COMPLETE! ➔ 도착 타깃: <strong class="text-amber-300">${finalReward}</strong></span>`;
+            triggerConfetti(true);
+        }
+
+        function triggerMissionModal(playerName) {
+            const randomMission = GD_MISSIONS[Math.floor(Math.random() * GD_MISSIONS.length)];
+            modalPlayerName.textContent = `[${playerName}] ORB MISSION!`;
+            modalMissionText.textContent = randomMission;
+            missionModal.classList.remove('hidden');
+        }
+
+        closeModalBtn.addEventListener('click', () => {
+            missionModal.classList.add('hidden');
+        });
+
+        // --- Canvas Click Handling ---
+        canvas.addEventListener('click', (e) => {
+            if (isAnimating) return;
+
+            const rect = canvas.getBoundingClientRect();
+            const clickX = e.clientX - rect.left;
+            const clickY = e.clientY - rect.top;
+
+            const padding = 50;
+            const colWidth = (canvas.width - padding * 2) / (playerCount - 1 || 1);
+
+            for (let i = 0; i < playerCount; i++) {
+                const x = padding + i * colWidth;
+                if (Math.abs(clickX - x) < 25 && clickY < 70) {
+                    startPlayerAnimation(i);
+                    break;
+                }
+            }
+        });
+
+        // --- Presets & Event Listeners ---
+        playerCountInput.addEventListener('input', updateInputFields);
+        generateBtn.addEventListener('click', generateLadderStructure);
+
+        startAllBtn.addEventListener('click', () => {
+            if (isAnimating) return;
+            activeRunners = [];
+            specialItems.forEach(i => i.triggered = false);
+            for (let i = 0; i < playerCount; i++) {
+                setTimeout(() => startPlayerAnimation(i), i * 250);
+            }
+        });
+
+        resetBtn.addEventListener('click', () => {
+            activeRunners = [];
+            specialItems.forEach(i => i.triggered = false);
+            drawLadder();
+            statusBanner.textContent = "RESET COMPLETE! READY TO DASH!";
+        });
+
+        presetVictoryBtn.addEventListener('click', () => {
+            const rewards = ['100% CLEAR 🏆', 'DEMON SLAYER 🐉', 'SECRET COIN 🪙', 'STAR BOOST ⭐', 'SPEED RUNNER ⚡', 'GOD MODE 👑'];
+            document.querySelectorAll('.result-value-input').forEach((input, idx) => {
+                input.value = rewards[idx % rewards.length];
+            });
+            generateLadderStructure();
+        });
+
+        presetPenaltyBtn.addEventListener('click', () => {
+            const penalties = ['99% CRASH 💀', 'SPIKE DANCE 🔺', 'BOUNCE BACK 🔄', 'BEAT BOX PERF 🎵', 'HEADBANG 30S ⚡', 'ONE MORE TRY 🔁'];
+            document.querySelectorAll('.result-value-input').forEach((input, idx) => {
+                input.value = penalties[idx % penalties.length];
+            });
+            generateLadderStructure();
+        });
+
+        window.addEventListener('resize', () => {
+            setupCanvas();
+            drawLadder();
+        });
+
+        // --- Confetti / Victory Effects Engine ---
+        const confettiCanvas = document.getElementById('confetti-canvas');
+        const cCtx = confettiCanvas.getContext('2d');
+        let particles = [];
+
+        function resizeConfetti() {
+            confettiCanvas.width = window.innerWidth;
+            confettiCanvas.height = window.innerHeight;
+        }
+        window.addEventListener('resize', resizeConfetti);
+        resizeConfetti();
+
+        function triggerConfetti(isBig = false) {
+            particles = [];
+            const count = isBig ? 90 : 35;
+            const colors = ['#00f0ff', '#ff0077', '#00ff66', '#ffaa00', '#ffffff'];
+            
+            for (let i = 0; i < count; i++) {
+                particles.push({
+                    x: confettiCanvas.width / 2,
+                    y: confettiCanvas.height / 2,
+                    vx: (Math.random() - 0.5) * 16,
+                    vy: (Math.random() - 0.7) * 16,
+                    size: Math.random() * 8 + 4,
+                    color: colors[Math.floor(Math.random() * colors.length)],
+                    life: 100
+                });
+            }
+            requestAnimationFrame(animateConfetti);
+        }
+
+        function animateConfetti() {
+            cCtx.clearRect(0, 0, confettiCanvas.width, confettiCanvas.height);
+            particles.forEach((p, idx) => {
+                p.x += p.vx;
+                p.y += p.vy;
+                p.vy += 0.25;
+                p.life -= 1.8;
+
+                cCtx.fillStyle = p.color;
+                cCtx.globalAlpha = Math.max(0, p.life / 100);
+                cCtx.fillRect(p.x, p.y, p.size, p.size);
+
+                if (p.life <= 0) particles.splice(idx, 1);
+            });
+
+            if (particles.length > 0) {
+                requestAnimationFrame(animateConfetti);
+            }
+        }
+
+        window.onload = () => {
+            updateInputFields();
+        };
+    </script>
+</body>
+</html>
