@@ -1,734 +1,1241 @@
-
 <!DOCTYPE html>
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>스피드 클릭 게임 (Speed Clicker)</title>
-    <!-- Tailwind CSS -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VEGAS ROYALE CASINO</title>
+    <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Lucide Icons -->
-    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700;900&family=Inter:wght@400;700;900&display=swap" rel="stylesheet">
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Tone.js for Web Audio API sound effects -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
     <!-- Canvas Confetti -->
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
-    <!-- Google Fonts -->
-    <link href="https://fonts.googleapis.com/css2?family=Pretendard:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        casino: ['Cinzel', 'serif'],
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                    colors: {
+                        gold: {
+                            300: '#ffe259',
+                            400: '#ffa751',
+                            500: '#d4af37',
+                            600: '#aa7c11',
+                        }
+                    },
+                    animation: {
+                        'pulse-glow': 'pulseGlow 2s infinite alternate',
+                        'spin-fast': 'spin 0.2s linear infinite',
+                    },
+                    keyframes: {
+                        pulseGlow: {
+                            '0%': { filter: 'drop-shadow(0 0 5px rgba(255,215,0,0.4))' },
+                            '100%': { filter: 'drop-shadow(0 0 20px rgba(255,215,0,0.9))' },
+                        }
+                    }
+                }
+            }
+        }
+    </script>
     <style>
-        * {
-            font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, Roboto, sans-serif;
+        body {
+            background: radial-gradient(circle at center, #2a0542 0%, #0c0214 100%);
+            min-height: 100vh;
+            position: relative;
+            overflow-x: hidden;
+        }
+        /* Casino Chip Background Overlay */
+        .casino-bg-chips {
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            z-index: 0;
+            opacity: 0.18;
+            background-image: 
+                radial-gradient(circle at 10% 20%, rgba(212, 175, 55, 0.4) 0%, transparent 20%),
+                radial-gradient(circle at 90% 80%, rgba(239, 68, 68, 0.4) 0%, transparent 25%),
+                radial-gradient(circle at 50% 50%, rgba(168, 85, 247, 0.3) 0%, transparent 35%);
+        }
+        .casino-border {
+            border: 4px solid #d4af37;
+            box-shadow: inset 0 0 15px rgba(0,0,0,0.8), 0 0 25px rgba(212,175,55,0.5);
+        }
+        .slot-container {
+            background: linear-gradient(180deg, #05000a 0%, #1a0826 50%, #05000a 100%);
+            box-shadow: inset 0 0 30px rgba(0,0,0,0.95);
+        }
+        .reel-window {
+            mask-image: linear-gradient(to bottom, transparent, black 15%, black 85%, transparent);
+            -webkit-mask-image: linear-gradient(to bottom, transparent, black 15%, black 85%, transparent);
+        }
+        .gold-text {
+            background: linear-gradient(135deg, #fff3a1 0%, #d4af37 50%, #aa7c11 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .no-select {
             user-select: none;
             -webkit-user-select: none;
-            touch-action: manipulation;
         }
-        .glass-card {
-            background: rgba(15, 23, 42, 0.75);
-            backdrop-filter: blur(16px);
-            -webkit-backdrop-filter: blur(16px);
-            border: 1px solid rgba(255, 255, 255, 0.1);
+
+        /* Casino Chip Styling */
+        .casino-chip {
+            border: 3px dashed rgba(255, 255, 255, 0.8);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.6), inset 0 0 8px rgba(0,0,0,0.5);
+            transition: transform 0.15s ease, box-shadow 0.15s ease;
         }
-        .target-node {
-            transition: transform 0.08s ease-out, opacity 0.1s linear;
+        .casino-chip:hover {
+            transform: translateY(-4px) scale(1.05);
+            box-shadow: 0 8px 20px rgba(255,215,0,0.5), inset 0 0 8px rgba(0,0,0,0.3);
         }
-        .target-node:active {
-            transform: scale(0.85) !important;
+        .casino-chip:active {
+            transform: translateY(1px) scale(0.98);
         }
-        @keyframes clickPulse {
-            0% { transform: scale(0.8); opacity: 1; }
-            100% { transform: scale(1.6); opacity: 0; }
+        .chip-selected {
+            border: 3px solid #ffffff !important;
+            box-shadow: 0 0 20px #ffd700, inset 0 0 10px rgba(255,255,255,0.8) !important;
+            transform: translateY(-6px) scale(1.08) !important;
         }
-        .click-effect {
-            position: absolute;
-            pointer-events: none;
-            border-radius: 50%;
-            border: 2px solid rgba(244, 63, 94, 0.8);
-            animation: clickPulse 0.4s ease-out forwards;
+
+        /* Slot Machine Lever Animation */
+        .lever-arm {
+            transform-origin: bottom center;
+            transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
         }
-        @keyframes floatText {
-            0% { transform: translateY(0) scale(1); opacity: 1; }
-            100% { transform: translateY(-30px) scale(1.2); opacity: 0; }
+        .lever-pull .lever-arm {
+            transform: rotateX(180deg) scaleY(0.5);
         }
-        .combo-text {
-            position: absolute;
-            pointer-events: none;
+        .lever-knob {
+            box-shadow: 0 0 15px rgba(239, 68, 68, 0.8), inset -3px -3px 6px rgba(0,0,0,0.6);
+        }
+
+        /* Mode Switch Tab Active */
+        .tab-active {
+            background: linear-gradient(135deg, #d4af37 0%, #aa7c11 100%);
+            color: #000;
             font-weight: 900;
-            color: #f59e0b;
-            text-shadow: 0 0 10px rgba(245, 158, 11, 0.5);
-            animation: floatText 0.6s cubic-bezier(0.18, 0.89, 0.32, 1.28) forwards;
+            box-shadow: 0 0 15px rgba(212,175,55,0.6);
+        }
+
+        /* Item Shop Cards */
+        .shop-card {
+            background: linear-gradient(180deg, rgba(15, 23, 42, 0.9) 0%, rgba(30, 41, 59, 0.9) 100%);
+            border: 2px solid rgba(212, 175, 55, 0.4);
+            transition: all 0.2s ease;
+        }
+        .shop-card:hover {
+            border-color: #d4af37;
+            box-shadow: 0 0 20px rgba(212, 175, 55, 0.4);
+            transform: translateY(-2px);
         }
     </style>
 </head>
-<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col justify-between overflow-hidden relative">
+<body class="text-slate-100 font-sans flex flex-col justify-between items-center min-h-screen p-3 md:p-6 no-select relative">
 
-    <!-- Ambient Glow Background -->
-    <div class="fixed inset-0 pointer-events-none z-0">
-        <div id="bgGlow1" class="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-rose-600/15 rounded-full blur-3xl transition-colors duration-500"></div>
-        <div id="bgGlow2" class="absolute bottom-1/4 right-1/4 w-[400px] h-[400px] bg-indigo-600/15 rounded-full blur-3xl transition-colors duration-500"></div>
+    <!-- Casino Chips & Neon Background FX -->
+    <div class="casino-bg-chips">
+        <i class="fa-solid fa-poker-chip absolute top-10 left-10 text-6xl text-amber-400 rotate-12 animate-pulse"></i>
+        <i class="fa-solid fa-coins absolute top-1/4 right-12 text-7xl text-rose-500 -rotate-45"></i>
+        <i class="fa-solid fa-poker-chip absolute bottom-12 left-16 text-8xl text-purple-500 rotate-45"></i>
+        <i class="fa-solid fa-gem absolute bottom-1/3 right-10 text-6xl text-emerald-400 -rotate-12"></i>
     </div>
 
-    <!-- Header Navigation -->
-    <header class="w-full max-w-2xl mx-auto p-4 flex justify-between items-center z-20 relative">
+    <!-- Header / Chips Status -->
+    <header class="w-full max-w-xl mx-auto flex justify-between items-center bg-slate-950/85 border-2 border-gold-500 rounded-2xl p-4 shadow-[0_0_30px_rgba(212,175,55,0.35)] backdrop-blur-md mb-3 relative z-10">
         <div class="flex items-center gap-3">
-            <div class="p-2.5 bg-rose-500/20 rounded-2xl border border-rose-500/30 text-rose-400">
-                <i data-lucide="zap" class="w-6 h-6"></i>
+            <div class="w-10 h-10 rounded-full bg-gradient-to-tr from-amber-500 to-yellow-300 flex items-center justify-center shadow-md">
+                <i class="fa-solid fa-coins text-slate-950 text-xl"></i>
             </div>
             <div>
-                <h1 class="text-xl font-extrabold tracking-tight bg-gradient-to-r from-white via-slate-200 to-rose-400 bg-clip-text text-transparent">스피드 클릭 (Speed Clicker)</h1>
-                <p class="text-xs text-slate-400">순발력과 반응속도 한계 도전</p>
+                <p class="text-[10px] text-amber-200/80 font-casino tracking-widest uppercase">MY CHIPS</p>
+                <p class="font-casino text-lg md:text-xl font-black text-amber-400">
+                    <span id="userChips">100,000</span> <span class="text-xs text-amber-200">CHIPS</span>
+                </p>
             </div>
         </div>
-        <button id="helpBtn" class="p-2.5 rounded-2xl glass-card text-slate-300 hover:text-white transition hover:bg-slate-800/60">
-            <i data-lucide="help-circle" class="w-5 h-5"></i>
-        </button>
+
+        <div class="flex space-x-2">
+            <button id="refillBtn" class="bg-gradient-to-r from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-teal-400 text-white text-xs font-bold px-3 py-2 rounded-xl border border-emerald-300 shadow-lg flex items-center gap-1 active:scale-95 transition-all">
+                <i class="fa-solid fa-plus-circle"></i> +100K 충전
+            </button>
+            <button id="bgmToggleBtn" class="w-10 h-10 bg-slate-800 border border-gold-500/50 rounded-xl text-amber-400 flex items-center justify-center hover:bg-slate-700 active:scale-95" title="배경음악 ON/OFF">
+                <i id="bgmIcon" class="fa-solid fa-music text-slate-500"></i>
+            </button>
+            <button id="soundToggleBtn" class="w-10 h-10 bg-slate-800 border border-gold-500/50 rounded-xl text-amber-400 flex items-center justify-center hover:bg-slate-700 active:scale-95" title="효과음 ON/OFF">
+                <i id="soundIcon" class="fa-solid fa-volume-high"></i>
+            </button>
+        </div>
     </header>
 
-    <!-- Main Container -->
-    <main class="w-full max-w-2xl mx-auto flex-1 flex flex-col p-4 z-10 relative gap-4">
+    <!-- Game Mode Navigation Tabs -->
+    <nav class="w-full max-w-xl mx-auto flex gap-2 mb-4">
+        <button id="tabSlot" class="tab-btn tab-active flex-1 py-2.5 rounded-xl border border-gold-500 font-casino text-xs md:text-sm tracking-wider uppercase transition-all flex items-center justify-center gap-2">
+            <i class="fa-solid fa-cubes-stacked"></i> 🎰 SLOT
+        </button>
+        <button id="tabStock" class="tab-btn flex-1 py-2.5 bg-slate-900 text-slate-400 rounded-xl border border-gold-500/30 hover:border-gold-500 font-casino text-xs md:text-sm tracking-wider uppercase transition-all flex items-center justify-center gap-2">
+            <i class="fa-solid fa-chart-line-up"></i> 📈 STOCK
+        </button>
+        <button id="tabShop" class="tab-btn flex-1 py-2.5 bg-slate-900 text-slate-400 rounded-xl border border-gold-500/30 hover:border-gold-500 font-casino text-xs md:text-sm tracking-wider uppercase transition-all flex items-center justify-center gap-2">
+            <i class="fa-solid fa-store"></i> 🛍️ VIP SHOP
+        </button>
+    </nav>
 
-        <!-- Mode Selector Cards -->
-        <div id="modeSelector" class="grid grid-cols-3 gap-2">
-            <button data-mode="target" class="mode-btn active p-3 rounded-2xl glass-card border border-rose-500/50 bg-rose-500/10 text-rose-300 font-semibold text-xs sm:text-sm flex flex-col items-center gap-1.5 transition-all">
-                <i data-lucide="crosshair" class="w-5 h-5"></i>
-                <span>타겟 모드 (10초)</span>
-            </button>
-            <button data-mode="cps" class="mode-btn p-3 rounded-2xl glass-card border border-slate-800 text-slate-400 font-semibold text-xs sm:text-sm flex flex-col items-center gap-1.5 transition-all hover:text-slate-200">
-                <i data-lucide="mouse-pointer-click" class="w-5 h-5"></i>
-                <span>CPS 연타 모드</span>
-            </button>
-            <button data-mode="reflex" class="mode-btn p-3 rounded-2xl glass-card border border-slate-800 text-slate-400 font-semibold text-xs sm:text-sm flex flex-col items-center gap-1.5 transition-all hover:text-slate-200">
-                <i data-lucide="timer" class="w-5 h-5"></i>
-                <span>반응속도 테스트</span>
-            </button>
+    <!-- Main Casino App -->
+    <main class="w-full max-w-xl mx-auto flex-1 flex flex-col justify-center items-center relative z-10">
+        
+        <!-- Slot Machine View -->
+        <div id="slotView" class="w-full flex flex-col items-center">
+            <!-- Casino Title Banner -->
+            <div class="text-center mb-4 animate-pulse-glow">
+                <h1 class="font-casino text-3xl md:text-5xl font-black gold-text tracking-widest drop-shadow-[0_4px_12px_rgba(0,0,0,0.9)]">
+                    ROYAL VEGAS
+                </h1>
+                <p class="text-xs text-amber-200/90 tracking-widest uppercase font-casino mt-1">💎 HIGH ROLLER HIGH STAKES CASINO 💎</p>
+            </div>
+
+            <!-- Slot Machine Cabinet Container with Lever -->
+            <div class="w-full flex items-center justify-center relative">
+                <!-- Main Slot Cabinet -->
+                <div class="w-full bg-slate-900 border-4 border-gold-500 rounded-3xl p-4 md:p-6 shadow-[0_0_60px_rgba(170,124,17,0.6)] relative flex flex-col items-center">
+                    
+                    <!-- Neon Border Decor Header -->
+                    <div class="w-full bg-gradient-to-r from-amber-600 via-yellow-300 to-amber-600 p-2 rounded-xl mb-4 text-center border-2 border-yellow-100 shadow-[0_0_15px_rgba(255,215,0,0.5)]">
+                        <span id="jackpotBanner" class="font-casino text-xs md:text-sm font-black text-black tracking-widest uppercase">
+                            JACKPOT: <span id="jackpotAmount">1,000,000</span> CHIPS
+                        </span>
+                    </div>
+
+                    <!-- Reels Display Area -->
+                    <div class="w-full slot-container border-2 border-gold-500/80 rounded-2xl p-4 reel-window relative overflow-hidden mb-5">
+                        <div class="absolute inset-x-0 top-1/2 transform -translate-y-1/2 h-20 border-y-2 border-yellow-400 bg-yellow-400/10 pointer-events-none z-20 flex justify-between items-center px-2">
+                            <i class="fa-solid fa-caret-right text-yellow-400 text-xl animate-pulse"></i>
+                            <i class="fa-solid fa-caret-left text-yellow-400 text-xl animate-pulse"></i>
+                        </div>
+
+                        <div class="grid grid-cols-3 gap-3 text-center relative z-10">
+                            <div class="bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 border border-amber-500/40 rounded-xl py-6 h-28 flex items-center justify-center overflow-hidden shadow-2xl">
+                                <span id="reel1" class="text-5xl md:text-6xl transition-transform duration-75">🎰</span>
+                            </div>
+                            <div class="bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 border border-amber-500/40 rounded-xl py-6 h-28 flex items-center justify-center overflow-hidden shadow-2xl">
+                                <span id="reel2" class="text-5xl md:text-6xl transition-transform duration-75">🎰</span>
+                            </div>
+                            <div class="bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 border border-amber-500/40 rounded-xl py-6 h-28 flex items-center justify-center overflow-hidden shadow-2xl">
+                                <span id="reel3" class="text-5xl md:text-6xl transition-transform duration-75">🎰</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Game Status & Win Output -->
+                    <div id="statusBox" class="w-full bg-slate-950 border border-gold-500/50 rounded-xl p-3 mb-4 text-center min-h-[58px] flex flex-col justify-center items-center shadow-inner">
+                        <p id="statusMsg" class="font-casino text-sm md:text-base text-amber-300 font-bold">칩을 선택하고 오른쪽 레버를 당기세요!</p>
+                        <p id="winMultiplier" class="text-xs md:text-sm text-emerald-400 font-bold hidden"></p>
+                    </div>
+
+                    <!-- Realistic Casino Chips Tray -->
+                    <div class="w-full bg-slate-950/80 border border-gold-500/30 rounded-2xl p-3 mb-4">
+                        <p class="text-[10px] text-amber-300 font-casino text-center mb-2 tracking-widest uppercase">SELECT BET CHIP</p>
+                        <div class="grid grid-cols-4 gap-2 mb-3">
+                            <button data-bet="100" class="chip-btn flex flex-col items-center">
+                                <div class="casino-chip w-12 h-12 md:w-14 md:h-14 rounded-full bg-blue-600 text-white font-black text-xs md:text-sm flex items-center justify-center font-casino cursor-pointer">100</div>
+                            </button>
+                            <button data-bet="500" class="chip-btn flex flex-col items-center">
+                                <div class="casino-chip w-12 h-12 md:w-14 md:h-14 rounded-full bg-red-600 text-white font-black text-xs md:text-sm flex items-center justify-center font-casino cursor-pointer">500</div>
+                            </button>
+                            <button data-bet="1000" class="chip-btn flex flex-col items-center">
+                                <div class="casino-chip chip-selected w-12 h-12 md:w-14 md:h-14 rounded-full bg-emerald-600 text-white font-black text-xs md:text-sm flex items-center justify-center font-casino cursor-pointer">1K</div>
+                            </button>
+                            <button data-bet="5000" class="chip-btn flex flex-col items-center">
+                                <div class="casino-chip w-12 h-12 md:w-14 md:h-14 rounded-full bg-purple-700 text-white font-black text-xs md:text-sm flex items-center justify-center font-casino cursor-pointer">5K</div>
+                            </button>
+                        </div>
+
+                        <!-- Bet Amount Adjust Controls (NEW) -->
+                        <div class="flex items-center justify-between gap-1.5 bg-slate-900/90 border border-gold-500/40 rounded-xl p-1.5">
+                            <span class="text-[10px] font-casino text-amber-300 px-1 hidden sm:inline">BET:</span>
+                            <div class="flex-1 flex justify-between items-center bg-slate-950 border border-slate-700 rounded-lg px-2 py-1">
+                                <span id="currentBetDisplay" class="font-casino text-xs md:text-sm text-amber-400 font-bold">1,000</span>
+                                <span class="text-[10px] text-slate-400">CHIPS</span>
+                            </div>
+                            <div class="flex gap-1">
+                                <button id="betSubBtn" class="bg-slate-800 hover:bg-slate-700 border border-slate-600 text-amber-300 font-bold text-xs px-2.5 py-1 rounded-lg active:scale-95 transition-all">-</button>
+                                <button id="betAddBtn" class="bg-slate-800 hover:bg-slate-700 border border-slate-600 text-amber-300 font-bold text-xs px-2.5 py-1 rounded-lg active:scale-95 transition-all">+</button>
+                                <button id="betDoubleBtn" class="bg-amber-600/30 hover:bg-amber-600/50 border border-amber-500/50 text-amber-200 font-bold text-xs px-2 py-1 rounded-lg active:scale-95 transition-all">2x</button>
+                                <button id="betMaxBtn" class="bg-rose-600/30 hover:bg-rose-600/50 border border-rose-500/50 text-rose-300 font-bold text-xs px-2 py-1 rounded-lg active:scale-95 transition-all">MAX</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="w-full flex justify-between items-center gap-3">
+                        <button id="allInBtn" class="w-full py-3 bg-gradient-to-r from-red-700 via-rose-600 to-red-700 hover:from-red-600 hover:to-rose-500 border border-rose-300 rounded-xl text-xs md:text-sm font-black text-white transition-all shadow-lg active:scale-95">
+                            🔥 ALL IN (전액 배팅)
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Lever -->
+                <div id="leverContainer" class="cursor-pointer group flex flex-col items-center pl-2 md:pl-4 py-8">
+                    <div class="w-5 h-8 bg-gradient-to-r from-amber-600 via-yellow-400 to-amber-700 border border-yellow-200 rounded-t-md shadow-md"></div>
+                    <div id="leverArm" class="lever-arm w-3 h-32 md:h-40 bg-gradient-to-r from-slate-400 via-slate-100 to-slate-400 border border-slate-600 rounded-full relative flex justify-center">
+                        <div id="leverKnob" class="lever-knob absolute -top-5 w-10 h-10 md:w-12 md:h-12 bg-gradient-to-tr from-red-700 via-red-500 to-rose-400 rounded-full border-2 border-white shadow-xl group-hover:scale-110 transition-transform"></div>
+                    </div>
+                    <div class="w-7 h-10 bg-slate-800 border border-gold-500 rounded-b-lg"></div>
+                </div>
+            </div>
+
+            <!-- Odds Table Information -->
+            <div class="w-full mt-4 bg-slate-950/80 border border-gold-500/40 rounded-2xl p-4 text-xs backdrop-blur-sm shadow-xl">
+                <h3 class="font-casino text-amber-400 font-bold mb-2 flex items-center gap-2">
+                    <i class="fa-solid fa-chart-pie"></i> 심볼 배당률 & 확률표
+                </h3>
+                <div class="grid grid-cols-2 gap-x-4 gap-y-1.5 text-slate-300">
+                    <div class="flex justify-between border-b border-slate-800 pb-1">
+                        <span>🍒 체리 (40%)</span>
+                        <span class="text-amber-400 font-bold">2x</span>
+                    </div>
+                    <div class="flex justify-between border-b border-slate-800 pb-1">
+                        <span>🔔 벨 (25%)</span>
+                        <span class="text-amber-400 font-bold">3x</span>
+                    </div>
+                    <div class="flex justify-between border-b border-slate-800 pb-1">
+                        <span>🍫 바 (18%)</span>
+                        <span class="text-amber-400 font-bold">5x</span>
+                    </div>
+                    <div class="flex justify-between border-b border-slate-800 pb-1">
+                        <span>7️⃣ 세븐 (12%)</span>
+                        <span class="text-amber-400 font-bold">10x</span>
+                    </div>
+                    <div class="flex justify-between col-span-2 pt-1">
+                        <span>💎 다이아몬드 (5%)</span>
+                        <span class="text-emerald-400 font-bold">JACKPOT 50x + Pool</span>
+                    </div>
+                </div>
+            </div>
         </div>
 
-        <!-- Live Dashboard Statistics -->
-        <div class="grid grid-cols-3 gap-3">
-            <div class="glass-card rounded-2xl p-3 text-center border border-slate-800">
-                <div class="text-[11px] font-semibold text-slate-400 mb-0.5">남은 시간 / 상태</div>
-                <div id="statTimer" class="text-xl sm:text-2xl font-black text-white font-mono">10.0s</div>
-            </div>
-            <div class="glass-card rounded-2xl p-3 text-center border border-slate-800">
-                <div id="statLabel2" class="text-[11px] font-semibold text-slate-400 mb-0.5">점수 (클릭 수)</div>
-                <div id="statScore" class="text-xl sm:text-2xl font-black text-rose-400 font-mono">0</div>
-            </div>
-            <div class="glass-card rounded-2xl p-3 text-center border border-slate-800">
-                <div id="statLabel3" class="text-[11px] font-semibold text-slate-400 mb-0.5">콤보 / 정확도</div>
-                <div id="statExtra" class="text-xl sm:text-2xl font-black text-amber-400 font-mono">0x</div>
+        <!-- Extreme Stock View Mode (NEW) -->
+        <div id="stockView" class="w-full flex flex-col items-center hidden">
+            <div class="w-full bg-slate-900 border-4 border-gold-500 rounded-3xl p-4 md:p-6 shadow-[0_0_60px_rgba(170,124,17,0.6)] flex flex-col items-center relative">
+                
+                <div class="w-full text-center mb-3">
+                    <span class="font-casino text-xl md:text-2xl font-black text-rose-500 tracking-wider flex items-center justify-center gap-2">
+                        🚨 EXTREME STOCK CRASH
+                    </span>
+                    <p class="text-[11px] text-amber-200/80 font-casino">언제 떡락할지 모르는 고위험 주식! 0원이 되기 전에 익절하세요!</p>
+                </div>
+
+                <!-- Live Graph Canvas Container -->
+                <div class="w-full bg-slate-950 border-2 border-gold-500/70 rounded-2xl p-2 mb-4 relative overflow-hidden shadow-2xl">
+                    <div class="absolute top-3 left-4 z-10">
+                        <p class="text-[10px] text-slate-400 font-casino uppercase">CURRENT MULTIPLIER</p>
+                        <p id="stockMultiplier" class="font-casino text-3xl md:text-4xl font-black text-emerald-400 tracking-widest drop-shadow-[0_0_10px_rgba(52,211,153,0.5)]">
+                            1.00x
+                        </p>
+                    </div>
+
+                    <div class="absolute top-3 right-4 z-10 text-right">
+                        <p class="text-[10px] text-slate-400 font-casino uppercase">POTENTIAL RETURN</p>
+                        <p id="stockPayout" class="font-casino text-lg md:text-xl font-bold text-amber-300">
+                            0 CHIPS
+                        </p>
+                    </div>
+
+                    <canvas id="stockCanvas" class="w-full h-48 md:h-56 block rounded-xl"></canvas>
+                </div>
+
+                <!-- Bet Input & Stock Controls -->
+                <div class="w-full bg-slate-950/80 border border-gold-500/30 rounded-2xl p-3 mb-4 flex flex-col gap-3">
+                    <div class="flex justify-between items-center">
+                        <span class="text-xs font-casino text-amber-300">INVESTMENT BET CHIPS:</span>
+                        <div class="flex items-center gap-2">
+                            <input id="stockBetInput" type="number" value="1000" min="100" step="100" class="w-32 bg-slate-900 border border-gold-500/50 rounded-lg px-2 py-1 text-right text-amber-300 font-bold text-sm focus:outline-none focus:border-gold-400">
+                            <span class="text-xs text-slate-400 font-casino">CHIPS</span>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-3">
+                        <button id="stockBuyBtn" class="py-3 bg-gradient-to-r from-emerald-600 via-teal-500 to-emerald-600 hover:from-emerald-500 hover:to-teal-400 border border-emerald-300 rounded-xl text-sm font-black text-white shadow-lg active:scale-95 transition-all">
+                            🚀 주식 매수 (BUY)
+                        </button>
+                        <button id="stockCashoutBtn" disabled class="py-3 bg-gradient-to-r from-amber-500 via-yellow-400 to-amber-500 border border-yellow-200 rounded-xl text-sm font-black text-slate-950 shadow-lg opacity-50 cursor-not-allowed transition-all">
+                            💰 익절 (CASH OUT)
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Stock Status & Warnings -->
+                <div class="w-full bg-slate-950 border border-gold-500/40 rounded-xl p-2.5 text-center">
+                    <p id="stockStatus" class="font-casino text-xs md:text-sm text-amber-300">투자금을 입력하고 매수 버튼을 누르세요!</p>
+                </div>
             </div>
         </div>
 
-        <!-- Main Game Area Canvas/Board -->
-        <div id="gameBoard" class="w-full flex-1 min-h-[360px] sm:min-h-[420px] glass-card rounded-3xl relative overflow-hidden border border-slate-800 flex items-center justify-center shadow-2xl">
-            
-            <!-- Start Overlay Screen -->
-            <div id="startOverlay" class="absolute inset-0 z-20 flex flex-col items-center justify-center p-6 text-center bg-slate-950/80 backdrop-blur-md">
-                <div class="w-16 h-16 bg-rose-500/20 text-rose-400 rounded-3xl flex items-center justify-center mb-4 border border-rose-500/30 shadow-lg shadow-rose-500/20">
-                    <i data-lucide="play" class="w-8 h-8 fill-current ml-1"></i>
+        <!-- VIP Shop View Mode (NEW) -->
+        <div id="shopView" class="w-full flex flex-col items-center hidden">
+            <div class="w-full bg-slate-900 border-4 border-gold-500 rounded-3xl p-4 md:p-6 shadow-[0_0_60px_rgba(170,124,17,0.6)] flex flex-col items-center relative">
+                
+                <div class="w-full text-center mb-4">
+                    <h2 class="font-casino text-2xl md:text-3xl font-black gold-text tracking-widest">VIP LUXURY SHOP</h2>
+                    <p class="text-[11px] text-amber-200/80 font-casino mt-1">칩으로 특별한 아이템을 구매하고 최고 럭셔리 카지노 대부가 되어보세요!</p>
                 </div>
-                <h2 id="modeTitle" class="text-2xl font-black text-white mb-2">타겟 조준 모드</h2>
-                <p id="modeDesc" class="text-xs sm:text-sm text-slate-400 max-w-xs mb-6 leading-relaxed">
-                    화면에 무작위로 타격 지점이 스폰됩니다. 10초 동안 최대한 빠르고 정확하게 타겟을 클릭하세요!
-                </p>
-                <button id="startBtn" class="px-8 py-4 bg-gradient-to-r from-rose-500 to-amber-500 hover:from-rose-600 hover:to-amber-600 text-white font-extrabold text-lg rounded-2xl shadow-xl shadow-rose-500/25 transition-all transform active:scale-95">
-                    게임 시작
-                </button>
-            </div>
 
-            <!-- Reflex Mode Signal Container -->
-            <div id="reflexBox" class="hidden absolute inset-0 z-10 flex flex-col items-center justify-center cursor-pointer select-none">
-                <span id="reflexText" class="text-2xl sm:text-3xl font-black text-white pointer-events-none">화면이 초록색이 되면 클릭하세요!</span>
-                <span id="reflexSubtext" class="text-xs text-slate-400 mt-2 pointer-events-none">준비하세요...</span>
-            </div>
-
-            <!-- Big CPS Click Target Button -->
-            <button id="cpsTargetBtn" class="hidden absolute inset-6 sm:inset-12 bg-gradient-to-br from-indigo-600 to-rose-600 rounded-3xl flex flex-col items-center justify-center text-white font-black text-3xl shadow-2xl active:scale-95 transition-transform border border-white/20 select-none">
-                <i data-lucide="mouse-pointer" class="w-16 h-16 mb-2 animate-bounce"></i>
-                <span>폭풍 클릭!</span>
-                <span id="cpsCounterText" class="text-sm font-semibold text-indigo-200 mt-2">클릭하여 시작하세요</span>
-            </button>
-
-            <!-- Dynamic Target Spawn Container for Target Mode -->
-            <div id="targetContainer" class="absolute inset-0 pointer-events-auto"></div>
-
-            <!-- Game Over Result Sheet -->
-            <div id="resultOverlay" class="hidden absolute inset-0 z-30 flex flex-col items-center justify-center p-6 bg-slate-950/90 backdrop-blur-xl animate-fade-in">
-                <div class="text-xs font-extrabold tracking-widest text-rose-400 uppercase bg-rose-500/10 px-3 py-1 rounded-full border border-rose-500/20 mb-2">
-                    GAME OVER
-                </div>
-                <h2 id="resultRank" class="text-3xl font-black text-white mb-1">SSS급 순발력!</h2>
-                <p id="resultSub" class="text-xs text-slate-400 mb-6">최고의 스피드와 정밀함입니다</p>
-
-                <!-- Result Stats Grid -->
-                <div class="grid grid-cols-2 gap-3 w-full max-w-xs mb-6">
-                    <div class="bg-slate-900/80 p-3 rounded-2xl border border-slate-800 text-center">
-                        <div class="text-[11px] text-slate-400">최종 점수</div>
-                        <div id="resScore" class="text-xl font-bold text-rose-400 font-mono">0점</div>
+                <!-- Shop Items List -->
+                <div class="w-full grid grid-cols-1 gap-3 mb-4">
+                    <!-- Item 1: Cocktail -->
+                    <div class="shop-card rounded-2xl p-3 flex items-center justify-between">
+                        <div class="flex items-center gap-3">
+                            <div class="text-3xl bg-amber-500/20 p-2.5 rounded-xl border border-amber-500/40">🍸</div>
+                            <div>
+                                <h4 class="font-casino text-sm font-bold text-amber-300">황금 칵테일 (주식 보험)</h4>
+                                <p class="text-[10px] text-slate-300">주식 0원 떡락 시 투자금의 50%를 1회 자동 구출!</p>
+                                <p id="cocktailCountDisplay" class="text-[10px] text-emerald-400 font-bold">보유: 0개</p>
+                            </div>
+                        </div>
+                        <button id="buyCocktailBtn" class="bg-gradient-to-r from-amber-500 to-yellow-400 text-slate-950 font-black text-xs px-3 py-2 rounded-xl hover:brightness-110 active:scale-95 transition-all">
+                            10,000 CHIPS
+                        </button>
                     </div>
-                    <div class="bg-slate-900/80 p-3 rounded-2xl border border-slate-800 text-center">
-                        <div id="resStatLabel2" class="text-[11px] text-slate-400">CPS / 정확도</div>
-                        <div id="resStatVal2" class="text-xl font-bold text-amber-400 font-mono">0.0</div>
+
+                    <!-- Item 2: Supercar -->
+                    <div class="shop-card rounded-2xl p-3 flex items-center justify-between">
+                        <div class="flex items-center gap-3">
+                            <div class="text-3xl bg-rose-500/20 p-2.5 rounded-xl border border-rose-500/40">🏎️</div>
+                            <div>
+                                <h4 class="font-casino text-sm font-bold text-rose-400">골드 슈퍼카</h4>
+                                <p class="text-[10px] text-slate-300">슬롯 스핀 & 주식 매수 시 매번 +500 CHIPS 캐시백 보너스!</p>
+                                <p id="carOwnedDisplay" class="text-[10px] text-slate-400 font-bold">미보유</p>
+                            </div>
+                        </div>
+                        <button id="buyCarBtn" class="bg-gradient-to-r from-rose-600 to-pink-500 text-white font-black text-xs px-3 py-2 rounded-xl hover:brightness-110 active:scale-95 transition-all">
+                            100,000 CHIPS
+                        </button>
                     </div>
-                    <div class="bg-slate-900/80 p-3 rounded-2xl border border-slate-800 text-center col-span-2">
-                        <div class="text-[11px] text-slate-400">모드 최고 기록</div>
-                        <div id="resBestScore" class="text-lg font-bold text-indigo-300 font-mono">-</div>
+
+                    <!-- Item 3: Private Jet -->
+                    <div class="shop-card rounded-2xl p-3 flex items-center justify-between">
+                        <div class="flex items-center gap-3">
+                            <div class="text-3xl bg-purple-500/20 p-2.5 rounded-xl border border-purple-500/40">✈️</div>
+                            <div>
+                                <h4 class="font-casino text-sm font-bold text-purple-300">VIP 전용 제트기</h4>
+                                <p class="text-[10px] text-slate-300">슬롯 & 주식 배당 보상 +20% 추가 상승 패시브!</p>
+                                <p id="jetOwnedDisplay" class="text-[10px] text-slate-400 font-bold">미보유</p>
+                            </div>
+                        </div>
+                        <button id="buyJetBtn" class="bg-gradient-to-r from-purple-600 to-indigo-500 text-white font-black text-xs px-3 py-2 rounded-xl hover:brightness-110 active:scale-95 transition-all">
+                            300,000 CHIPS
+                        </button>
+                    </div>
+
+                    <!-- Item 4: ENDING ITEM (Buy Casino Hotel) -->
+                    <div class="shop-card rounded-2xl p-3.5 flex items-center justify-between border-2 border-amber-400 bg-gradient-to-r from-amber-950/40 via-slate-900 to-amber-950/40 shadow-xl">
+                        <div class="flex items-center gap-3">
+                            <div class="text-4xl bg-yellow-400/30 p-2 rounded-xl border border-yellow-300 animate-pulse">🏰</div>
+                            <div>
+                                <div class="flex items-center gap-1.5">
+                                    <span class="bg-rose-600 text-white text-[9px] font-bold px-1.5 py-0.5 rounded">GAME ENDING</span>
+                                    <h4 class="font-casino text-sm md:text-base font-black text-yellow-300">라스베가스 호텔 매수</h4>
+                                </div>
+                                <p class="text-[10px] text-amber-200/90 mt-0.5">이 카지노 전체를 통째로 인수하고 게임을 정복합니다!</p>
+                            </div>
+                        </div>
+                        <button id="buyCasinoEndingBtn" class="bg-gradient-to-r from-yellow-400 via-amber-500 to-yellow-400 text-slate-950 font-black text-xs px-3.5 py-2.5 rounded-xl hover:scale-105 active:scale-95 transition-all shadow-[0_0_15px_rgba(255,215,0,0.6)]">
+                            👑 1,000,000 CHIPS
+                        </button>
                     </div>
                 </div>
 
-                <div class="flex gap-3 w-full max-w-xs">
-                    <button id="retryBtn" class="flex-1 py-3.5 bg-gradient-to-r from-rose-500 to-indigo-600 hover:from-rose-600 hover:to-indigo-700 text-white font-bold rounded-xl shadow-lg transition transform active:scale-95 flex items-center justify-center gap-2">
-                        <i data-lucide="rotate-ccw" class="w-4 h-4"></i>
-                        <span>다시 도전</span>
-                    </button>
+                <div class="w-full bg-slate-950 border border-gold-500/40 rounded-xl p-3 text-center">
+                    <p id="shopStatus" class="font-casino text-xs text-amber-300">원하는 VIP 아이템을 구매하세요!</p>
                 </div>
             </div>
-
         </div>
 
     </main>
 
-    <!-- Footer -->
-    <footer class="w-full max-w-2xl mx-auto text-center py-3 text-xs text-slate-500 z-10">
-        최대한 빠르게 스폰되는 목표물을 터치하세요!
-    </footer>
-
-    <!-- Help Modal -->
-    <div id="helpModal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 flex items-center justify-center p-4 hidden">
-        <div class="glass-card max-w-sm w-full rounded-3xl p-6 border border-slate-700 shadow-2xl">
-            <div class="flex justify-between items-center mb-4">
-                <h3 class="text-lg font-bold text-white flex items-center gap-2">
-                    <i data-lucide="info" class="w-5 h-5 text-rose-400"></i>
-                    게임 안내
-                </h3>
-                <button id="closeHelpModal" class="p-1 text-slate-400 hover:text-white">
-                    <i data-lucide="x" class="w-5 h-5"></i>
-                </button>
-            </div>
-            <div class="space-y-3 text-sm text-slate-300 leading-relaxed">
-                <div class="bg-slate-900/60 p-3 rounded-xl border border-slate-800">
-                    <strong class="text-rose-400 block mb-1">🎯 타겟 조준 모드 (10초)</strong>
-                    10초 동안 무작위로 생성되는 점들을 연속 명중시키세요. 헛방 클릭 시 콤보가 단축됩니다!
-                </div>
-                <div class="bg-slate-900/60 p-3 rounded-xl border border-slate-800">
-                    <strong class="text-indigo-400 block mb-1">⚡ CPS 연타 모드 (5초)</strong>
-                    5초 동안 큰 버튼을 미친듯이 폭풍 클릭하여 초당 클릭 수(CPS)를 측정합니다.
-                </div>
-                <div class="bg-slate-900/60 p-3 rounded-xl border border-slate-800">
-                    <strong class="text-amber-400 block mb-1">⏱️ 반응속도 테스트</strong>
-                    화면이 빨간색에서 **초록색**으로 바뀌는 순간 빛의 속도로 클릭하여 반응속도(ms)를 기록합니다.
-                </div>
-            </div>
-            <button id="modalOkBtn" class="w-full mt-5 py-3 bg-rose-600 hover:bg-rose-500 rounded-xl font-semibold text-white transition">
-                확인했습니다
+    <!-- Game Clear Victory Modal -->
+    <div id="victoryModal" class="fixed inset-0 bg-black/85 backdrop-blur-md flex items-center justify-center p-4 z-50 hidden">
+        <div class="bg-slate-900 border-4 border-yellow-400 rounded-3xl p-6 md:p-8 max-w-md w-full text-center shadow-[0_0_80px_rgba(255,215,0,0.8)] relative animate-bounce-once">
+            <div class="text-6xl mb-3 animate-bounce">👑🏰💎</div>
+            <h2 class="font-casino text-2xl md:text-3xl font-black text-yellow-300 mb-1">CASINO TYCOON CLEARED!</h2>
+            <p class="text-xs text-amber-200 uppercase tracking-widest font-casino mb-4">라스베가스 카지노 호텔 매수 성공</p>
+            <p class="text-sm text-slate-300 mb-6 leading-relaxed">
+                축하합니다! 당신은 엄청난 슬롯 잭팟과 목숨 건 주식 투자 끝에 마침내 라스베가스 카지노 전체의 정점에 올랐습니다! 🏆
+            </p>
+            <button id="closeVictoryModal" class="w-full py-3 bg-gradient-to-r from-yellow-400 to-amber-500 font-black text-slate-950 rounded-xl shadow-lg hover:brightness-110 active:scale-95 transition-all font-casino">
+                👑 카지노 대부로서 계속 즐기기
             </button>
         </div>
     </div>
 
-    <!-- Script Logic -->
+    <footer class="w-full text-center py-3 text-[10px] text-slate-500 font-casino">
+        CASINO ROYALE &copy; 2026 HIGH ROLLER ENTERTAINMENT
+    </footer>
+
+    <!-- Toast Notification -->
+    <div id="toast" class="fixed top-6 left-1/2 transform -translate-x-1/2 bg-amber-400 text-black border-2 border-white font-bold text-xs px-4 py-2 rounded-xl shadow-2xl opacity-0 transition-all duration-300 pointer-events-none z-50">
+        알림 메시지
+    </div>
+
     <script>
-        // DOM References
-        const modeBtns = document.querySelectorAll('.mode-btn');
-        const modeTitle = document.getElementById('modeTitle');
-        const modeDesc = document.getElementById('modeDesc');
-        const startOverlay = document.getElementById('startOverlay');
-        const startBtn = document.getElementById('startBtn');
-        const gameBoard = document.getElementById('gameBoard');
-        const targetContainer = document.getElementById('targetContainer');
-        const reflexBox = document.getElementById('reflexBox');
-        const reflexText = document.getElementById('reflexText');
-        const reflexSubtext = document.getElementById('reflexSubtext');
-        const cpsTargetBtn = document.getElementById('cpsTargetBtn');
-        const cpsCounterText = document.getElementById('cpsCounterText');
-        
-        // Stats Elements
-        const statTimer = document.getElementById('statTimer');
-        const statScore = document.getElementById('statScore');
-        const statExtra = document.getElementById('statExtra');
-        const statLabel2 = document.getElementById('statLabel2');
-        const statLabel3 = document.getElementById('statLabel3');
+        // Game Symbols & Weighted Probability Config
+        const SYMBOLS = [
+            { icon: '🍒', name: 'CHERRY', weight: 40, multiplier: 2 },
+            { icon: '🔔', name: 'BELL', weight: 25, multiplier: 3 },
+            { icon: '🍫', name: 'BAR', weight: 18, multiplier: 5 },
+            { icon: '7️⃣', name: 'SEVEN', weight: 12, multiplier: 10 },
+            { icon: '💎', name: 'DIAMOND', weight: 5, multiplier: 50 }
+        ];
 
-        // Results Overlay
-        const resultOverlay = document.getElementById('resultOverlay');
-        const resultRank = document.getElementById('resultRank');
-        const resultSub = document.getElementById('resultSub');
-        const resScore = document.getElementById('resScore');
-        const resStatVal2 = document.getElementById('resStatVal2');
-        const resStatLabel2 = document.getElementById('resStatLabel2');
-        const resBestScore = document.getElementById('resBestScore');
-        const retryBtn = document.getElementById('retryBtn');
+        let userChips = 100000;
+        let currentBet = 1000;
+        let jackpotPool = 1000000;
+        let isSpinning = false;
+        let isMuted = false;
+        let isBgmOn = false;
+        let audioInit = false;
 
-        // Modals
-        const helpBtn = document.getElementById('helpBtn');
-        const helpModal = document.getElementById('helpModal');
-        const closeHelpModal = document.getElementById('closeHelpModal');
-        const modalOkBtn = document.getElementById('modalOkBtn');
+        // VIP Shop Inventory System
+        let cocktailShields = 0;
+        let hasSuperCar = false;
+        let hasPrivateJet = false;
+        let isGameCleared = false;
 
-        // Game State Variables
-        let currentMode = 'target'; // 'target', 'cps', 'reflex'
-        let isPlaying = false;
-        let timerInterval = null;
-        let timeLeft = 10;
-        let score = 0;
-        let clicksTotal = 0;
-        let clicksHit = 0;
-        let combo = 0;
-        let maxCombo = 0;
+        // Sound Effects & BGM with Tone.js
+        let spinClickSynth, spinToneSynth, stopSynth, winSynth, jackpotSynth, leverSynth, stockRisingSynth, crashSynth;
+        let bgmPolySynth, bgmLoop;
 
-        // Reflex state
-        let reflexStartTime = 0;
-        let reflexTimeout = null;
-        let reflexState = 'idle'; // 'waiting', 'ready', 'clicked'
+        function initAudio() {
+            if (audioInit) return;
+            try {
+                Tone.start();
 
-        // Lucide Icons Render
-        lucide.createIcons();
+                // 🎰 Mech Slot Reel Spinning Sound (Click + High Digital Chirp)
+                spinClickSynth = new Tone.MembraneSynth({
+                    pitchDecay: 0.01,
+                    octaves: 2,
+                    envelope: { attack: 0.001, decay: 0.04, sustain: 0 }
+                }).toDestination();
+                spinClickSynth.volume.value = -8;
 
-        // Mode Configurations
-        const MODES = {
-            target: {
-                title: "타겟 조준 모드",
-                desc: "10초 동안 무작위로 스폰되는 타겟을 신속하게 클릭하세요. 연속 히트 시 콤보 가산점이 붙습니다!",
-                timeLimit: 10,
-                statLabel2: "점수 (Hits)",
-                statLabel3: "콤보 / 정확도"
-            },
-            cps: {
-                title: "CPS 연타 테스트",
-                desc: "5초 동안 폭풍 연타를 날리세요! 초당 클릭 수(CPS, Clicks Per Second)를 측정합니다.",
-                timeLimit: 5,
-                statLabel2: "총 클릭 수",
-                statLabel3: "CPS 속도"
-            },
-            reflex: {
-                title: "반응속도 테스트",
-                desc: "화면 색상이 초록색으로 찰나에 변할 때 즉시 터치하세요! 밀리초(ms) 단위의 반응 속도를 측정합니다.",
-                timeLimit: 0,
-                statLabel2: "반응 속도",
-                statLabel3: "상태"
-            }
-        };
+                spinToneSynth = new Tone.Synth({
+                    oscillator: { type: 'sine' },
+                    envelope: { attack: 0.005, decay: 0.05, sustain: 0, release: 0.05 }
+                }).toDestination();
+                spinToneSynth.volume.value = -12;
 
-        // Switch Game Mode Selection
-        modeBtns.forEach(btn => {
-            btn.addEventListener('click', () => {
-                if (isPlaying) return;
-                const mode = btn.dataset.mode;
-                currentMode = mode;
+                // Reel Stop Mechanical Lock Sound
+                stopSynth = new Tone.MembraneSynth({
+                    pitchDecay: 0.05,
+                    octaves: 4,
+                    envelope: { attack: 0.001, decay: 0.15, sustain: 0 }
+                }).toDestination();
+                stopSynth.volume.value = -4;
 
-                modeBtns.forEach(b => {
-                    b.classList.remove('active', 'border-rose-500/50', 'bg-rose-500/10', 'text-rose-300');
-                    b.classList.add('border-slate-800', 'text-slate-400');
-                });
-                btn.classList.add('active', 'border-rose-500/50', 'bg-rose-500/10', 'text-rose-300');
-                btn.classList.remove('border-slate-800', 'text-slate-400');
+                leverSynth = new Tone.Synth({
+                    oscillator: { type: 'sine' },
+                    envelope: { attack: 0.01, decay: 0.2, sustain: 0, release: 0.2 }
+                }).toDestination();
+                leverSynth.volume.value = -10;
 
-                setupModeUI();
-            });
-        });
+                winSynth = new Tone.PolySynth(Tone.Synth).toDestination();
+                winSynth.volume.value = -2;
 
-        function setupModeUI() {
-            const config = MODES[currentMode];
-            modeTitle.textContent = config.title;
-            modeDesc.textContent = config.desc;
-            statLabel2.textContent = config.statLabel2;
-            statLabel3.textContent = config.statLabel3;
+                jackpotSynth = new Tone.PolySynth(Tone.Synth).toDestination();
+                jackpotSynth.volume.value = 2;
 
-            // Reset Board UI visibility
-            cpsTargetBtn.classList.add('hidden');
-            reflexBox.classList.add('hidden');
-            targetContainer.innerHTML = '';
-            resultOverlay.classList.add('hidden');
-            startOverlay.classList.remove('hidden');
+                stockRisingSynth = new Tone.Synth({
+                    oscillator: { type: 'triangle' },
+                    envelope: { attack: 0.01, decay: 0.1, sustain: 0, release: 0.1 }
+                }).toDestination();
+                stockRisingSynth.volume.value = -12;
 
-            if (currentMode === 'target') {
-                statTimer.textContent = `${config.timeLimit}.0s`;
-                statScore.textContent = '0';
-                statExtra.textContent = '0x';
-            } else if (currentMode === 'cps') {
-                statTimer.textContent = `${config.timeLimit}.0s`;
-                statScore.textContent = '0';
-                statExtra.textContent = '0.0 CPS';
-            } else if (currentMode === 'reflex') {
-                statTimer.textContent = '--';
-                statScore.textContent = '-- ms';
-                statExtra.textContent = '대기 중';
-            }
-        }
+                crashSynth = new Tone.NoiseSynth({
+                    noise: { type: 'brown' },
+                    envelope: { attack: 0.01, decay: 0.4, sustain: 0 }
+                }).toDestination();
+                crashSynth.volume.value = 0;
 
-        // Start Game Dispatcher
-        startBtn.addEventListener('click', () => {
-            startOverlay.classList.add('hidden');
-            isPlaying = true;
+                // Soft Casino Lounge Ambient BGM Synth
+                bgmPolySynth = new Tone.PolySynth(Tone.Synth, {
+                    oscillator: { type: 'sine' },
+                    envelope: { attack: 0.8, decay: 1.5, sustain: 0.6, release: 2 }
+                }).toDestination();
+                bgmPolySynth.volume.value = -20; // Very soft & relaxing
 
-            if (currentMode === 'target') {
-                startTargetGame();
-            } else if (currentMode === 'cps') {
-                startCpsGame();
-            } else if (currentMode === 'reflex') {
-                startReflexGame();
-            }
-        });
+                const chordProgression = [
+                    ['C3', 'E3', 'G3', 'B3'],
+                    ['A2', 'C3', 'E3', 'G3'],
+                    ['F2', 'A2', 'C3', 'E3'],
+                    ['G2', 'B2', 'D3', 'F3']
+                ];
+                let chordStep = 0;
 
-        // -------------------------------------------------------------
-        // 1. TARGET MODE LOGIC
-        // -------------------------------------------------------------
-        function startTargetGame() {
-            score = 0;
-            clicksTotal = 0;
-            clicksHit = 0;
-            combo = 0;
-            maxCombo = 0;
-            timeLeft = MODES.target.timeLimit;
-
-            statScore.textContent = '0';
-            statExtra.textContent = '0x';
-            statTimer.textContent = `${timeLeft.toFixed(1)}s`;
-
-            // Miss listener on background
-            targetContainer.addEventListener('pointerdown', handleTargetMiss);
-
-            // Spawn first targets
-            spawnTargetNode();
-            spawnTargetNode();
-
-            // Timer Tick
-            const startTime = performance.now();
-            timerInterval = setInterval(() => {
-                const elapsed = (performance.now() - startTime) / 1000;
-                timeLeft = Math.max(0, MODES.target.timeLimit - elapsed);
-                statTimer.textContent = `${timeLeft.toFixed(1)}s`;
-
-                if (timeLeft <= 0) {
-                    endTargetGame();
-                }
-            }, 50);
-        }
-
-        function spawnTargetNode() {
-            if (!isPlaying || currentMode !== 'target') return;
-
-            const target = document.createElement('div');
-            const size = Math.floor(Math.random() * 25) + 45; // 45px - 70px
-            
-            const maxX = gameBoard.clientWidth - size - 20;
-            const maxY = gameBoard.clientHeight - size - 20;
-            
-            const posX = Math.max(10, Math.floor(Math.random() * maxX));
-            const posY = Math.max(10, Math.floor(Math.random() * maxY));
-
-            // Random vibrant colors
-            const colors = ['bg-rose-500', 'bg-amber-500', 'bg-indigo-500', 'bg-emerald-500', 'bg-cyan-500'];
-            const colorClass = colors[Math.floor(Math.random() * colors.length)];
-
-            target.className = `target-node absolute ${colorClass} rounded-full flex items-center justify-center cursor-pointer shadow-lg shadow-black/40 border-2 border-white/40`;
-            target.style.width = `${size}px`;
-            target.style.height = `${size}px`;
-            target.style.left = `${posX}px`;
-            target.style.top = `${posY}px`;
-            target.style.transform = 'scale(0)';
-
-            // Target Inner Ring Icon
-            target.innerHTML = `<div class="w-2/5 h-2/5 rounded-full border-2 border-white/80 pointer-events-none"></div>`;
-
-            // Click Event
-            target.addEventListener('pointerdown', (e) => {
-                e.stopPropagation(); // Stop background miss event
-                if (!isPlaying) return;
-
-                score += 10 + (combo * 2);
-                clicksHit++;
-                clicksTotal++;
-                combo++;
-                if (combo > maxCombo) maxCombo = combo;
-
-                statScore.textContent = score;
-                const accuracy = Math.round((clicksHit / clicksTotal) * 100);
-                statExtra.textContent = `${combo}x (${accuracy}%)`;
-
-                // Spawn floating combo text
-                showFloatingText(`+${10 + (combo*2)}`, e.clientX, e.clientY);
-
-                // Ripple effect
-                createClickRipple(e.clientX, e.clientY);
-
-                // Remove target and spawn new one
-                target.remove();
-                spawnTargetNode();
-            });
-
-            targetContainer.appendChild(target);
-
-            // Pop-in animation
-            requestAnimationFrame(() => {
-                target.style.transform = 'scale(1)';
-            });
-
-            // Target Auto Disappear logic (difficulty scaling)
-            setTimeout(() => {
-                if (target.parentNode && isPlaying) {
-                    target.remove();
-                    combo = 0; // Combo breaks on timeout
-                    statExtra.textContent = `${combo}x`;
-                    spawnTargetNode();
-                }
-            }, Math.max(800, 1800 - (clicksHit * 25)));
-        }
-
-        function handleTargetMiss(e) {
-            if (!isPlaying || currentMode !== 'target') return;
-            clicksTotal++;
-            combo = 0;
-            const accuracy = clicksTotal > 0 ? Math.round((clicksHit / clicksTotal) * 100) : 100;
-            statExtra.textContent = `0x (${accuracy}%)`;
-            createClickRipple(e.clientX, e.clientY);
-        }
-
-        function endTargetGame() {
-            clearInterval(timerInterval);
-            isPlaying = false;
-            targetContainer.removeEventListener('pointerdown', handleTargetMiss);
-            targetContainer.innerHTML = '';
-
-            const accuracy = clicksTotal > 0 ? Math.round((clicksHit / clicksTotal) * 100) : 0;
-            
-            // Evaluation Rank
-            let rank = "C등급";
-            let sub = "조금 더 빠른 조준이 필요합니다!";
-            if (score >= 450) { rank = "GOD (신)"; sub = "경이로운 타격 속도입니다!"; triggerConfetti(); }
-            else if (score >= 320) { rank = "SSS급 전설"; sub = "놀라운 반사 신경과 정밀도!"; triggerConfetti(); }
-            else if (score >= 220) { rank = "S급 마스터"; sub = "매우 우수한 순발력입니다."; }
-            else if (score >= 120) { rank = "A급 스피더"; sub = "준수한 클리킹 실력입니다."; }
-
-            // Best Score Save
-            const best = saveBestScore('target_best', score);
-
-            // Display Results
-            resultRank.textContent = rank;
-            resultSub.textContent = sub;
-            resScore.textContent = `${score}점`;
-            resStatLabel2.textContent = "명중률 / 최고 콤보";
-            resStatVal2.textContent = `${accuracy}% / ${maxCombo}x`;
-            resBestScore.textContent = `${best}점`;
-
-            resultOverlay.classList.remove('hidden');
-        }
-
-        // -------------------------------------------------------------
-        // 2. CPS CLICK MODE LOGIC
-        // -------------------------------------------------------------
-        function startCpsGame() {
-            score = 0;
-            timeLeft = MODES.cps.timeLimit;
-            cpsTargetBtn.classList.remove('hidden');
-            cpsCounterText.textContent = '클릭하면 타이머가 시작됩니다!';
-            statScore.textContent = '0';
-            statExtra.textContent = '0.0 CPS';
-            statTimer.textContent = `${timeLeft.toFixed(1)}s`;
-
-            let hasStartedClicking = false;
-
-            const handleCpsClick = (e) => {
-                if (!isPlaying) return;
-
-                if (!hasStartedClicking) {
-                    hasStartedClicking = true;
-                    cpsCounterText.textContent = '폭풍 클릭 중!';
-
-                    const startTime = performance.now();
-                    timerInterval = setInterval(() => {
-                        const elapsed = (performance.now() - startTime) / 1000;
-                        timeLeft = Math.max(0, MODES.cps.timeLimit - elapsed);
-                        statTimer.textContent = `${timeLeft.toFixed(1)}s`;
-
-                        const currentCps = (score / Math.max(0.1, elapsed)).toFixed(1);
-                        statExtra.textContent = `${currentCps} CPS`;
-
-                        if (timeLeft <= 0) {
-                            cpsTargetBtn.removeEventListener('pointerdown', handleCpsClick);
-                            endCpsGame();
-                        }
-                    }, 50);
-                }
-
-                score++;
-                statScore.textContent = score;
-                createClickRipple(e.clientX, e.clientY);
-            };
-
-            cpsTargetBtn.addEventListener('pointerdown', handleCpsClick);
-        }
-
-        function endCpsGame() {
-            clearInterval(timerInterval);
-            isPlaying = false;
-
-            const finalCps = (score / MODES.cps.timeLimit).toFixed(1);
-
-            let rank = "보통 손가락";
-            let sub = "더 빠르게 클릭해 보세요!";
-            if (finalCps >= 12.0) { rank = "빛의 손가락 (GOD)"; sub = "인간의 한계를 넘어섰습니다!"; triggerConfetti(); }
-            else if (finalCps >= 9.5) { rank = "광속의 연타 마스터"; sub = "엄청난 클릭 속도입니다!"; triggerConfetti(); }
-            else if (finalCps >= 7.0) { rank = "상위 10% 스피더"; sub = "아주 훌륭한 연타 능력입니다."; }
-
-            const best = saveBestScore('cps_best', parseFloat(finalCps));
-
-            resultRank.textContent = rank;
-            resultSub.textContent = sub;
-            resScore.textContent = `${score} 회`;
-            resStatLabel2.textContent = "초당 클릭 수 (CPS)";
-            resStatVal2.textContent = `${finalCps} CPS`;
-            resBestScore.textContent = `${best} CPS`;
-
-            resultOverlay.classList.remove('hidden');
-        }
-
-        // -------------------------------------------------------------
-        // 3. REFLEX TEST LOGIC
-        // -------------------------------------------------------------
-        function startReflexGame() {
-            if (reflexTimeout) clearTimeout(reflexTimeout);
-            
-            reflexBox.classList.remove('hidden');
-            reflexBox.className = "absolute inset-0 z-10 flex flex-col items-center justify-center bg-rose-900/80 cursor-pointer select-none transition-colors duration-200";
-            reflexText.textContent = "화면이 초록색으로 변하면 클릭하세요!";
-            reflexSubtext.textContent = "빨간 화면 상태일 때 누르면 부정 출발입니다!";
-
-            statTimer.textContent = "--";
-            statScore.textContent = "-- ms";
-            statExtra.textContent = "대기 중";
-
-            reflexState = 'waiting';
-
-            // Click event binding (pointerdown for faster & reliable touch response)
-            reflexBox.onpointerdown = handleReflexClick;
-
-            // Random delay between 2 to 5 seconds
-            const randomDelay = Math.floor(Math.random() * 3000) + 2000;
-
-            reflexTimeout = setTimeout(() => {
-                if (!isPlaying || currentMode !== 'reflex') return;
-                reflexState = 'ready';
-                reflexBox.className = "absolute inset-0 z-10 flex flex-col items-center justify-center bg-emerald-500 cursor-pointer select-none transition-colors duration-75";
-                reflexText.textContent = "지금 클릭하세요!!!";
-                reflexSubtext.textContent = "CLICK CLICK CLICK!";
-                reflexStartTime = performance.now();
-            }, randomDelay);
-        }
-
-        function handleReflexClick(e) {
-            if (e) e.stopPropagation();
-            if (!isPlaying || currentMode !== 'reflex') return;
-
-            if (reflexState === 'waiting') {
-                // Clicked too early!
-                clearTimeout(reflexTimeout);
-                reflexState = 'penalty';
-                reflexBox.className = "absolute inset-0 z-10 flex flex-col items-center justify-center bg-amber-800/90 cursor-pointer select-none";
-                reflexText.textContent = "너무 빨리 눌렀습니다!";
-                reflexSubtext.textContent = "초록색으로 바뀌고 눌러야 합니다. 잠시 후 재시도합니다.";
-                
-                setTimeout(() => {
-                    if (isPlaying && currentMode === 'reflex') {
-                        startReflexGame();
+                bgmLoop = new Tone.Loop(time => {
+                    if (isBgmOn && !isMuted) {
+                        bgmPolySynth.triggerAttackRelease(chordProgression[chordStep], '2m', time);
+                        chordStep = (chordStep + 1) % chordProgression.length;
                     }
-                }, 1500);
-            } else if (reflexState === 'ready') {
-                // Successful Reaction
-                const reactionTime = Math.round(performance.now() - reflexStartTime);
-                reflexState = 'clicked';
-                createClickRipple(e ? e.clientX : window.innerWidth / 2, e ? e.clientY : window.innerHeight / 2);
-                endReflexGame(reactionTime);
+                }, '2m');
+
+                Tone.Transport.bpm.value = 65;
+                Tone.Transport.start();
+
+                audioInit = true;
+            } catch (e) {}
+        }
+
+        function toggleBGM() {
+            initAudio();
+            isBgmOn = !isBgmOn;
+            const bgmIcon = document.getElementById('bgmIcon');
+            if (isBgmOn) {
+                bgmIcon.className = "fa-solid fa-music text-amber-400 animate-pulse";
+                if (bgmLoop) bgmLoop.start(0);
+                showToast("🎵 잔잔한 카지노 BGM ON");
+            } else {
+                bgmIcon.className = "fa-solid fa-music text-slate-500";
+                if (bgmLoop) bgmLoop.stop();
+                showToast("🎵 BGM OFF");
             }
         }
 
-        function endReflexGame(ms) {
-            isPlaying = false;
-            reflexBox.onpointerdown = null;
-
-            statScore.textContent = `${ms} ms`;
-            statExtra.textContent = "측정 완료";
-
-            let rank = "평범한 반응속도";
-            let sub = "집중해서 다시 도전해보세요!";
-            if (ms <= 180) { rank = "프로게이머 급 (신)"; sub = "광속의 반사 신경을 보유하셨네요!"; triggerConfetti(); }
-            else if (ms <= 230) { rank = "상위 5% 최상급"; sub = "반응속도가 대단히 빠릅니다!"; triggerConfetti(); }
-            else if (ms <= 280) { rank = "우수한 순발력"; sub = "평균보다 빠른 반응속도입니다."; }
-
-            // Save lower is best
-            const savedBest = localStorage.getItem('reflex_best');
-            let best = savedBest ? parseInt(savedBest) : ms;
-            if (ms < best) {
-                best = ms;
-                localStorage.setItem('reflex_best', best.toString());
-            }
-
-            resultRank.textContent = rank;
-            resultSub.textContent = sub;
-            resScore.textContent = `${ms} ms`;
-            resStatLabel2.textContent = "반응 등급";
-            resStatVal2.textContent = `${ms < 200 ? 'S등급' : ms < 250 ? 'A등급' : 'B등급'}`;
-            resBestScore.textContent = `${best} ms`;
-
-            resultOverlay.classList.remove('hidden');
+        function playSound(type, freq = 'C4') {
+            if (isMuted || !audioInit) return;
+            try {
+                const now = Tone.now();
+                if (type === 'spin') {
+                    // 기계식 오락기 틱/클릭 띠리링 합성음
+                    spinClickSynth.triggerAttackRelease('C1', '32n', now);
+                    spinToneSynth.triggerAttackRelease(freq, '32n', now);
+                } else if (type === 'reelStop') {
+                    stopSynth.triggerAttackRelease('G2', '16n', now);
+                } else if (type === 'lever') {
+                    leverSynth.triggerAttackRelease('G2', '8n', now);
+                } else if (type === 'win') {
+                    winSynth.triggerAttackRelease(['C4', 'E4', 'G4', 'B4'], '8n', now);
+                } else if (type === 'jackpot') {
+                    jackpotSynth.triggerAttackRelease(['C5', 'E5', 'G5', 'C6', 'E6'], '4n', now);
+                } else if (type === 'rise') {
+                    stockRisingSynth.triggerAttackRelease(freq, '16n', now);
+                } else if (type === 'crash') {
+                    crashSynth.triggerAttackRelease('8n', now);
+                }
+            } catch (e) {}
         }
 
-        // Helper: Save best score to localStorage
-        function saveBestScore(key, val) {
-            const saved = localStorage.getItem(key);
-            let best = saved ? parseFloat(saved) : val;
-            if (val > best) {
-                best = val;
-                localStorage.setItem(key, best.toString());
-            }
-            return best;
-        }
+        // View Mode Switch Tabs
+        const tabSlot = document.getElementById('tabSlot');
+        const tabStock = document.getElementById('tabStock');
+        const tabShop = document.getElementById('tabShop');
+        const slotView = document.getElementById('slotView');
+        const stockView = document.getElementById('stockView');
+        const shopView = document.getElementById('shopView');
 
-        // Helper: Floating Text Effect
-        function showFloatingText(text, x, y) {
-            const el = document.createElement('div');
-            el.className = 'combo-text text-xl';
-            el.textContent = text;
-            el.style.left = `${x - 20}px`;
-            el.style.top = `${y - 20}px`;
-            document.body.appendChild(el);
-
-            setTimeout(() => el.remove(), 600);
-        }
-
-        // Helper: Click Ripple Effect
-        function createClickRipple(x, y) {
-            const ripple = document.createElement('div');
-            ripple.className = 'click-effect';
-            ripple.style.width = '40px';
-            ripple.style.height = '40px';
-            ripple.style.left = `${x - 20}px`;
-            ripple.style.top = `${y - 20}px`;
-            document.body.appendChild(ripple);
-
-            setTimeout(() => ripple.remove(), 400);
-        }
-
-        // Helper: Confetti Trigger
-        function triggerConfetti() {
-            confetti({
-                particleCount: 80,
-                spread: 70,
-                origin: { y: 0.6 }
+        function resetTabs() {
+            [tabSlot, tabStock, tabShop].forEach(t => {
+                t.classList.remove('tab-active');
+                t.classList.add('bg-slate-900', 'text-slate-400');
             });
+            [slotView, stockView, shopView].forEach(v => v.classList.add('hidden'));
         }
 
-        // Retry Button
-        retryBtn.addEventListener('click', () => {
-            resultOverlay.classList.add('hidden');
-            setupModeUI();
+        tabSlot.addEventListener('click', () => {
+            resetTabs();
+            tabSlot.classList.add('tab-active');
+            tabSlot.classList.remove('bg-slate-900', 'text-slate-400');
+            slotView.classList.remove('hidden');
         });
 
-        // Help Modal Controls
-        helpBtn.addEventListener('click', () => helpModal.classList.remove('hidden'));
-        closeHelpModal.addEventListener('click', () => helpModal.classList.add('hidden'));
-        modalOkBtn.addEventListener('click', () => helpModal.classList.add('hidden'));
+        tabStock.addEventListener('click', () => {
+            resetTabs();
+            tabStock.classList.add('tab-active');
+            tabStock.classList.remove('bg-slate-900', 'text-slate-400');
+            stockView.classList.remove('hidden');
+            resizeStockCanvas();
+        });
 
-        // Initialize UI
-        window.onload = () => {
-            setupModeUI();
-        };
+        tabShop.addEventListener('click', () => {
+            resetTabs();
+            tabShop.classList.add('tab-active');
+            tabShop.classList.remove('bg-slate-900', 'text-slate-400');
+            shopView.classList.remove('hidden');
+            updateShopUI();
+        });
+
+        // VIP Shop Item Purchases
+        const buyCocktailBtn = document.getElementById('buyCocktailBtn');
+        const buyCarBtn = document.getElementById('buyCarBtn');
+        const buyJetBtn = document.getElementById('buyJetBtn');
+        const buyCasinoEndingBtn = document.getElementById('buyCasinoEndingBtn');
+        const cocktailCountDisplay = document.getElementById('cocktailCountDisplay');
+        const carOwnedDisplay = document.getElementById('carOwnedDisplay');
+        const jetOwnedDisplay = document.getElementById('jetOwnedDisplay');
+        const shopStatus = document.getElementById('shopStatus');
+        const victoryModal = document.getElementById('victoryModal');
+        const closeVictoryModal = document.getElementById('closeVictoryModal');
+
+        buyCocktailBtn.addEventListener('click', () => {
+            if (userChips < 10000) { showToast("칩이 부족합니다!"); return; }
+            userChips -= 10000;
+            cocktailShields++;
+            playSound('win');
+            showToast("🍸 황금 칵테일 구매 완료! (주식 떡락 방어 1회)");
+            updateUI();
+            updateShopUI();
+        });
+
+        buyCarBtn.addEventListener('click', () => {
+            if (hasSuperCar) { showToast("이미 보유 중인 슈퍼카입니다."); return; }
+            if (userChips < 100000) { showToast("칩이 부족합니다!"); return; }
+            userChips -= 100000;
+            hasSuperCar = true;
+            playSound('win');
+            triggerConfetti();
+            showToast("🏎️ 골드 슈퍼카 구매 완료! (스핀/매수 시 +500 CHIPS)");
+            updateUI();
+            updateShopUI();
+        });
+
+        buyJetBtn.addEventListener('click', () => {
+            if (hasPrivateJet) { showToast("이미 보유 중인 전용기입니다."); return; }
+            if (userChips < 300000) { showToast("칩이 부족합니다!"); return; }
+            userChips -= 300000;
+            hasPrivateJet = true;
+            playSound('win');
+            triggerConfetti();
+            showToast("✈️ VIP 전용 제트기 구매 완료! (배당 보상 +20%)");
+            updateUI();
+            updateShopUI();
+        });
+
+        buyCasinoEndingBtn.addEventListener('click', () => {
+            if (userChips < 1000000) { showToast("호텔을 매수하기 위한 1,000,000 CHIPS가 필요합니다!"); return; }
+            userChips -= 1000000;
+            isGameCleared = true;
+            playSound('jackpot');
+            triggerConfetti();
+            victoryModal.classList.remove('hidden');
+            updateUI();
+            updateShopUI();
+        });
+
+        closeVictoryModal.addEventListener('click', () => {
+            victoryModal.classList.add('hidden');
+        });
+
+        function updateShopUI() {
+            cocktailCountDisplay.textContent = `보유: ${cocktailShields}개`;
+            carOwnedDisplay.textContent = hasSuperCar ? "✨ 보유 중 (적용 됨)" : "미보유";
+            carOwnedDisplay.className = hasSuperCar ? "text-[10px] text-emerald-400 font-bold" : "text-[10px] text-slate-400 font-bold";
+            jetOwnedDisplay.textContent = hasPrivateJet ? "✨ 보유 중 (+20% 적용)" : "미보유";
+            jetOwnedDisplay.className = hasPrivateJet ? "text-[10px] text-purple-400 font-bold" : "text-[10px] text-slate-400 font-bold";
+            
+            if (isGameCleared) {
+                buyCasinoEndingBtn.textContent = "👑 매수 완료 (소유주)";
+                buyCasinoEndingBtn.disabled = true;
+                buyCasinoEndingBtn.className = "bg-slate-800 text-amber-400 font-bold text-xs px-3.5 py-2.5 rounded-xl cursor-default";
+            }
+        }
+
+        // ----------------------------------------------------
+        // EXTREME STOCK LOGIC & CANVAS GRAPH
+        // ----------------------------------------------------
+        const stockCanvas = document.getElementById('stockCanvas');
+        const stockCtx = stockCanvas.getContext('2d');
+        const stockMultiplierEl = document.getElementById('stockMultiplier');
+        const stockPayoutEl = document.getElementById('stockPayout');
+        const stockBetInput = document.getElementById('stockBetInput');
+        const stockBuyBtn = document.getElementById('stockBuyBtn');
+        const stockCashoutBtn = document.getElementById('stockCashoutBtn');
+        const stockStatus = document.getElementById('stockStatus');
+
+        let stockInvestment = 10000;
+        let currentMultiplier = 1.00;
+        let crashMultiplier = 1.00;
+        let stockGraphData = [];
+        let stockInterval = null;
+        let inStockGame = false;
+
+        function resizeStockCanvas() {
+            stockCanvas.width = stockCanvas.clientWidth;
+            stockCanvas.height = stockCanvas.clientHeight;
+            drawStockGraph();
+        }
+        window.addEventListener('resize', resizeStockCanvas);
+
+        function drawStockGraph(crashed = false) {
+            const w = stockCanvas.width;
+            const h = stockCanvas.height;
+            stockCtx.clearRect(0, 0, w, h);
+
+            // Draw Grid Lines
+            stockCtx.strokeStyle = 'rgba(212, 175, 55, 0.1)';
+            stockCtx.lineWidth = 1;
+            for (let i = 0; i < w; i += 30) {
+                stockCtx.beginPath();
+                stockCtx.moveTo(i, 0);
+                stockCtx.lineTo(i, h);
+                stockCtx.stroke();
+            }
+            for (let j = 0; j < h; j += 30) {
+                stockCtx.beginPath();
+                stockCtx.moveTo(0, j);
+                stockCtx.lineTo(w, j);
+                stockCtx.stroke();
+            }
+
+            if (stockGraphData.length < 2) return;
+
+            // Draw Graph Line
+            stockCtx.beginPath();
+            const maxVal = Math.max(3.0, currentMultiplier * 1.2);
+            
+            for (let i = 0; i < stockGraphData.length; i++) {
+                const x = (i / 150) * w;
+                let val = stockGraphData[i];
+                let y;
+                
+                if (crashed && i === stockGraphData.length - 1) {
+                    // Crash down straight to bottom (곤두박질 연출)
+                    y = h - 5;
+                } else {
+                    y = h - ((val - 1.0) / (maxVal - 1.0)) * (h - 40) - 15;
+                }
+
+                if (i === 0) stockCtx.moveTo(x, y);
+                else stockCtx.lineTo(x, y);
+            }
+
+            stockCtx.lineWidth = crashed ? 4 : 3;
+            stockCtx.strokeStyle = crashed ? '#ef4444' : '#10b981';
+            stockCtx.shadowColor = crashed ? '#ef4444' : '#10b981';
+            stockCtx.shadowBlur = crashed ? 20 : 10;
+            stockCtx.stroke();
+            stockCtx.shadowBlur = 0;
+        }
+
+        function calculateCrashPoint() {
+            // High Risk Crash Mechanics (파산 확률 아주 조금 하락 & 상승 밸런스 조정)
+            const r = Math.random();
+            if (r < 0.15) {
+                // 15% 확률로 초반 즉시/빠른 떡락 (1.00x ~ 1.08x) [기존 28%에서 하락]
+                return parseFloat((1.00 + Math.random() * 0.08).toFixed(2));
+            } else if (r < 0.60) {
+                // 45% 확률로 중/단기 떡락 (1.09x ~ 2.20x)
+                return parseFloat((1.09 + Math.random() * 1.11).toFixed(2));
+            } else if (r < 0.90) {
+                // 30% 확률로 꽤 높은 상승 (2.21x ~ 5.50x)
+                return parseFloat((2.21 + Math.random() * 3.29).toFixed(2));
+            } else {
+                // 10% 확률로 대박 고상승 (5.51x ~ 15.0x)
+                return parseFloat((5.51 + Math.random() * 9.49).toFixed(2));
+            }
+        }
+
+        stockBuyBtn.addEventListener('click', () => {
+            initAudio();
+            if (inStockGame) return;
+
+            stockInvestment = parseInt(stockBetInput.value, 10) || 1000;
+            if (userChips < stockInvestment) {
+                showToast("칩이 부족합니다!");
+                return;
+            }
+
+            // Supercar Bonus Cashback
+            if (hasSuperCar) {
+                userChips += 500;
+                showToast("🏎️ 슈퍼카 보너스 +500 CHIPS 환급!");
+            }
+
+            userChips -= stockInvestment;
+            updateUI();
+
+            inStockGame = true;
+            currentMultiplier = 1.00;
+            crashMultiplier = calculateCrashPoint();
+            stockGraphData = [1.00];
+
+            stockBuyBtn.disabled = true;
+            stockBuyBtn.classList.add('opacity-50', 'cursor-not-allowed');
+            stockCashoutBtn.disabled = false;
+            stockCashoutBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+            stockCashoutBtn.classList.add('animate-pulse');
+
+            stockStatus.textContent = "🔥 주식이 변동 중입니다! 0원이 되기 전에 매도하세요!";
+            stockStatus.className = "font-casino text-xs md:text-sm text-emerald-400 font-bold";
+
+            // Instant Crash Check (매수 즉시 폭락 조건)
+            if (crashMultiplier <= 1.01) {
+                setTimeout(() => {
+                    stockGraphData.push(0.00);
+                    crashStock();
+                }, 150);
+                return;
+            }
+
+            let tick = 0;
+            stockInterval = setInterval(() => {
+                tick++;
+                
+                // 확률적인 출렁임(노이즈) 메커니즘: 상승 중에도 35% 확률로 약간의 조정/하락 발생
+                const isDip = Math.random() < 0.35;
+                let delta = 0;
+
+                if (isDip) {
+                    // 소폭 하락 (주가가 살짝 꺾임)
+                    delta = -(0.005 + Math.random() * 0.025);
+                } else {
+                    // 우상향 상승
+                    delta = 0.012 + Math.random() * 0.035 + (tick / 150) * 0.01;
+                }
+
+                currentMultiplier = Math.max(1.00, currentMultiplier + delta);
+                stockMultiplierEl.textContent = `${currentMultiplier.toFixed(2)}x`;
+                
+                let potentialPayout = Math.floor(stockInvestment * currentMultiplier);
+                if (hasPrivateJet) potentialPayout = Math.floor(potentialPayout * 1.20); // Private Jet Passive
+                
+                stockPayoutEl.textContent = `${potentialPayout.toLocaleString()} CHIPS`;
+
+                stockGraphData.push(currentMultiplier);
+                
+                // Sound pitch rises as multiplier goes up
+                const pitchNote = Math.min(880, Math.max(150, 220 + currentMultiplier * 50));
+                if (!isDip) playSound('rise', pitchNote);
+
+                drawStockGraph(false);
+
+                // CRASH TRIGGER (목표 떡락 지점에 다다르면 청산)
+                if (currentMultiplier >= crashMultiplier) {
+                    crashStock();
+                }
+            }, 90);
+        });
+
+        // CASH OUT (익절) 버튼 이벤트 Listener
+        stockCashoutBtn.addEventListener('click', () => {
+            if (!inStockGame) return;
+
+            clearInterval(stockInterval);
+            inStockGame = false;
+
+            let winAmount = Math.floor(stockInvestment * currentMultiplier);
+            if (hasPrivateJet) winAmount = Math.floor(winAmount * 1.20); // Jet +20% Bonus
+
+            userChips += winAmount;
+
+            playSound('win');
+            triggerConfetti();
+
+            stockStatus.textContent = `🎉 익절 성공! +${winAmount.toLocaleString()} CHIPS (${currentMultiplier.toFixed(2)}x 수익)`;
+            stockStatus.className = "font-casino text-xs md:text-sm text-amber-300 font-bold";
+
+            updateUI();
+            resetStockUI();
+        });
+
+        function crashStock() {
+            clearInterval(stockInterval);
+            inStockGame = false;
+
+            // Cocktail Shield Mechanic (칵테일 보유 시 50% 구출)
+            if (cocktailShields > 0) {
+                cocktailShields--;
+                const savedChips = Math.floor(stockInvestment * 0.5);
+                userChips += savedChips;
+                playSound('win');
+                stockStatus.textContent = `🍸 칵테일 방어막 작동! 투자금 50% (+${savedChips.toLocaleString()} CHIPS) 구출!`;
+                stockStatus.className = "font-casino text-xs md:text-sm text-yellow-300 font-bold";
+                updateShopUI();
+            } else {
+                playSound('crash');
+                stockStatus.textContent = `💥 떡락! 주가가 곤두박질치며 0원이 되었습니다! (${crashMultiplier.toFixed(2)}x 지점 청산)`;
+                stockStatus.className = "font-casino text-xs md:text-sm text-rose-500 font-bold";
+            }
+
+            stockMultiplierEl.textContent = "0.00x (-100%)";
+            stockMultiplierEl.className = "font-casino text-3xl md:text-4xl font-black text-rose-500 tracking-widest animate-bounce";
+            stockPayoutEl.textContent = "0 CHIPS";
+
+            drawStockGraph(true);
+            resetStockUI();
+        }
+
+        function resetStockUI() {
+            stockBuyBtn.disabled = false;
+            stockBuyBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+            stockCashoutBtn.disabled = true;
+            stockCashoutBtn.classList.add('opacity-50', 'cursor-not-allowed');
+            stockCashoutBtn.classList.remove('animate-pulse');
+
+            setTimeout(() => {
+                stockMultiplierEl.className = "font-casino text-3xl md:text-4xl font-black text-emerald-400 tracking-widest";
+            }, 3000);
+        }
+
+        function playSound(type) {
+            if (isMuted || !audioInit) return;
+            try {
+                const now = Tone.now();
+                if (type === 'spin') {
+                    spinSynth.triggerAttackRelease('C2', '16n', now);
+                } else if (type === 'lever') {
+                    leverSynth.triggerAttackRelease('G2', '8n', now);
+                } else if (type === 'win') {
+                    winSynth.triggerAttackRelease(['C4', 'E4', 'G4', 'B4'], '8n', now);
+                } else if (type === 'jackpot') {
+                    jackpotSynth.triggerAttackRelease(['C5', 'E5', 'G5', 'C6', 'E6'], '4n', now);
+                }
+            } catch (e) {}
+        }
+
+        // Weighted Random Selection Helper
+        function getRandomSymbol() {
+            const totalWeight = SYMBOLS.reduce((sum, sym) => sum + sym.weight, 0);
+            let random = Math.random() * totalWeight;
+            
+            for (const sym of SYMBOLS) {
+                if (random < sym.weight) return sym;
+                random -= sym.weight;
+            }
+            return SYMBOLS[0];
+        }
+
+        // DOM Elements
+        const userChipsEl = document.getElementById('userChips');
+        const jackpotAmountEl = document.getElementById('jackpotAmount');
+        const reel1 = document.getElementById('reel1');
+        const reel2 = document.getElementById('reel2');
+        const reel3 = document.getElementById('reel3');
+        const statusMsg = document.getElementById('statusMsg');
+        const winMultiplier = document.getElementById('winMultiplier');
+        const leverContainer = document.getElementById('leverContainer');
+        const refillBtn = document.getElementById('refillBtn');
+        const allInBtn = document.getElementById('allInBtn');
+        const soundToggleBtn = document.getElementById('soundToggleBtn');
+        const soundIcon = document.getElementById('soundIcon');
+        const bgmToggleBtn = document.getElementById('bgmToggleBtn');
+        const chipBtns = document.querySelectorAll('.chip-btn');
+        const currentBetDisplay = document.getElementById('currentBetDisplay');
+        const betSubBtn = document.getElementById('betSubBtn');
+        const betAddBtn = document.getElementById('betAddBtn');
+        const betDoubleBtn = document.getElementById('betDoubleBtn');
+        const betMaxBtn = document.getElementById('betMaxBtn');
+
+        function updateUI() {
+            userChipsEl.textContent = userChips.toLocaleString();
+            jackpotAmountEl.textContent = jackpotPool.toLocaleString();
+            if (currentBetDisplay) {
+                currentBetDisplay.textContent = currentBet.toLocaleString();
+            }
+        }
+
+        function showToast(msg) {
+            const toast = document.getElementById('toast');
+            toast.textContent = msg;
+            toast.classList.remove('opacity-0', 'pointer-events-none');
+            setTimeout(() => toast.classList.add('opacity-0', 'pointer-events-none'), 2000);
+        }
+
+        function setBetAmount(amount) {
+            if (isSpinning) return;
+            currentBet = Math.max(100, Math.min(amount, userChips > 0 ? userChips : 100000));
+            updateUI();
+        }
+
+        // Bet Amount Adjustment Controls
+        betSubBtn.addEventListener('click', () => setBetAmount(currentBet - 100));
+        betAddBtn.addEventListener('click', () => setBetAmount(currentBet + 100));
+        betDoubleBtn.addEventListener('click', () => setBetAmount(currentBet * 2));
+        betMaxBtn.addEventListener('click', () => setBetAmount(userChips > 0 ? userChips : 100000));
+
+        // Bet Chip Selection
+        chipBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                if (isSpinning) return;
+                currentBet = parseInt(btn.dataset.bet, 10);
+                chipBtns.forEach(b => {
+                    const chipDiv = b.querySelector('.casino-chip');
+                    if (chipDiv) chipDiv.classList.remove('chip-selected');
+                });
+                const selectedChip = btn.querySelector('.casino-chip');
+                if (selectedChip) selectedChip.classList.add('chip-selected');
+                updateUI();
+                showToast(`배팅액: ${currentBet.toLocaleString()} CHIPS 설정`);
+            });
+        });
+
+        allInBtn.addEventListener('click', () => {
+            if (isSpinning || userChips <= 0) return;
+            currentBet = userChips;
+            chipBtns.forEach(b => {
+                const chipDiv = b.querySelector('.casino-chip');
+                if (chipDiv) chipDiv.classList.remove('chip-selected');
+            });
+            updateUI();
+            showToast(`🔥 ALL IN! ${currentBet.toLocaleString()} CHIPS 전액 배팅`);
+            spin();
+        });
+
+        refillBtn.addEventListener('click', () => {
+            if (userChips < 1000) {
+                userChips += 100000;
+                updateUI();
+                showToast("🎁 VIP 지원금 100,000 CHIPS가 충전되었습니다!");
+            } else {
+                showToast("칩이 1,000 이하일 때만 충전할 수 있습니다.");
+            }
+        });
+
+        // Slot Spin Logic triggered by Lever Pull
+        function spin() {
+            initAudio();
+            if (isSpinning) return;
+
+            if (userChips < currentBet) {
+                showToast("칩이 부족합니다! 무료 충전을 이용하세요.");
+                return;
+            }
+
+            // Supercar Bonus Cashback
+            if (hasSuperCar) {
+                userChips += 500;
+                showToast("🏎️ 슈퍼카 보너스 +500 CHIPS 환급!");
+            }
+
+            // Pull Lever Visual Animation & Sound Effect
+            playSound('lever');
+            leverContainer.classList.add('lever-pull');
+            setTimeout(() => {
+                leverContainer.classList.remove('lever-pull');
+            }, 400);
+
+            // Deduct Bet & Add portion to Jackpot
+            userChips -= currentBet;
+            jackpotPool += Math.floor(currentBet * 0.15);
+            updateUI();
+
+            isSpinning = true;
+
+            statusMsg.textContent = "릴이 회전 중입니다...";
+            winMultiplier.classList.add('hidden');
+
+            const result1 = getRandomSymbol();
+            const result2 = getRandomSymbol();
+            const result3 = getRandomSymbol();
+
+            let count = 0;
+            const spinNotes = ['E5', 'G5', 'B5', 'C6', 'E6', 'G6', 'D6', 'A5'];
+            const spinInterval = setInterval(() => {
+                reel1.textContent = SYMBOLS[Math.floor(Math.random() * SYMBOLS.length)].icon;
+                reel2.textContent = SYMBOLS[Math.floor(Math.random() * SYMBOLS.length)].icon;
+                reel3.textContent = SYMBOLS[Math.floor(Math.random() * SYMBOLS.length)].icon;
+                
+                // 릴 회전 시 찌리릿 띠리링 기계음 노트 선택
+                const note = spinNotes[count % spinNotes.length];
+                playSound('spin', note);
+                count++;
+
+                if (count > 18) {
+                    clearInterval(spinInterval);
+                    stopReels(result1, result2, result3);
+                }
+            }, 80);
+        }
+
+        function stopReels(r1, r2, r3) {
+            reel1.textContent = r1.icon;
+            reel2.textContent = r2.icon;
+            reel3.textContent = r3.icon;
+
+            playSound('reelStop');
+            isSpinning = false;
+            checkWin(r1, r2, r3);
+        }
+
+        function checkWin(r1, r2, r3) {
+            // 3 Matches
+            if (r1.icon === r2.icon && r2.icon === r3.icon) {
+                let prize = currentBet * r1.multiplier;
+                if (hasPrivateJet) prize = Math.floor(prize * 1.20); // Jet Bonus
+
+                userChips += prize;
+
+                if (r1.name === 'DIAMOND') {
+                    // JACKPOT!
+                    userChips += jackpotPool;
+                    statusMsg.textContent = `🎉 JACKPOT!! 💎 다이아몬드 3개 획득! 🎉`;
+                    winMultiplier.textContent = `+${(prize + jackpotPool).toLocaleString()} CHIPS (+${r1.multiplier}x & 잭팟 Pool)`;
+                    jackpotPool = 1000000; // Reset Jackpot
+                    playSound('jackpot');
+                    triggerConfetti();
+                } else {
+                    statusMsg.textContent = `🎊 축하합니다! ${r1.name} 3개 적중!`;
+                    winMultiplier.textContent = `+${prize.toLocaleString()} CHIPS (${r1.multiplier}배 보상)`;
+                    playSound('win');
+                }
+                winMultiplier.classList.remove('hidden');
+            } 
+            // 2 Matches
+            else if (r1.icon === r2.icon || r2.icon === r3.icon || r1.icon === r3.icon) {
+                const matchedSymbol = (r1.icon === r2.icon || r1.icon === r3.icon) ? r1 : r2;
+                let prize = Math.floor(currentBet * 1.5);
+                if (hasPrivateJet) prize = Math.floor(prize * 1.20); // Jet Bonus
+
+                userChips += prize;
+
+                statusMsg.textContent = `✨ 2개 심볼 일치! (${matchedSymbol.name})`;
+                winMultiplier.textContent = `+${prize.toLocaleString()} CHIPS (1.5배 환급)`;
+                winMultiplier.classList.remove('hidden');
+                playSound('win');
+            } 
+            // No Match
+            else {
+                statusMsg.textContent = "아쉽게 실패했습니다. 레버를 다시 당겨보세요!";
+            }
+
+            updateUI();
+        }
+
+        function triggerConfetti() {
+            if (typeof confetti === 'function') {
+                confetti({
+                    particleCount: 200,
+                    spread: 120,
+                    origin: { y: 0.6 }
+                });
+            }
+        }
+
+        // Event Listeners
+        leverContainer.addEventListener('click', spin);
+
+        bgmToggleBtn.addEventListener('click', toggleBGM);
+
+        soundToggleBtn.addEventListener('click', () => {
+            isMuted = !isMuted;
+            soundIcon.className = isMuted ? "fa-solid fa-volume-xmark text-red-400" : "fa-solid fa-volume-high text-amber-400";
+            showToast(isMuted ? "사운드 OFF" : "사운드 ON");
+            if (!isMuted) initAudio();
+        });
+
+        window.addEventListener('keydown', (e) => {
+            if (e.code === 'Space' && e.target === document.body) {
+                e.preventDefault();
+                spin();
+            }
+        });
+
+        // Initialize
+        updateUI();
     </script>
 </body>
 </html>
